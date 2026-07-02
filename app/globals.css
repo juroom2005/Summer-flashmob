@@ -1,26 +1,60 @@
-@import "tailwindcss";
+/* app/globals.css */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── 폰트 (Google Fonts는 layout.tsx에서 로드) ── */
+  --mono:    'Space Mono', ui-monospace, 'Courier New', monospace;
+  --display: 'Syne', 'Inter', sans-serif;
+  --body:    'DM Sans', 'Inter', sans-serif;
+
+  /* ── 반응형 폰트 스케일 (KEYHOLE 정합) ── */
+  --fs-xs:  clamp(9px,  0.75vw, 11px);
+  --fs-sm:  clamp(11px, 0.9vw,  13px);
+  --fs-md:  clamp(13px, 1.1vw,  15px);
+  --fs-lg:  clamp(15px, 1.3vw,  18px);
+  --fs-xl:  clamp(20px, 2vw,    28px);
+  --fs-2xl: clamp(28px, 3.5vw,  48px);
+
+  /* ── 색 팔레트 (플레이스홀더 — 프론트 리뉴얼 때 확정) ── */
+  --bg:            #f4f5f8;
+  --text:          #0a0f1e;
+  --text-mid:      #4a5270;
+  --text-dim:      #8891aa;
+  --panel-border:  rgba(0, 0, 0, 0.07);
+  --accent:        #0055ff;
+  --accent-light:  rgba(0, 85, 255, 0.07);
+  --accent-border: rgba(0, 85, 255, 0.2);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* KEYHOLE 함정 방지 — body overflow hidden 걸면 /debug 같은 페이지에서 스크롤 막힘.
+   기본은 auto로 유지. 필요 시 특정 페이지에서 fixed 컨테이너로 우회. */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  color: inherit;
 }
