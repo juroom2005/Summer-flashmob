@@ -57,7 +57,12 @@ serve(async (req) => {
       .maybeSingle();
 
     if (gmErr) {
-      return json({ error: "프로필 조회 실패" }, 500);
+      return json({
+        error:  "프로필 조회 실패",
+        detail: gmErr.message,
+        code:   gmErr.code,
+        hint:   gmErr.hint ?? null,
+      }, 500);
     }
     if (!gmProfile || !gmProfile.is_gm) {
       return json({ error: "GM 권한이 필요합니다." }, 403);
