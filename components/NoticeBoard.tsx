@@ -1,38 +1,133 @@
-// app/components/NoticeBoard.tsx
-// 공지사항 컴포넌트 — 시안 1a (종이질감 · 책 펼침 · 참여명단 위젯)
-// 메인 화면에서 "공지사항"을 누르면 종이가 가운데서 양옆으로 펼쳐지고,
-// 이후 다른 탭으로 넘기면 책장을 넘기듯 회전하며 전환됩니다.
+// components/NoticeBoard.tsx
+// 공지사항 컴포넌트 — 시안 3a (여름 바다 톤 · 책펼침 · 인터랙티브)
 //
 // 사용법:
-//   <NoticeBoard backgroundSrc="/summer-bg.jpg" />
+//   <NoticeBoard backgroundSrc="/summer-bg.png" />
 //   - backgroundSrc 를 넣으면 자동으로 여름 하프톤(파란 듀오톤)이 입혀집니다.
 //   - 넣지 않으면 연한 하늘색 배경으로 폴백됩니다.
 //   - 디자인 기준 크기는 1366×768 이며, 부모 폭에 맞춰 자동 스케일됩니다.
 //
-// 폰트: 'Jua', 'Nanum Pen Script' (Google Fonts) — README 참고.
+// 폰트: Jua · Gowun Dodum · Gaegu (app/layout.tsx 에서 next/font 로 로드)
 
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ChangeEvent,
+} from "react";
 
-type Tab = "notice" | "member" | "daily" | "shop";
+import { supabase } from "@/lib/supabase";
+import LoginPanel from "./auth/LoginPanel";
+import RegisterPanel from "./auth/RegisterPanel";
+import type { User } from "@supabase/supabase-js";
 
+// ── 폰트 상수 ──────────────────────────────────────────────
 const JUA = "'Jua', sans-serif";
-const PEN = "'Nanum Pen Script', cursive";
+const GAEGU = "'Gaegu', cursive";
+const BODY = "'Gowun Dodum', sans-serif";
 
-const NAV: { key: Tab; label: string }[] = [
-  { key: "notice", label: "공지사항" },
-  { key: "member", label: "멤버" },
-  { key: "daily", label: "일일" },
-  { key: "shop", label: "상점" },
+// ── 타입 ───────────────────────────────────────────────────
+type Tab = "notice" | "member" | "daily" | "shop";
+type Overlay = null | "login" | "register" | "admin";
+
+type Mission = { t: string; r: number; done: boolean };
+type ShopItem = {
+  key: string;
+  emoji: string;
+  name: string;
+  price: number;
+  border: string;
+  rot: string;
+};
+type Member = {
+  name: string;
+  emoji: string;
+  role: string;
+  rc: string;
+  border: string;
+  back: string;
+};
+type ChatMsg = { who: "me" | "admin"; text: string };
+
+// ── 정적 데이터 ────────────────────────────────────────────
+const NAV: { key: Tab; label: string; border: string; hi: string; color: string; radius: string; rot: string }[] = [
+  { key: "notice", label: "📌 공지사항", border: "#2ea3dd", hi: "#cdeeff", color: "#0d6fa8", radius: "18px 18px 18px 6px",  rot: "-2deg" },
+  { key: "member", label: "👥 멤버",     border: "#4db6a0", hi: "#c9f2e6", color: "#1e7d6a", radius: "6px 18px 18px 18px",  rot: "1.5deg" },
+  { key: "daily",  label: "✅ 일일",     border: "#d9b62a", hi: "#fff3a6", color: "#8a7410", radius: "18px 6px 18px 18px",  rot: "-1deg" },
+  { key: "shop",   label: "🛒 상점",     border: "#4a7fe0", hi: "#d8e5fc", color: "#2a55b8", radius: "18px 18px 6px 18px",  rot: "2deg" },
 ];
 
-export default function NoticeBoard({ backgroundSrc }: { backgroundSrc?: string }) {
-  const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>("notice");
-  const flipRef = useRef<HTMLDivElement>(null);
+const SHOP: ShopItem[] = [
+  { key: "pen", emoji: "🖊️", name: "사인펜", price: 12, border: "#cdeeff", rot: "-1.5deg" },
+  { key: "hl",  emoji: "🖍️", name: "형광펜", price: 8,  border: "#c9f2e6", rot: "1deg" },
+  { key: "st",  emoji: "✨", name: "스티커", price: 15, border: "#d8e5fc", rot: "-1deg" },
+];
 
-  // ── 부모 폭에 맞춰 1366×768 스테이지 자동 스케일 ──
+const MEMBERS: Member[] = [
+  { name: "하루", emoji: "🌻", role: "안무 리더", rc: "#2ea3dd", border: "#cdeeff", back: "파도 위를 달리는 리더 유령 🌊" },
+  { name: "소이", emoji: "🍑", role: "안무",     rc: "#4db6a0", border: "#c9f2e6", back: "모래성 짓기 담당 · 낮잠 요정" },
+  { name: "진",   emoji: "🐚", role: "안무",     rc: "#b09a20", border: "#fff3a6", back: "소라껍데기로 노래를 모으는 중" },
+  { name: "유나", emoji: "🎤", role: "보컬",     rc: "#4a7fe0", border: "#d8e5fc", back: "등대 위 하이노트 담당" },
+  { name: "물결", emoji: "🌊", role: "보컬",     rc: "#4a90d9", border: "#cfe6ff", back: "6월에 합류한 신입 파도" },
+  { name: "케이", emoji: "📼", role: "영상",     rc: "#2ea3dd", border: "#cdeeff", back: "해변의 순간을 필름에 담는 중" },
+];
+
+const INITIAL_MISSIONS: Mission[] = [
+  { t: "연습실 출석하기",           r: 5,  done: true  },
+  { t: "안무 클립 1개 인증",        r: 10, done: false },
+  { t: "마스토돈에 오늘 연습 후기", r: 5,  done: false },
+];
+
+const ADMIN_REPLIES = [
+  "확인했어요! 바로 봐드릴게요 🔍",
+  "앗, 그건 공지사항 탭에 정리해뒀어요!",
+  "네네 접수 완료! 잠시만 기다려주세요 ⏳",
+];
+
+// ═══════════════════════════════════════════════════════════
+// 메인 컴포넌트
+// ═══════════════════════════════════════════════════════════
+export default function NoticeBoard({
+  backgroundSrc,
+}: {
+  backgroundSrc?: string;
+}) {
+  // ── 상태 ─────────────────────────────────────────────────
+  const [open, setOpen] = useState(false);
+  const [authUser,setAuthUser]    = useState<User | null>(null);
+  const [characterName, setCharacterName] = useState<string | null>(null);
+  const [isGm,setIsGm] = useState(false);
+  const [tab, setTab] = useState<Tab>("notice");
+  const [overlay, setOverlay] = useState<Overlay>(null);
+
+  const [coins, setCoins] = useState(5);
+  const [missions, setMissions] = useState<Mission[]>(INITIAL_MISSIONS);
+  const [owned, setOwned] = useState<Record<string, boolean>>({});
+  const [flipped, setFlipped] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(true);
+
+  const [attendees, setAttendees] = useState<string[]>(["새벽", "라임", "도토"]);
+  const [attendName, setAttendName] = useState("");
+
+  const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([
+    { who: "admin", text: "안녕하세요, 운영진입니다! 무엇을 도와드릴까요? 🙌" },
+  ]);
+  const [chatText, setChatText] = useState("");
+
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── 참조 ─────────────────────────────────────────────────
+  const flipRef = useRef<HTMLDivElement>(null);
+  const coinRef = useRef<HTMLDivElement>(null);
+  const chatBodyRef = useRef<HTMLDivElement>(null);
+
+  // ── 부모 폭에 맞춰 1366×768 스테이지 자동 스케일 ────────
   const hostRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
@@ -44,29 +139,170 @@ export default function NoticeBoard({ backgroundSrc }: { backgroundSrc?: string 
     return () => ro.disconnect();
   }, []);
 
+  // ── 채팅 스크롤 하단 고정 ────────────────────────────────
+  useEffect(() => {
+    const el = chatBodyRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [chatMsgs, overlay]);
+
+  // ── 토스트 정리 ──────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
+
+  useEffect(() => {
+  let cancelled = false;
+
+  async function loadProfile(userId: string) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("character_name, is_gm")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  console.log("[loadProfile]", { userId, data, error });   // ← 이 한 줄 추가
+
+  if (cancelled) return;
+  setCharacterName(data?.character_name ?? null);
+  setIsGm(data?.is_gm === true);
+}
+
+  // 초기 세션 조회
+  supabase.auth.getUser().then(({ data }) => {
+    if (cancelled) return;
+    const u = data.user ?? null;
+    setAuthUser(u);
+    if (u) loadProfile(u.id);
+    else {
+      setCharacterName(null);
+      setIsGm(false);
+    }
+  });
+
+  // 상태 변화 감지
+  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (cancelled) return;
+    const u = session?.user ?? null;
+    setAuthUser(u);
+    if (u) loadProfile(u.id);
+    else {
+      setCharacterName(null);
+      setIsGm(false);
+    }
+  });
+
+  return () => {
+    cancelled = true;
+    sub.subscription.unsubscribe();
+  };
+}, []);
+
+  const showToast = (t: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(t);
+    toastTimer.current = setTimeout(() => setToast(null), 1900);
+  };
+
+  // ── 애니메이션 헬퍼 ──────────────────────────────────────
+  const popCoin = () => {
+    coinRef.current?.animate?.(
+      [{ transform: "scale(1)" }, { transform: "scale(1.28)" }, { transform: "scale(1)" }],
+      { duration: 320, easing: "ease-out" }
+    );
+  };
+  const shakeCoin = () => {
+    coinRef.current?.animate?.(
+      [
+        { transform: "translateX(0)" },
+        { transform: "translateX(-6px)" },
+        { transform: "translateX(6px)" },
+        { transform: "translateX(-4px)" },
+        { transform: "translateX(0)" },
+      ],
+      { duration: 320 }
+    );
+  };
+  const doFlip = () => {
+    flipRef.current?.animate?.(
+      [
+        { transform: "perspective(1700px) rotateY(-80deg)", opacity: 0, filter: "brightness(1.14)" },
+        { transform: "perspective(1700px) rotateY(0deg)",   opacity: 1, filter: "brightness(1)" },
+      ],
+      { duration: 470, easing: "cubic-bezier(.22,.78,.2,1)" }
+    );
+  };
+
+  // ── 액션 ─────────────────────────────────────────────────
   const openTab = (key: Tab) => {
     const wasOpen = open;
     const changed = tab !== key;
     setOpen(true);
     setTab(key);
-    // 첫 열림 = 종이 펼침 / 이미 열린 상태에서 탭 전환 = 책장 넘김
     if (wasOpen && changed) {
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          flipRef.current?.animate(
-            [
-              { transform: "perspective(1700px) rotateY(-80deg)", opacity: 0, filter: "brightness(1.1)" },
-              { transform: "perspective(1700px) rotateY(0deg)", opacity: 1, filter: "brightness(1)" },
-            ],
-            { duration: 470, easing: "cubic-bezier(.22,.78,.2,1)" }
-          );
-        })
-      );
+      requestAnimationFrame(() => requestAnimationFrame(doFlip));
     }
   };
 
+  const toggleMission = (i: number) => {
+    setMissions((prev) => {
+      const next = prev.map((m, j) => (j === i ? { ...m, done: !m.done } : m));
+      const delta = next[i].done ? next[i].r : -next[i].r;
+      setCoins((c) => c + delta);
+      return next;
+    });
+    popCoin();
+  };
+
+  const buy = (key: string) => {
+    const item = SHOP.find((x) => x.key === key);
+    if (!item || owned[key]) return;
+    if (coins < item.price) {
+      shakeCoin();
+      showToast("🪙 코인이 부족해요! 일일 미션으로 모아보세요");
+      return;
+    }
+    setCoins((c) => c - item.price);
+    setOwned((o) => ({ ...o, [key]: true }));
+    popCoin();
+    showToast(`${item.emoji} ${item.name} 구매 완료!`);
+  };
+
+  const attend = () => {
+    const n = attendName.trim();
+    if (!n) return;
+    setAttendees((a) => [...a, n]);
+    setAttendName("");
+    showToast(`☀️ ${n} 님 출석 완료! 참여 명단에 올라갔어요`);
+  };
+
+  const sendChat = () => {
+    const t = chatText.trim();
+    if (!t) return;
+    const meCount = chatMsgs.filter((m) => m.who === "me").length;
+    const reply = ADMIN_REPLIES[meCount % ADMIN_REPLIES.length];
+    setChatMsgs((ms) => [...ms, { who: "me", text: t }]);
+    setChatText("");
+    setTimeout(() => {
+      setChatMsgs((ms) => [...ms, { who: "admin", text: reply }]);
+    }, 700);
+  };
+
+  // ── 파생값 ───────────────────────────────────────────────
+  const doneCount = missions.filter((m) => m.done).length;
+  const progressPct = Math.round((doneCount / missions.length) * 100);
+  const allDone = missions.every((m) => m.done);
+
+  // ═══════════════════════════════════════════════════════════
+  // 렌더
+  // ═══════════════════════════════════════════════════════════
   return (
-    <div ref={hostRef} style={{ width: "100%", height: 768 * scale, position: "relative", overflow: "hidden" }}>
+    <div
+      ref={hostRef}
+      style={{ width: "100%", height: 768 * scale, position: "relative", overflow: "hidden" }}
+    >
       <div
         style={{
           position: "absolute",
@@ -79,8 +315,8 @@ export default function NoticeBoard({ backgroundSrc }: { backgroundSrc?: string 
           borderRadius: 16,
           overflow: "hidden",
           boxShadow: "0 22px 60px rgba(20,58,99,.28)",
-          background: "#cfe7fb",
-          fontFamily: "'Gowun Dodum', sans-serif",
+          background: "linear-gradient(180deg,#7cc9f2 0%,#b8e6fb 38%,#e6f9ff 55%,#9adcf5 78%,#5fb4e0 100%)",
+          fontFamily: BODY,
           color: "#14406f",
         }}
       >
@@ -93,53 +329,199 @@ export default function NoticeBoard({ backgroundSrc }: { backgroundSrc?: string 
               backgroundImage: `url(${backgroundSrc})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
-              filter: "grayscale(1) contrast(1.16) brightness(1.06)",
+              filter: "grayscale(1) contrast(1.12) brightness(1.1)",
             }}
           />
         ) : null}
-        <div style={{ position: "absolute", inset: 0, background: "#2f8fe6", mixBlendMode: "multiply", opacity: 0.5, pointerEvents: "none" }} />
-        <div style={{ position: "absolute", inset: 0, background: "#eef7ff", mixBlendMode: "screen", opacity: 0.28, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, background: "#17a0e6", mixBlendMode: "multiply", opacity: 0.42, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, background: "#e2fbff", mixBlendMode: "screen",   opacity: 0.34, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: -90, right: 110, width: 460, height: 460, background: "radial-gradient(circle,rgba(255,255,255,.85),rgba(255,255,255,0) 62%)", pointerEvents: "none" }} />
         <div
           style={{
             position: "absolute",
             inset: 0,
-            backgroundImage: "radial-gradient(circle,rgba(18,64,140,.4) 1px,transparent 1.5px)",
+            backgroundImage: "radial-gradient(circle,rgba(8,105,170,.35) 1px,transparent 1.5px)",
             backgroundSize: "5px 5px",
             mixBlendMode: "multiply",
-            opacity: 0.35,
+            opacity: 0.32,
             pointerEvents: "none",
           }}
         />
 
-        {/* ── 상단 로고/유틸 ── */}
-        <div style={{ position: "absolute", top: 16, left: 22, fontFamily: JUA, fontSize: 21, letterSpacing: 1, textShadow: "1px 1px 0 #fff" }}>[메인홍]</div>
-        <div style={{ position: "absolute", top: 20, right: 26, fontFamily: JUA, fontSize: 16, textShadow: "1px 1px 0 #fff" }}>✕&nbsp;&nbsp;로그인&nbsp;&nbsp;관리자호출</div>
-
-        {/* ── 좌측 네비 = 탭 ── */}
-        <div style={{ position: "absolute", left: 40, top: 158, display: "flex", flexDirection: "column", gap: 15, zIndex: 20 }}>
-          {NAV.map(({ key, label }) => (
+        {/* ── 상단 로고 / 유틸 ── */}
+        <div
+          style={{
+            position: "absolute",
+            top: 14,
+            left: 22,
+            fontFamily: JUA,
+            fontSize: 20,
+            color: "#0d6fa8",
+            background: "#fff",
+            border: "2px solid #2ea3dd",
+            borderRadius: 12,
+            padding: "3px 14px",
+            boxShadow: "2px 3px 0 rgba(46,163,221,.45)",
+            transform: "rotate(-2deg)",
+          }}
+        >
+          [메인홍]
+        </div>
+        <div style={{ position: "absolute", top: 16, right: 26, display: "flex", alignItems: "center", gap: 10, zIndex: 30 }}>
+          <div
+            ref={coinRef}
+            style={{
+              height: 36,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "0 15px",
+              border: "2px solid #e2c341",
+              borderRadius: 999,
+              background: "#fff8d6",
+              color: "#8a7410",
+              fontFamily: JUA,
+              fontSize: 15,
+              boxShadow: "2px 3px 0 rgba(217,182,42,.4)",
+            }}
+          >
+            🪙 {coins}
+          </div>
+          {authUser ? (
+            <>
+              <div
+                style={{
+                  height: 36,
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "0 15px",
+                  border: "2px solid #2ea3dd",
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,.9)",
+                  color: "#0d6fa8",
+                  fontFamily: JUA,
+                  fontSize: 14,
+                  boxShadow: "2px 3px 0 rgba(46,163,221,.4)",
+                }}
+              >
+                {isGm ? "👑 " : ""}{characterName ?? "익명"}
+              </div>
+          
+              {isGm ? (
+                <a
+                  href="/gm"
+                  style={{
+                    height: 36,
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 15px",
+                    border: "2px solid #d9b62a",
+                    borderRadius: 999,
+                    background: "#fff8d6",
+                    color: "#8a7410",
+                    fontFamily: JUA,
+                    fontSize: 14,
+                    textDecoration: "none",
+                    boxShadow: "2px 3px 0 rgba(217,182,42,.4)",
+                  }}
+                >
+                  GM 관리
+                </a>
+              ) : null}
+          
+              <button
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  // onAuthStateChange가 상태 자동 리셋
+                }}
+                style={{
+                  height: 36,
+                  padding: "0 15px",
+                  border: "2px solid #2ea3dd",
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,.9)",
+                  color: "#0d6fa8",
+                  fontFamily: JUA,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  boxShadow: "2px 3px 0 rgba(46,163,221,.4)",
+                }}
+              >
+                로그아웃
+              </button>
+            </>
+          ) : (
             <button
-              key={key}
-              onClick={() => openTab(key)}
+              onClick={() => setOverlay("login")}
               style={{
-                position: "relative",
-                width: 138,
-                height: 48,
-                border: "2.5px solid #1a5db8",
+                height: 36,
+                padding: "0 18px",
+                border: "2px solid #2ea3dd",
                 borderRadius: 999,
-                background: "#fff",
-                color: "#14406f",
+                background: "rgba(255,255,255,.9)",
+                color: "#0d6fa8",
                 fontFamily: JUA,
-                fontSize: 19,
+                fontSize: 15,
                 cursor: "pointer",
-                boxShadow: "2px 3px 0 rgba(26,93,184,.45)",
-                overflow: "hidden",
+                boxShadow: "2px 3px 0 rgba(46,163,221,.4)",
               }}
             >
-              {open && tab === key ? <span style={{ position: "absolute", inset: 0, background: "#ffef3e" }} /> : null}
-              <span style={{ position: "relative", zIndex: 1 }}>{label}</span>
+              로그인
             </button>
-          ))}
+          )}
+          <button
+            onClick={() => setOverlay("admin")}
+            style={{
+              height: 36,
+              padding: "0 18px",
+              border: "2px solid #fff",
+              borderRadius: 999,
+              background: "#1a9edb",
+              color: "#fff",
+              fontFamily: JUA,
+              fontSize: 15,
+              cursor: "pointer",
+              boxShadow: "2px 3px 0 rgba(13,80,130,.35)",
+            }}
+          >
+            📞 관리자호출
+          </button>
+        </div>
+
+        {/* ── 좌측 nav rail (스티커 탭) ── */}
+        <div style={{ position: "absolute", left: 40, top: 150, display: "flex", flexDirection: "column", gap: 15, zIndex: 20 }}>
+          {NAV.map((n) => {
+            const active = open && tab === n.key;
+            return (
+              <button
+                key={n.key}
+                onClick={() => openTab(n.key)}
+                style={{
+                  position: "relative",
+                  width: 146,
+                  height: 50,
+                  border: `2.5px solid ${n.border}`,
+                  borderRadius: n.radius,
+                  background: "#fff",
+                  color: n.color,
+                  fontFamily: JUA,
+                  fontSize: 18,
+                  cursor: "pointer",
+                  boxShadow: `2px 3px 0 ${n.border}80`,
+                  overflow: "hidden",
+                  transform: `rotate(${n.rot})`,
+                  transition: "transform .18s ease",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = "rotate(0deg) scale(1.06)")}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = `rotate(${n.rot})`)}
+              >
+                {active ? (
+                  <span style={{ position: "absolute", inset: 0, background: n.hi }} />
+                ) : null}
+                <span style={{ position: "relative", zIndex: 1 }}>{n.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* ── 위젯: 참여 명단 스티키 ── */}
@@ -148,25 +530,63 @@ export default function NoticeBoard({ backgroundSrc }: { backgroundSrc?: string 
             position: "absolute",
             left: 24,
             bottom: 34,
-            width: 140,
-            background: "#f6f0a8",
-            border: "2px solid #d8cf6a",
-            borderRadius: "6px 6px 10px 10px",
-            padding: "11px 13px 14px",
-            boxShadow: "3px 5px 12px rgba(20,58,99,.25)",
+            width: 150,
+            background: "#dff4ff",
+            border: "2px solid #a8dcf5",
+            borderRadius: "4px 4px 12px 12px",
+            padding: "14px 13px",
+            boxShadow: "3px 5px 12px rgba(20,58,99,.22)",
             animation: "nb-floaty 6s ease-in-out infinite",
             zIndex: 8,
+            transform: "rotate(-1.5deg)",
           }}
         >
-          <div style={{ fontFamily: JUA, fontSize: 13, color: "#7a6a12", marginBottom: 6 }}>〈 참여 명단 〉</div>
-          <div style={{ fontFamily: PEN, fontSize: 18, lineHeight: 1.3, color: "#4a4210" }}>
-            안무·하루,소이,진<br />보컬·유나,물결<br />영상·케이<br />
-            <span style={{ color: "#9a8b1e" }}>+ 실시간 3명</span>
+          <div
+            style={{
+              position: "absolute",
+              top: -9,
+              left: 38,
+              width: 64,
+              height: 18,
+              background: "rgba(255,239,62,.8)",
+              border: "1px solid rgba(216,207,106,.6)",
+              transform: "rotate(-3deg)",
+            }}
+          />
+          <div style={{ fontFamily: JUA, fontSize: 13, color: "#0d6fa8", marginBottom: 6 }}>〈 참여 명단 〉</div>
+          <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, lineHeight: 1.3, color: "#2a5878" }}>
+            안무 · 하루, 소이, 진<br />보컬 · 유나, 물결<br />영상 · 케이
+          </div>
+          <div
+            style={{
+              marginTop: 7,
+              paddingTop: 6,
+              borderTop: "1.5px dashed #a8dcf5",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            {attendees.map((nm, i) => (
+              <div
+                key={`${nm}-${i}`}
+                style={{
+                  fontFamily: GAEGU,
+                  fontWeight: 700,
+                  fontSize: 15,
+                  color: "#2ea3dd",
+                  animation: "nb-pixelPop .35s both",
+                }}
+              >
+                ☀️ {nm} 출석!
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* ── NOW PLAYING ── */}
-        <div
+        {/* ── NOW PLAYING (재생 토글) ── */}
+        <button
+          onClick={() => setPlaying((p) => !p)}
           style={{
             position: "absolute",
             right: 26,
@@ -174,23 +594,43 @@ export default function NoticeBoard({ backgroundSrc }: { backgroundSrc?: string 
             display: "flex",
             alignItems: "center",
             gap: 9,
-            background: "#1656b8",
-            color: "#eaf5ff",
+            background: "#1a9edb",
+            border: "2px solid #fff",
+            color: "#fff",
             fontFamily: JUA,
             fontSize: 15,
-            padding: "9px 16px",
+            padding: "9px 18px",
             borderRadius: 999,
-            boxShadow: "2px 3px 0 rgba(20,40,90,.4)",
+            boxShadow: "2px 3px 0 rgba(20,40,90,.25)",
             zIndex: 15,
+            cursor: "pointer",
+            transition: "transform .15s",
           }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
-          <span style={{ animation: "nb-blink 1.4s infinite" }}>♪</span> NOW PLAYING — 여름날 (2025 ver.)
-        </div>
+          <span style={{ animation: playing ? "nb-blink 1.4s infinite" : "none" }}>
+            {playing ? "♪" : "▶"}
+          </span>{" "}
+          {playing ? "NOW PLAYING — 여름날 (2025 ver.)" : "PAUSED — 눌러서 재생"}
+        </button>
 
         {/* ── 힌트 (닫힘 상태) ── */}
         {!open ? (
-          <div style={{ position: "absolute", left: 198, top: 196, fontFamily: PEN, fontSize: 26, color: "#14406f", textShadow: "1px 1px 0 #fff", zIndex: 5 }}>
-            ← 공지사항을 누르면 종이가 양옆으로 펼쳐져요
+          <div
+            style={{
+              position: "absolute",
+              left: 198,
+              top: 300,
+              fontFamily: GAEGU,
+              fontWeight: 700,
+              fontSize: 27,
+              color: "#0d6fa8",
+              textShadow: "1px 1px 0 #fff",
+              zIndex: 5,
+            }}
+          >
+        
           </div>
         ) : null}
 
@@ -203,39 +643,58 @@ export default function NoticeBoard({ backgroundSrc }: { backgroundSrc?: string 
               top: 118,
               right: 34,
               bottom: 96,
-              background: "#fcfbf4",
-              border: "2.5px solid #1a5db8",
+              background: "#fffdf4",
+              border: "2.5px solid #2ea3dd",
               borderRadius: 22,
-              boxShadow: "0 18px 44px rgba(20,58,99,.3)",
+              boxShadow: "0 18px 44px rgba(20,58,99,.28)",
               zIndex: 10,
               animation: "nb-bookOpen .58s cubic-bezier(.2,.85,.2,1) both",
               backgroundImage:
-                "repeating-linear-gradient(180deg,transparent,transparent 33px,rgba(120,150,190,.09) 33px,rgba(120,150,190,.09) 34px)",
+                "repeating-linear-gradient(180deg,transparent,transparent 31px,rgba(46,163,221,.1) 31px,rgba(46,163,221,.1) 32px)",
             }}
           >
+            {/* 상단 마스킹테이프 데코 */}
             <div
               style={{
                 position: "absolute",
-                left: 0,
-                top: 64,
-                bottom: 64,
-                width: 2,
-                background: "repeating-linear-gradient(180deg,#e7a0a0,#e7a0a0 6px,transparent 6px,transparent 12px)",
-                opacity: 0.6,
+                top: -11,
+                left: 120,
+                width: 96,
+                height: 24,
+                background: "repeating-linear-gradient(45deg,#cdeeff 0 8px,#e9f8ff 8px 16px)",
+                opacity: 0.92,
+                transform: "rotate(-3deg)",
+                borderRadius: 2,
+                boxShadow: "0 2px 5px rgba(20,58,99,.15)",
               }}
             />
+            <div
+              style={{
+                position: "absolute",
+                top: -11,
+                right: 150,
+                width: 96,
+                height: 24,
+                background: "repeating-linear-gradient(45deg,#c9f2e6 0 8px,#e9fbf5 8px 16px)",
+                opacity: 0.92,
+                transform: "rotate(2deg)",
+                borderRadius: 2,
+                boxShadow: "0 2px 5px rgba(20,58,99,.15)",
+              }}
+            />
+
             <button
               onClick={() => setOpen(false)}
               style={{
                 position: "absolute",
-                top: 16,
-                right: 18,
+                top: 14,
+                right: 16,
                 width: 34,
                 height: 34,
                 borderRadius: "50%",
-                border: "2px solid #1a5db8",
+                border: "2px solid #2ea3dd",
                 background: "#fff",
-                color: "#14406f",
+                color: "#0d6fa8",
                 fontFamily: JUA,
                 fontSize: 16,
                 cursor: "pointer",
@@ -245,101 +704,807 @@ export default function NoticeBoard({ backgroundSrc }: { backgroundSrc?: string 
               ✕
             </button>
 
-            <div ref={flipRef} style={{ position: "absolute", inset: 0, padding: "34px 44px 34px 62px", overflow: "auto", transformOrigin: "left center" }}>
-              {tab === "notice" ? <NoticePanel /> : null}
-              {tab === "member" ? <MemberPanel /> : null}
-              {tab === "daily" ? <DailyPanel /> : null}
-              {tab === "shop" ? <ShopPanel /> : null}
+            <div
+              ref={flipRef}
+              style={{
+                position: "absolute",
+                inset: 0,
+                padding: "26px 36px",
+                overflow: "auto",
+                transformOrigin: "left center",
+              }}
+            >
+              {tab === "notice" ? (
+                <NoticePanel
+                  attendName={attendName}
+                  onAttendNameChange={(v) => setAttendName(v)}
+                  onAttend={attend}
+                />
+              ) : null}
+              {tab === "member" ? (
+                <MemberPanel flipped={flipped} onFlip={(name) => setFlipped((f) => (f === name ? null : name))} />
+              ) : null}
+              {tab === "daily" ? (
+                <DailyPanel
+                  missions={missions}
+                  onToggle={toggleMission}
+                  doneCount={doneCount}
+                  progressPct={progressPct}
+                  allDone={allDone}
+                />
+              ) : null}
+              {tab === "shop" ? (
+                <ShopPanel coins={coins} owned={owned} onBuy={buy} />
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── 로그인 모달 ── */}
+        {overlay === "login" ? (
+          <>
+            <div
+              onClick={() => setOverlay(null)}
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(8,60,105,.35)",
+                backdropFilter: "blur(3px)",
+                zIndex: 38,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                marginLeft: -180,
+                top: 168,
+                width: 360,
+                background: "#fff",
+                border: "2.5px solid #2ea3dd",
+                borderRadius: 22,
+                boxShadow: "0 22px 50px rgba(8,60,105,.4)",
+                zIndex: 40,
+                animation: "nb-winZoom .38s cubic-bezier(.2,.85,.25,1.1) both",
+                padding: "26px 28px",
+              }}
+            >
+              <button
+                onClick={() => setOverlay(null)}
+                style={{
+                  position: "absolute",
+                  top: 14,
+                  right: 14,
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  border: "2px solid #2ea3dd",
+                  background: "#fff",
+                  color: "#0d6fa8",
+                  fontFamily: JUA,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+        
+              <LoginPanel
+                onSuccess={() => setOverlay(null)}
+                onSwitchToRegister={() => setOverlay("register")}
+              />
+            </div>
+          </>
+        ) : null}
+        {/* ── 가입 모달 ── */}
+        {overlay === "register" ? (
+          <>
+            <div
+              onClick={() => setOverlay(null)}
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(8,60,105,.35)",
+                backdropFilter: "blur(3px)",
+                zIndex: 38,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                left: "50%",
+                marginLeft: -180,
+                top: 130,
+                width: 360,
+                background: "#fff",
+                border: "2.5px solid #2ea3dd",
+                borderRadius: 22,
+                boxShadow: "0 22px 50px rgba(8,60,105,.4)",
+                zIndex: 40,
+                animation: "nb-winZoom .38s cubic-bezier(.2,.85,.25,1.1) both",
+                padding: "26px 28px",
+              }}
+            >
+              <button
+                onClick={() => setOverlay(null)}
+                style={{
+                  position: "absolute",
+                  top: 14,
+                  right: 14,
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  border: "2px solid #2ea3dd",
+                  background: "#fff",
+                  color: "#0d6fa8",
+                  fontFamily: JUA,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+        
+              <RegisterPanel
+                onSuccess={() => setOverlay(null)}
+                onSwitchToLogin={() => setOverlay("login")}
+              />
+            </div>
+          </>
+        ) : null}    
+
+        {/* ── 관리자 호출 채팅 ── */}
+        {overlay === "admin" ? (
+          <div
+            style={{
+              position: "absolute",
+              right: 26,
+              top: 62,
+              width: 334,
+              height: 436,
+              background: "#f4fbff",
+              border: "2.5px solid #2ea3dd",
+              borderRadius: 18,
+              boxShadow: "0 18px 44px rgba(8,60,105,.38)",
+              zIndex: 40,
+              animation: "nb-winZoom .4s cubic-bezier(.2,.85,.25,1.1) both",
+              transformOrigin: "top right",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#1a9edb", color: "#fff" }}>
+              <span
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 17,
+                }}
+              >
+                🧑‍💻
+              </span>
+              <span style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontFamily: JUA, fontSize: 15 }}>관리자 호출</span>
+                <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#7CFC66", display: "inline-block" }} />
+                  운영진 온라인
+                </span>
+              </span>
+              <button
+                onClick={() => setOverlay(null)}
+                style={{
+                  marginLeft: "auto",
+                  width: 26,
+                  height: 26,
+                  borderRadius: "50%",
+                  border: "1.5px solid rgba(255,255,255,.75)",
+                  background: "transparent",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <div
+              ref={chatBodyRef}
+              style={{
+                flex: 1,
+                overflow: "auto",
+                padding: 14,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                background: "#eaf7fe",
+              }}
+            >
+              <div
+                style={{
+                  alignSelf: "center",
+                  fontSize: 11,
+                  color: "#7fb3d4",
+                  background: "#fff",
+                  borderRadius: 999,
+                  padding: "3px 12px",
+                }}
+              >
+                오늘 · 관리자와 연결됐어요
+              </div>
+              {chatMsgs.map((m, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: m.who === "me" ? "flex-end" : "flex-start" }}>
+                  <div
+                    style={{
+                      maxWidth: "80%",
+                      background: m.who === "me" ? "#1a9edb" : "#ffffff",
+                      color: m.who === "me" ? "#ffffff" : "#1e4b6e",
+                      border: `1.5px solid ${m.who === "me" ? "#1a9edb" : "#bfe4f7"}`,
+                      borderRadius: m.who === "me" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                      padding: "8px 12px",
+                      fontSize: 14,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, padding: 10, borderTop: "2px solid #d6effc", background: "#fff" }}>
+              <input
+                value={chatText}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setChatText(e.target.value)}
+                onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") sendChat(); }}
+                placeholder="메시지 입력..."
+                style={{
+                  flex: 1,
+                  height: 38,
+                  border: "2px solid #bfe4f7",
+                  borderRadius: 999,
+                  padding: "0 14px",
+                  fontFamily: BODY,
+                  fontSize: 14,
+                  color: "#1e4b6e",
+                  outline: "none",
+                  background: "#f4fbff",
+                }}
+              />
+              <button
+                onClick={sendChat}
+                style={{
+                  height: 38,
+                  padding: "0 16px",
+                  border: 0,
+                  borderRadius: 999,
+                  background: "#1a9edb",
+                  color: "#fff",
+                  fontFamily: JUA,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                전송
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {/* ── 토스트 ── */}
+        {toast ? (
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 100,
+              display: "flex",
+              justifyContent: "center",
+              pointerEvents: "none",
+              zIndex: 60,
+            }}
+          >
+            <div
+              style={{
+                background: "#14406f",
+                color: "#fff",
+                fontFamily: JUA,
+                fontSize: 16,
+                padding: "11px 24px",
+                borderRadius: 999,
+                border: "2px solid #fff",
+                boxShadow: "0 10px 26px rgba(8,50,90,.4)",
+                animation: "nb-pixelPop .3s both",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {toast}
             </div>
           </div>
         ) : null}
       </div>
 
-      {/* keyframes (컴포넌트 로컬) */}
+      {/* keyframes */}
       <style>{`
         @keyframes nb-bookOpen{0%{clip-path:inset(0 50% 0 50% round 22px);opacity:.55}55%{opacity:1}100%{clip-path:inset(0 0 0 0 round 22px);opacity:1}}
-        @keyframes nb-floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+        @keyframes nb-winZoom{0%{transform:scale(.14);opacity:0;filter:blur(7px)}70%{opacity:1}100%{transform:scale(1);opacity:1;filter:blur(0)}}
+        @keyframes nb-pixelPop{0%{transform:scale(.1);opacity:0}45%{transform:scale(1.04)}70%{transform:scale(.98)}100%{transform:scale(1);opacity:1}}
+        @keyframes nb-floaty{0%,100%{transform:rotate(-1.5deg) translateY(0)}50%{transform:rotate(-1.5deg) translateY(-6px)}}
         @keyframes nb-blink{0%,100%{opacity:1}50%{opacity:.25}}
       `}</style>
     </div>
   );
 }
 
-const label: CSSProperties = { fontFamily: JUA, color: "#1a5db8", minWidth: 66 };
-const row: CSSProperties = { display: "flex", gap: 12 };
-const rowText: CSSProperties = { fontSize: 16, lineHeight: 1.5 };
+// ═══════════════════════════════════════════════════════════
+// 서브 패널
+// ═══════════════════════════════════════════════════════════
 
-function NoticePanel() {
+const loginInputStyle: CSSProperties = {
+  height: 44,
+  border: "2px solid #bfe4f7",
+  borderRadius: 12,
+  padding: "0 14px",
+  fontFamily: BODY,
+  fontSize: 15,
+  color: "#1e4b6e",
+  outline: "none",
+  background: "#f4fbff",
+};
+
+const chip = (bg: string, color: string): CSSProperties => ({
+  fontFamily: JUA,
+  fontSize: 13,
+  background: bg,
+  color,
+  borderRadius: 999,
+  padding: "3px 12px",
+  whiteSpace: "nowrap",
+});
+
+function NoticePanel({
+  attendName,
+  onAttendNameChange,
+  onAttend,
+}: {
+  attendName: string;
+  onAttendNameChange: (v: string) => void;
+  onAttend: () => void;
+}) {
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, borderBottom: "2.5px dashed #b9cbe6", paddingBottom: 12, marginBottom: 20 }}>
-        <span style={{ fontFamily: JUA, fontSize: 27, color: "#14406f" }}>📌 공지사항</span>
-        <span style={{ fontFamily: PEN, fontSize: 22, color: "#c56" }}>— 총공지 · 세계관 · 캐릭터 가이드 한번에</span>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 12,
+          flexWrap: "wrap",
+          borderBottom: "2.5px dashed #a8dcf5",
+          paddingBottom: 10,
+          marginBottom: 16,
+        }}
+      >
+        <span style={{ fontFamily: JUA, fontSize: 26, color: "#0d6fa8" }}>📌 공지사항</span>
+        <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 21, color: "#2ea3dd" }}>
+          — 총공지 · 세계관 · 캐릭터 가이드 한번에!
+        </span>
+        <span
+          style={{
+            marginLeft: 52,
+            fontFamily: JUA,
+            fontSize: 13,
+            background: "#cdeeff",
+            color: "#0d6fa8",
+            borderRadius: 999,
+            padding: "4px 12px",
+          }}
+        >
+          📌 상단고정
+        </span>
       </div>
-      <div style={{ fontFamily: JUA, fontSize: 22, color: "#1656b8", marginBottom: 6 }}>SUMMER Flash Mob! 여름 정기 플래시몹 안내</div>
-      <div style={{ fontSize: 14, color: "#8aa", marginBottom: 18 }}>2026.07.02 · 운영진 · 📌 상단고정</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 760 }}>
-        <div style={row}><span style={label}>일정</span><span style={rowText}>8/03(일) 오후 9시 · 디스코드 <b>〈연습실〉</b> 채널에서 모여요.</span></div>
-        <div style={row}><span style={label}>세계관</span><span style={rowText}>올여름 컨셉은 <b>‘해변의 유령’</b> 🩵 캐릭터 시트 · 세계관 문서는 #가이드 채널에서.</span></div>
-        <div style={row}><span style={label}>파트</span><span style={rowText}>A조 안무 / B조 보컬 / C조 영상 — 지원 폼 마감 <b>7/28(금)</b>.</span></div>
-        <div style={row}><span style={label}>상점</span><span style={rowText}>사인펜 · 형광펜 · 스티커 상점 오픈! 일일 미션으로 코인을 모아보세요.</span></div>
-        <div style={row}><span style={label}>커맨드</span><span style={rowText}>마스토돈에 <code style={{ background: "#fff2a8", padding: "1px 6px", borderRadius: 4 }}>!출석</code> 을 치면 오늘의 참여 명단에 등록돼요.</span></div>
-      </div>
-      <div style={{ marginTop: 22, display: "inline-block", background: "#fff2a8", border: "1.5px solid #e2d15a", borderRadius: 8, padding: "10px 16px", fontFamily: PEN, fontSize: 22, color: "#7a6a12", transform: "rotate(-1deg)" }}>
-        🎧 탭을 옮겨다녀도 노래는 계속 흘러나와요 ♪
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 288px", gap: 18, alignItems: "start" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ background: "#fff", border: "2px solid #cdeeff", borderRadius: 16, padding: "16px 18px" }}>
+            <div style={{ fontFamily: JUA, fontSize: 21, color: "#1656b8", marginBottom: 3 }}>
+              SUMMER Flash Mob! 여름 정기 플래시몹 안내
+            </div>
+            <div style={{ fontSize: 13, color: "#a4b6cc", marginBottom: 12 }}>2026.07.02 · 운영진</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                <span style={chip("#cdeeff", "#0d6fa8")}>일정</span>
+                <span style={{ fontSize: 15, lineHeight: 1.5 }}>
+                  8/03(일) 오후 9시 · 디스코드 <b>〈연습실〉</b> 채널에서 모여요.
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                <span style={chip("#c9f2e6", "#1e7d6a")}>세계관</span>
+                <span style={{ fontSize: 15, lineHeight: 1.5 }}>
+                   🌊 캐릭터 시트 · 세계관 문서는 #가이드 채널에서.
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                <span style={chip("#fff3a6", "#8a7410")}>파트</span>
+                <span style={{ fontSize: 15, lineHeight: 1.5 }}>
+                  A조 안무 / B조 보컬 / C조 영상 — 지원 폼 마감 <b>7/28(금)</b>.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ background: "#e8f7ff", border: "2px solid #a8dcf5", borderRadius: 14, padding: "13px 16px" }}>
+            <div style={{ fontFamily: JUA, fontSize: 15, color: "#0d6fa8", marginBottom: 9 }}>
+              ⌨️ 커맨드 체험 — 닉네임 쓰고{" "}
+              <code style={{ background: "#fff2a8", padding: "1px 6px", borderRadius: 4 }}>!출석</code> 을 눌러보세요
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={attendName}
+                onChange={(e) => onAttendNameChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") onAttend(); }}
+                placeholder="닉네임"
+                style={{
+                  flex: 1,
+                  height: 40,
+                  border: "2px solid #bfe4f7",
+                  borderRadius: 10,
+                  padding: "0 13px",
+                  fontFamily: BODY,
+                  fontSize: 15,
+                  color: "#1e4b6e",
+                  outline: "none",
+                  background: "#fff",
+                }}
+              />
+              <button
+                onClick={onAttend}
+                style={{
+                  height: 40,
+                  padding: "0 18px",
+                  border: 0,
+                  borderRadius: 10,
+                  background: "#1a9edb",
+                  color: "#fff",
+                  fontFamily: JUA,
+                  fontSize: 15,
+                  cursor: "pointer",
+                  boxShadow: "0 3px 0 #0d6fa8",
+                }}
+              >
+                !출석
+              </button>
+            </div>
+            <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#2ea3dd", marginTop: 8 }}>
+              → 왼쪽 아래 〈참여 명단〉 위젯에 바로 올라가요!
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div
+            style={{
+              background: "#ffef3e",
+              border: "2px solid #e2d15a",
+              borderRadius: 16,
+              padding: "14px 16px",
+              textAlign: "center",
+              transform: "rotate(1deg)",
+            }}
+          >
+            <div style={{ fontFamily: JUA, fontSize: 36, color: "#14406f", lineHeight: 1 }}>D-27</div>
+            <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#7a6a12", marginTop: 4 }}>
+              8/03(일) 밤 9시 · 플래시몹!
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 4,
+              padding: "10px 10px 8px",
+              boxShadow: "0 6px 16px rgba(20,58,99,.18)",
+              transform: "rotate(-2deg)",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                top: -10,
+                left: "50%",
+                width: 70,
+                height: 20,
+                marginLeft: -35,
+                background: "repeating-linear-gradient(45deg,#cfe6ff 0 8px,#eaf4ff 8px 16px)",
+                opacity: 0.92,
+                transform: "rotate(-2deg)",
+              }}
+            />
+            <div
+              style={{
+                width: "100%",
+                height: 126,
+                background: "#eaf5fd",
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#7fb3d4",
+                fontFamily: GAEGU,
+                fontWeight: 700,
+              }}
+            >
+              컨셉 무드 사진
+            </div>
+            <div
+              style={{
+                fontFamily: GAEGU,
+                fontWeight: 700,
+                fontSize: 18,
+                color: "#14406f",
+                textAlign: "center",
+                paddingTop: 6,
+              }}
+            >
+              🌊폴라로이드 틀
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: "#c9f2e6",
+              border: "2px solid #8fdcc7",
+              borderRadius: "4px 4px 14px 14px",
+              padding: "12px 14px",
+              fontFamily: GAEGU,
+              fontWeight: 700,
+              fontSize: 18,
+              color: "#1e7d6a",
+              transform: "rotate(1deg)",
+            }}
+          >
+            🎧 아무거나
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function MemberPanel() {
-  const chip: CSSProperties = { background: "#eaf3ff", border: "2px solid #bcd4f2", borderRadius: 999, padding: "8px 16px", fontFamily: JUA, color: "#1656b8" };
+function MemberPanel({
+  flipped,
+  onFlip,
+}: {
+  flipped: string | null;
+  onFlip: (name: string) => void;
+}) {
   return (
     <div>
-      <div style={{ fontFamily: JUA, fontSize: 25, color: "#14406f", marginBottom: 14 }}>👥 멤버</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-        {["하루", "소이", "진", "유나", "물결", "케이"].map((n) => (
-          <span key={n} style={chip}>{n}</span>
-        ))}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
+        <span style={{ fontFamily: JUA, fontSize: 24, color: "#0d6fa8" }}>👥 멤버</span>
+        <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#2ea3dd" }}>
+          카드를 누르면 캐릭터 시트가 홱- 뒤집혀요!
+        </span>
       </div>
-      <div style={{ fontFamily: PEN, fontSize: 22, color: "#c56", marginTop: 14 }}>오늘 8명 참여중 · 프로필 누르면 캐릭터 시트로!</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,208px)", gap: 12 }}>
+        {MEMBERS.map((mb) => {
+          const isFlipped = flipped === mb.name;
+          return (
+            <div
+              key={mb.name}
+              onClick={() => onFlip(mb.name)}
+              style={{ position: "relative", height: 92, cursor: "pointer", perspective: 900 }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  transition: "transform .55s cubic-bezier(.3,.8,.3,1)",
+                  transformStyle: "preserve-3d",
+                  transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backfaceVisibility: "hidden",
+                    background: "#fff",
+                    border: `2px solid ${mb.border}`,
+                    borderRadius: 16,
+                    padding: "12px 14px",
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ fontSize: 26 }}>{mb.emoji}</span>
+                  <span style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontFamily: JUA, color: "#1656b8" }}>{mb.name}</span>
+                    <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: mb.rc }}>{mb.role}</span>
+                  </span>
+                  <span style={{ marginLeft: "auto", fontFamily: JUA, fontSize: 12, color: "#a4b6cc" }}>↻ 시트</span>
+                </div>
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    backfaceVisibility: "hidden",
+                    transform: "rotateY(180deg)",
+                    background: "#14406f",
+                    border: `2px solid ${mb.border}`,
+                    borderRadius: 16,
+                    padding: "11px 14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    gap: 3,
+                  }}
+                >
+                  <span style={{ fontFamily: JUA, fontSize: 12, color: "#7fd0f0" }}>{mb.name} · 캐릭터 시트</span>
+                  <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, lineHeight: 1.25, color: "#fff" }}>
+                    {mb.back}
+                  </span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function DailyPanel() {
-  const item: CSSProperties = { display: "flex", gap: 10, alignItems: "center", background: "#f4faff", border: "2px solid #cfe2f7", borderRadius: 10, padding: "12px 16px", fontSize: 16 };
-  const coin: CSSProperties = { marginLeft: "auto", fontFamily: JUA, color: "#e0a500" };
+function DailyPanel({
+  missions,
+  onToggle,
+  doneCount,
+  progressPct,
+  allDone,
+}: {
+  missions: Mission[];
+  onToggle: (i: number) => void;
+  doneCount: number;
+  progressPct: number;
+  allDone: boolean;
+}) {
+  const borders = ["#cdeeff", "#c9f2e6", "#fff3a6"];
   return (
     <div>
-      <div style={{ fontFamily: JUA, fontSize: 25, color: "#14406f", marginBottom: 14 }}>🗓 일일 미션</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 520 }}>
-        <label style={item}>✅ 연습실 출석하기 <span style={coin}>+5🪙</span></label>
-        <label style={item}>⬜ 안무 클립 1개 인증 <span style={coin}>+10🪙</span></label>
-        <label style={item}>⬜ 마스토돈에 오늘 연습 후기 </label>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
+        <span style={{ fontFamily: JUA, fontSize: 24, color: "#0d6fa8" }}>✅ 일일 미션</span>
+        <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#2ea3dd" }}>
+          눌러서 체크하면 코인이 짤랑- 들어와요
+        </span>
       </div>
-    </div>
-  );
-}
-
-function ShopPanel() {
-  const card: CSSProperties = { width: 130, background: "#fff", border: "2px solid #cfe2f7", borderRadius: 12, padding: 16, textAlign: "center" };
-  const items = [
-    { emoji: "🖊️", name: "사인펜", coin: "12🪙" },
-    { emoji: "🖍️", name: "형광펜", coin: "8🪙" },
-    { emoji: "✨", name: "스티커", coin: "15🪙" },
-  ];
-  return (
-    <div>
-      <div style={{ fontFamily: JUA, fontSize: 25, color: "#14406f", marginBottom: 14 }}>🛍 상점</div>
-      <div style={{ display: "flex", gap: 16 }}>
-        {items.map((it) => (
-          <div key={it.name} style={card}>
-            <div style={{ fontSize: 34 }}>{it.emoji}</div>
-            <div style={{ fontFamily: JUA, color: "#1656b8", margin: "6px 0" }}>{it.name}</div>
-            <div style={{ fontFamily: JUA, color: "#e0a500" }}>{it.coin}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 540 }}>
+        {missions.map((m, i) => (
+          <div
+            key={i}
+            onClick={() => onToggle(i)}
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              background: "#fff",
+              border: `2px solid ${borders[i % 3]}`,
+              borderRadius: 12,
+              padding: "12px 16px",
+              fontSize: 15,
+              cursor: "pointer",
+              opacity: m.done ? 0.6 : 1,
+              transition: "opacity .25s, transform .15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = "translateX(4px)")}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "translateX(0)")}
+          >
+            <span style={{ fontSize: 16 }}>{m.done ? "✅" : "⬜"}</span>
+            <span style={{ textDecoration: m.done ? "line-through" : "none" }}>{m.t}</span>
+            <span style={{ marginLeft: "auto", fontFamily: JUA, color: "#e0a500" }}>+{m.r}🪙</span>
           </div>
         ))}
+      </div>
+      <div style={{ marginTop: 14, maxWidth: 540 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: JUA, fontSize: 14, color: "#0d6fa8", marginBottom: 5 }}>
+          <span>오늘의 달성률</span>
+          <span>{doneCount} / {missions.length}</span>
+        </div>
+        <div style={{ height: 12, borderRadius: 999, background: "#dff4ff", border: "1.5px solid #a8dcf5", overflow: "hidden" }}>
+          <div
+            style={{
+              width: `${progressPct}%`,
+              height: "100%",
+              background: "linear-gradient(90deg,#1a9edb,#7fd0f0)",
+              transition: "width .45s cubic-bezier(.3,.8,.3,1)",
+            }}
+          />
+        </div>
+      </div>
+      {allDone ? (
+        <div
+          style={{
+            marginTop: 18,
+            display: "inline-block",
+            background: "#ffef3e",
+            border: "2px solid #e2d15a",
+            borderRadius: 14,
+            padding: "10px 20px",
+            fontFamily: JUA,
+            fontSize: 19,
+            color: "#7a6a12",
+            transform: "rotate(-2deg)",
+            animation: "nb-pixelPop .45s both",
+          }}
+        >
+          ⛱️ 오늘 미션 올클리어!
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ShopPanel({
+  coins,
+  owned,
+  onBuy,
+}: {
+  coins: number;
+  owned: Record<string, boolean>;
+  onBuy: (key: string) => void;
+}) {
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
+        <span style={{ fontFamily: JUA, fontSize: 24, color: "#0d6fa8" }}>🛒 상점</span>
+        <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#2ea3dd" }}>
+          보유 코인 {coins}🪙 — 모자라면 일일 미션으로!
+        </span>
+      </div>
+      <div style={{ display: "flex", gap: 16 }}>
+        {SHOP.map((it) => {
+          const isOwned = !!owned[it.key];
+          return (
+            <div
+              key={it.key}
+              style={{
+                width: 150,
+                background: "#fff",
+                border: `2px solid ${it.border}`,
+                borderRadius: 16,
+                padding: "16px 14px",
+                textAlign: "center",
+                transform: `rotate(${it.rot})`,
+                transition: "transform .18s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = "rotate(0deg) scale(1.04)")}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = `rotate(${it.rot})`)}
+            >
+              <div style={{ fontSize: 34 }}>{it.emoji}</div>
+              <div style={{ fontFamily: JUA, color: "#1656b8", margin: "6px 0 10px" }}>{it.name}</div>
+              <button
+                onClick={() => onBuy(it.key)}
+                style={{
+                  width: "100%",
+                  height: 36,
+                  border: 0,
+                  borderRadius: 999,
+                  background: isOwned ? "#c9f2e6" : "#1a9edb",
+                  color: isOwned ? "#1e7d6a" : "#fff",
+                  fontFamily: JUA,
+                  fontSize: 14,
+                  cursor: isOwned ? "default" : "pointer",
+                }}
+              >
+                {isOwned ? "보유중 ✓" : `${it.price}🪙 구매`}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

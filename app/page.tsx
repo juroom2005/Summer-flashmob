@@ -2,5 +2,5 @@
 import NoticeBoard from "@/components/NoticeBoard";
 
 export default function Home() {
-  return <NoticeBoard />;
+  return <NoticeBoard backgroundSrc="/summer-bg.png" />;
 }
