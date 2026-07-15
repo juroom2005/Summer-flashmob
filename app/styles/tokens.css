@@ -1,0 +1,119 @@
+/* app/styles/tokens.css
+ *
+ * 전역 CSS 토큰. 모든 컴포넌트 스타일은 여기 값을 var()로 참조.
+ * 프론트 리뉴얼 시 이 파일의 값만 바꾸면 전체 톤 일괄 조정 가능.
+ *
+ * 토큰 명명 규칙:
+ *   --font-<role>            폰트 패밀리 (next/font 변수 위에 semantic 층)
+ *   --color-<role>[-variant] 색 (primary/success/warning/danger/neutral 그룹)
+ *   --space-<size>           간격 (xs/sm/md/lg/xl)
+ *   --radius-<size>          모서리 (sm/md/lg/xl/round)
+ *   --shadow-<role>          그림자 (card/modal)
+ *
+ * next/font 변수(--font-jua 등)는 layout.tsx에서 <html>에 주입.
+ * 여기서는 그 위에 semantic 이름으로 별칭 부여.
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════
+     폰트
+     ═══════════════════════════════════════════════════════ */
+
+  --font-heading: var(--font-jua),         'Jua',         sans-serif;
+  --font-accent:  var(--font-gaegu),       'Gaegu',       cursive;
+  --font-body:    var(--font-gowun-dodum), 'Gowun Dodum', sans-serif;
+  --font-mono:    'Space Mono', ui-monospace, 'Courier New', monospace;
+
+
+  /* ═══════════════════════════════════════════════════════
+     색 — 브랜드 파랑 (Summer FlashMob 주 톤)
+     ═══════════════════════════════════════════════════════ */
+
+  --color-primary:              #1a9edb;
+  --color-primary-strong:       #0d6fa8;
+  --color-primary-mid:          #2ea3dd;
+  --color-primary-tint:         #cdeeff;
+  --color-primary-border:       #bfe4f7;
+  --color-primary-border-soft:  #d6effc;
+  --color-primary-shadow:       rgba(46, 163, 221, 0.2);
+  --color-primary-shadow-mid:   rgba(46, 163, 221, 0.4);
+
+
+  /* ═══════════════════════════════════════════════════════
+     색 — 텍스트
+     ═══════════════════════════════════════════════════════ */
+
+  --color-text-strong: #14406f;
+  --color-text-mid:    #1e4b6e;
+  --color-text-dim:    #7fb3d4;
+  --color-text-faint:  #a4c4d8;
+
+
+  /* ═══════════════════════════════════════════════════════
+     색 — 배경
+     ═══════════════════════════════════════════════════════ */
+
+  --color-bg-page:       #f4fbff;
+  --color-bg-page-top:   #eaf7fe;
+  --color-bg-card:       #ffffff;
+  --color-bg-input:      #f4fbff;
+
+
+  /* ═══════════════════════════════════════════════════════
+     색 — 상태 (success/warning/danger/neutral)
+     ═══════════════════════════════════════════════════════ */
+
+  --color-success:         #4db6a0;
+  --color-success-strong:  #1e7d6a;
+  --color-success-mid:     #2f8a75;
+  --color-success-tint:    #c9f2e6;
+  --color-success-shadow:  rgba(77, 182, 160, 0.3);
+
+  --color-warning:         #d9b62a;
+  --color-warning-strong:  #8a7410;
+  --color-warning-mid:     #7a6a12;
+  --color-warning-tint:    #fff8d6;
+  --color-warning-accent:  #ffef3e;
+  --color-warning-shadow:  rgba(217, 182, 42, 0.4);
+
+  --color-danger:         #c0392b;
+  --color-danger-tint:    rgba(192, 57, 43, 0.08);
+  --color-danger-border:  rgba(192, 57, 43, 0.25);
+
+  --color-neutral:         #bbb;
+  --color-neutral-tint:    #f2f2f2;
+  --color-neutral-border:  #d0d0d0;
+  --color-neutral-dim:     #666;
+
+
+  /* ═══════════════════════════════════════════════════════
+     간격
+     ═══════════════════════════════════════════════════════ */
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+
+
+  /* ═══════════════════════════════════════════════════════
+     모서리
+     ═══════════════════════════════════════════════════════ */
+
+  --radius-sm:    6px;
+  --radius-md:    8px;
+  --radius-lg:    12px;
+  --radius-xl:    18px;
+  --radius-round: 999px;
+
+
+  /* ═══════════════════════════════════════════════════════
+     그림자
+     ═══════════════════════════════════════════════════════ */
+
+  --shadow-card:        0 4px 0 var(--color-primary-shadow);
+  --shadow-card-strong: 0 4px 0 var(--color-primary-strong);
+  --shadow-modal:       0 22px 50px rgba(8, 60, 105, 0.4);
+  --shadow-overlay:     0 18px 44px rgba(20, 58, 99, 0.28);
+}

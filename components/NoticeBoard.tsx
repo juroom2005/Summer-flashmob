@@ -1,12 +1,4 @@
 // components/NoticeBoard.tsx
-// 공지사항 컴포넌트 — 시안 3a (여름 바다 톤 · 책펼침 · 인터랙티브)
-//
-// 사용법:
-//   <NoticeBoard backgroundSrc="/summer-bg.png" />
-//   - backgroundSrc 를 넣으면 자동으로 여름 하프톤(파란 듀오톤)이 입혀집니다.
-//   - 넣지 않으면 연한 하늘색 배경으로 폴백됩니다.
-//   - 디자인 기준 크기는 1366×768 이며, 부모 폭에 맞춰 자동 스케일됩니다.
-//
 // 폰트: Jua · Gowun Dodum · Gaegu (app/layout.tsx 에서 next/font 로 로드)
 
 "use client";
@@ -22,17 +14,17 @@ import {
 } from "react";
 
 import { supabase } from "@/lib/supabase";
-import LoginPanel from "./auth/LoginPanel";
-import RegisterPanel from "./auth/RegisterPanel";
-import type { User } from "@supabase/supabase-js";
+import AdminChatOverlay from "./admin-chat/AdminChatOverlay";
+import AuthModal from "./auth/AuthModal";
+import Header from "./noticeboard/Header";
+import NavRail, { type Tab } from "./noticeboard/NavRail";
 
 // ── 폰트 상수 ──────────────────────────────────────────────
 const JUA = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
 const BODY = "'Gowun Dodum', sans-serif";
 
-// ── 타입 ───────────────────────────────────────────────────
-type Tab = "notice" | "member" | "daily" | "shop";
+// ── 타입 ──────────────────────────────────────────────────
 type Overlay = null | "login" | "register" | "admin";
 
 type Mission = { t: string; r: number; done: boolean };
@@ -52,15 +44,8 @@ type Member = {
   border: string;
   back: string;
 };
-type ChatMsg = { who: "me" | "admin"; text: string };
 
 // ── 정적 데이터 ────────────────────────────────────────────
-const NAV: { key: Tab; label: string; border: string; hi: string; color: string; radius: string; rot: string }[] = [
-  { key: "notice", label: "📌 공지사항", border: "#2ea3dd", hi: "#cdeeff", color: "#0d6fa8", radius: "18px 18px 18px 6px",  rot: "-2deg" },
-  { key: "member", label: "👥 멤버",     border: "#4db6a0", hi: "#c9f2e6", color: "#1e7d6a", radius: "6px 18px 18px 18px",  rot: "1.5deg" },
-  { key: "daily",  label: "✅ 일일",     border: "#d9b62a", hi: "#fff3a6", color: "#8a7410", radius: "18px 6px 18px 18px",  rot: "-1deg" },
-  { key: "shop",   label: "🛒 상점",     border: "#4a7fe0", hi: "#d8e5fc", color: "#2a55b8", radius: "18px 18px 6px 18px",  rot: "2deg" },
-];
 
 const SHOP: ShopItem[] = [
   { key: "pen", emoji: "🖊️", name: "사인펜", price: 12, border: "#cdeeff", rot: "-1.5deg" },
@@ -83,12 +68,6 @@ const INITIAL_MISSIONS: Mission[] = [
   { t: "마스토돈에 오늘 연습 후기", r: 5,  done: false },
 ];
 
-const ADMIN_REPLIES = [
-  "확인했어요! 바로 봐드릴게요 🔍",
-  "앗, 그건 공지사항 탭에 정리해뒀어요!",
-  "네네 접수 완료! 잠시만 기다려주세요 ⏳",
-];
-
 // ═══════════════════════════════════════════════════════════
 // 메인 컴포넌트
 // ═══════════════════════════════════════════════════════════
@@ -99,9 +78,6 @@ export default function NoticeBoard({
 }) {
   // ── 상태 ─────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
-  const [authUser,setAuthUser]    = useState<User | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
-  const [isGm,setIsGm] = useState(false);
   const [tab, setTab] = useState<Tab>("notice");
   const [overlay, setOverlay] = useState<Overlay>(null);
 
@@ -114,18 +90,12 @@ export default function NoticeBoard({
   const [attendees, setAttendees] = useState<string[]>(["새벽", "라임", "도토"]);
   const [attendName, setAttendName] = useState("");
 
-  const [chatMsgs, setChatMsgs] = useState<ChatMsg[]>([
-    { who: "admin", text: "안녕하세요, 운영진입니다! 무엇을 도와드릴까요? 🙌" },
-  ]);
-  const [chatText, setChatText] = useState("");
-
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── 참조 ─────────────────────────────────────────────────
   const flipRef = useRef<HTMLDivElement>(null);
   const coinRef = useRef<HTMLDivElement>(null);
-  const chatBodyRef = useRef<HTMLDivElement>(null);
 
   // ── 부모 폭에 맞춰 1366×768 스테이지 자동 스케일 ────────
   const hostRef = useRef<HTMLDivElement>(null);
@@ -139,11 +109,6 @@ export default function NoticeBoard({
     return () => ro.disconnect();
   }, []);
 
-  // ── 채팅 스크롤 하단 고정 ────────────────────────────────
-  useEffect(() => {
-    const el = chatBodyRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [chatMsgs, overlay]);
 
   // ── 토스트 정리 ──────────────────────────────────────────
   useEffect(() => {
@@ -152,67 +117,6 @@ export default function NoticeBoard({
     };
   }, []);
 
-
-  useEffect(() => {
-  let cancelled = false;
-
-  async function loadProfile(userId: string, attempt = 1) {
-  const { data } = await supabase
-    .from("profiles")
-    .select("family_name, given_name, is_gm")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (cancelled) return;
-  const shouldRetry =
-    data === null ||
-    (!data.is_gm && (!data.family_name || !data.given_name));
-
-  if (shouldRetry && attempt < 5) {
-    setTimeout(() => {
-      if (!cancelled) loadProfile(userId, attempt + 1);
-    }, 500);
-    return;
-  }
-
-  // family_name + given_name 조합해서 표시명 저장 (성 이름 순, 스페이스 구분)
-  const fullName = data && data.family_name && data.given_name
-    ? `${data.family_name} ${data.given_name}`
-    : null;
-
-  setDisplayName(fullName);
-  setIsGm(data?.is_gm === true);
-}
-
-  // 초기 세션 조회
-  supabase.auth.getUser().then(({ data }) => {
-    if (cancelled) return;
-    const u = data.user ?? null;
-    setAuthUser(u);
-    if (u) loadProfile(u.id);
-    else {
-      setDisplayName(null);
-      setIsGm(false);
-    }
-  });
-
-  // 상태 변화 감지
-  const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-    if (cancelled) return;
-    const u = session?.user ?? null;
-    setAuthUser(u);
-    if (u) loadProfile(u.id);
-    else {
-      setDisplayName(null);
-      setIsGm(false);
-    }
-  });
-
-  return () => {
-    cancelled = true;
-    sub.subscription.unsubscribe();
-  };
-}, []);
 
   const showToast = (t: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -292,17 +196,6 @@ export default function NoticeBoard({
     showToast(`☀️ ${n} 님 출석 완료! 참여 명단에 올라갔어요`);
   };
 
-  const sendChat = () => {
-    const t = chatText.trim();
-    if (!t) return;
-    const meCount = chatMsgs.filter((m) => m.who === "me").length;
-    const reply = ADMIN_REPLIES[meCount % ADMIN_REPLIES.length];
-    setChatMsgs((ms) => [...ms, { who: "me", text: t }]);
-    setChatText("");
-    setTimeout(() => {
-      setChatMsgs((ms) => [...ms, { who: "admin", text: reply }]);
-    }, 700);
-  };
 
   // ── 파생값 ───────────────────────────────────────────────
   const doneCount = missions.filter((m) => m.done).length;
@@ -362,181 +255,20 @@ export default function NoticeBoard({
           }}
         />
 
-        {/* ── 상단 로고 / 유틸 ── */}
-        <div
-          style={{
-            position: "absolute",
-            top: 14,
-            left: 22,
-            fontFamily: JUA,
-            fontSize: 20,
-            color: "#0d6fa8",
-            background: "#fff",
-            border: "2px solid #2ea3dd",
-            borderRadius: 12,
-            padding: "3px 14px",
-            boxShadow: "2px 3px 0 rgba(46,163,221,.45)",
-            transform: "rotate(-2deg)",
-          }}
-        >
-          [메인홍]
-        </div>
-        <div style={{ position: "absolute", top: 16, right: 26, display: "flex", alignItems: "center", gap: 10, zIndex: 30 }}>
-          <div
-            ref={coinRef}
-            style={{
-              height: 36,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "0 15px",
-              border: "2px solid #e2c341",
-              borderRadius: 999,
-              background: "#fff8d6",
-              color: "#8a7410",
-              fontFamily: JUA,
-              fontSize: 15,
-              boxShadow: "2px 3px 0 rgba(217,182,42,.4)",
-            }}
-          >
-            🪙 {coins}
-          </div>
-          {authUser ? (
-            <>
-              <div
-                style={{
-                  height: 36,
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "0 15px",
-                  border: "2px solid #2ea3dd",
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,.9)",
-                  color: "#0d6fa8",
-                  fontFamily: JUA,
-                  fontSize: 14,
-                  boxShadow: "2px 3px 0 rgba(46,163,221,.4)",
-                }}
-              >
-                {isGm ? "👑 " : ""}{displayName ?? "익명"}
-              </div>
-          
-              {isGm ? (
-                <a
-                  href="/gm"
-                  style={{
-                    height: 36,
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "0 15px",
-                    border: "2px solid #d9b62a",
-                    borderRadius: 999,
-                    background: "#fff8d6",
-                    color: "#8a7410",
-                    fontFamily: JUA,
-                    fontSize: 14,
-                    textDecoration: "none",
-                    boxShadow: "2px 3px 0 rgba(217,182,42,.4)",
-                  }}
-                >
-                  GM 관리
-                </a>
-              ) : null}
-          
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  // onAuthStateChange가 상태 자동 리셋
-                }}
-                style={{
-                  height: 36,
-                  padding: "0 15px",
-                  border: "2px solid #2ea3dd",
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,.9)",
-                  color: "#0d6fa8",
-                  fontFamily: JUA,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  boxShadow: "2px 3px 0 rgba(46,163,221,.4)",
-                }}
-              >
-                로그아웃
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setOverlay("login")}
-              style={{
-                height: 36,
-                padding: "0 18px",
-                border: "2px solid #2ea3dd",
-                borderRadius: 999,
-                background: "rgba(255,255,255,.9)",
-                color: "#0d6fa8",
-                fontFamily: JUA,
-                fontSize: 15,
-                cursor: "pointer",
-                boxShadow: "2px 3px 0 rgba(46,163,221,.4)",
-              }}
-            >
-              로그인
-            </button>
-          )}
-          <button
-            onClick={() => setOverlay("admin")}
-            style={{
-              height: 36,
-              padding: "0 18px",
-              border: "2px solid #fff",
-              borderRadius: 999,
-              background: "#1a9edb",
-              color: "#fff",
-              fontFamily: JUA,
-              fontSize: 15,
-              cursor: "pointer",
-              boxShadow: "2px 3px 0 rgba(13,80,130,.35)",
-            }}
-          >
-            📞 관리자호출
-          </button>
-        </div>
+        {/* ── 상단 헤더 ── */}
+          <Header
+            coins={coins}
+            coinRef={coinRef}
+            onLoginClick={() => setOverlay("login")}
+            onAdminClick={() => setOverlay((prev) => (prev === "admin" ? null : "admin"))}
+          />
+        
 
         {/* ── 좌측 nav rail (스티커 탭) ── */}
-        <div style={{ position: "absolute", left: 40, top: 150, display: "flex", flexDirection: "column", gap: 15, zIndex: 20 }}>
-          {NAV.map((n) => {
-            const active = open && tab === n.key;
-            return (
-              <button
-                key={n.key}
-                onClick={() => openTab(n.key)}
-                style={{
-                  position: "relative",
-                  width: 146,
-                  height: 50,
-                  border: `2.5px solid ${n.border}`,
-                  borderRadius: n.radius,
-                  background: "#fff",
-                  color: n.color,
-                  fontFamily: JUA,
-                  fontSize: 18,
-                  cursor: "pointer",
-                  boxShadow: `2px 3px 0 ${n.border}80`,
-                  overflow: "hidden",
-                  transform: `rotate(${n.rot})`,
-                  transition: "transform .18s ease",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = "rotate(0deg) scale(1.06)")}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = `rotate(${n.rot})`)}
-              >
-                {active ? (
-                  <span style={{ position: "absolute", inset: 0, background: n.hi }} />
-                ) : null}
-                <span style={{ position: "relative", zIndex: 1 }}>{n.label}</span>
-              </button>
-            );
-          })}
-        </div>
+          <NavRail
+            activeTab={open ? tab : null}
+            onTabClick={openTab}
+          />
 
         {/* ── 위젯: 참여 명단 스티키 ── */}
         <div
@@ -754,261 +486,17 @@ export default function NoticeBoard({
           </div>
         ) : null}
 
-        {/* ── 로그인 모달 ── */}
-        {overlay === "login" ? (
-          <>
-            <div
-              onClick={() => setOverlay(null)}
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(8,60,105,.35)",
-                backdropFilter: "blur(3px)",
-                zIndex: 38,
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                left: "50%",
-                marginLeft: -180,
-                top: 168,
-                width: 360,
-                background: "#fff",
-                border: "2.5px solid #2ea3dd",
-                borderRadius: 22,
-                boxShadow: "0 22px 50px rgba(8,60,105,.4)",
-                zIndex: 40,
-                animation: "nb-winZoom .38s cubic-bezier(.2,.85,.25,1.1) both",
-                padding: "26px 28px",
-              }}
-            >
-              <button
-                onClick={() => setOverlay(null)}
-                style={{
-                  position: "absolute",
-                  top: 14,
-                  right: 14,
-                  width: 30,
-                  height: 30,
-                  borderRadius: "50%",
-                  border: "2px solid #2ea3dd",
-                  background: "#fff",
-                  color: "#0d6fa8",
-                  fontFamily: JUA,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
-        
-              <LoginPanel
-                onSuccess={() => setOverlay(null)}
-                onSwitchToRegister={() => setOverlay("register")}
-              />
-            </div>
-          </>
-        ) : null}
-        {/* ── 가입 모달 ── */}
-        {overlay === "register" ? (
-          <>
-            <div
-              onClick={() => setOverlay(null)}
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(8,60,105,.35)",
-                backdropFilter: "blur(3px)",
-                zIndex: 38,
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                left: "50%",
-                marginLeft: -180,
-                top: 130,
-                width: 360,
-                background: "#fff",
-                border: "2.5px solid #2ea3dd",
-                borderRadius: 22,
-                boxShadow: "0 22px 50px rgba(8,60,105,.4)",
-                zIndex: 40,
-                animation: "nb-winZoom .38s cubic-bezier(.2,.85,.25,1.1) both",
-                padding: "26px 28px",
-              }}
-            >
-              <button
-                onClick={() => setOverlay(null)}
-                style={{
-                  position: "absolute",
-                  top: 14,
-                  right: 14,
-                  width: 30,
-                  height: 30,
-                  borderRadius: "50%",
-                  border: "2px solid #2ea3dd",
-                  background: "#fff",
-                  color: "#0d6fa8",
-                  fontFamily: JUA,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
-        
-              <RegisterPanel
-                onSuccess={() => setOverlay(null)}
-                onSwitchToLogin={() => setOverlay("login")}
-              />
-            </div>
-          </>
-        ) : null}    
-
+        {/* ── 로그인·가입 모달 ── */}
+          <AuthModal
+            open={overlay === "login" || overlay === "register"}
+            initialTab={overlay === "register" ? "register" : "login"}
+            onClose={() => setOverlay(null)}
+          />
         {/* ── 관리자 호출 채팅 ── */}
-        {overlay === "admin" ? (
-          <div
-            style={{
-              position: "absolute",
-              right: 26,
-              top: 62,
-              width: 334,
-              height: 436,
-              background: "#f4fbff",
-              border: "2.5px solid #2ea3dd",
-              borderRadius: 18,
-              boxShadow: "0 18px 44px rgba(8,60,105,.38)",
-              zIndex: 40,
-              animation: "nb-winZoom .4s cubic-bezier(.2,.85,.25,1.1) both",
-              transformOrigin: "top right",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#1a9edb", color: "#fff" }}>
-              <span
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: "50%",
-                  background: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 17,
-                }}
-              >
-                🧑‍💻
-              </span>
-              <span style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontFamily: JUA, fontSize: 15 }}>관리자 호출</span>
-                <span style={{ fontSize: 11, opacity: 0.9, display: "flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#7CFC66", display: "inline-block" }} />
-                  운영진 온라인
-                </span>
-              </span>
-              <button
-                onClick={() => setOverlay(null)}
-                style={{
-                  marginLeft: "auto",
-                  width: 26,
-                  height: 26,
-                  borderRadius: "50%",
-                  border: "1.5px solid rgba(255,255,255,.75)",
-                  background: "transparent",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  lineHeight: 1,
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            <div
-              ref={chatBodyRef}
-              style={{
-                flex: 1,
-                overflow: "auto",
-                padding: 14,
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                background: "#eaf7fe",
-              }}
-            >
-              <div
-                style={{
-                  alignSelf: "center",
-                  fontSize: 11,
-                  color: "#7fb3d4",
-                  background: "#fff",
-                  borderRadius: 999,
-                  padding: "3px 12px",
-                }}
-              >
-                오늘 · 관리자와 연결됐어요
-              </div>
-              {chatMsgs.map((m, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: m.who === "me" ? "flex-end" : "flex-start" }}>
-                  <div
-                    style={{
-                      maxWidth: "80%",
-                      background: m.who === "me" ? "#1a9edb" : "#ffffff",
-                      color: m.who === "me" ? "#ffffff" : "#1e4b6e",
-                      border: `1.5px solid ${m.who === "me" ? "#1a9edb" : "#bfe4f7"}`,
-                      borderRadius: m.who === "me" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
-                      padding: "8px 12px",
-                      fontSize: 14,
-                      lineHeight: 1.45,
-                    }}
-                  >
-                    {m.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 8, padding: 10, borderTop: "2px solid #d6effc", background: "#fff" }}>
-              <input
-                value={chatText}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setChatText(e.target.value)}
-                onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") sendChat(); }}
-                placeholder="메시지 입력..."
-                style={{
-                  flex: 1,
-                  height: 38,
-                  border: "2px solid #bfe4f7",
-                  borderRadius: 999,
-                  padding: "0 14px",
-                  fontFamily: BODY,
-                  fontSize: 14,
-                  color: "#1e4b6e",
-                  outline: "none",
-                  background: "#f4fbff",
-                }}
-              />
-              <button
-                onClick={sendChat}
-                style={{
-                  height: 38,
-                  padding: "0 16px",
-                  border: 0,
-                  borderRadius: 999,
-                  background: "#1a9edb",
-                  color: "#fff",
-                  fontFamily: JUA,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                전송
-              </button>
-            </div>
-          </div>
-        ) : null}
+          <AdminChatOverlay
+            open={overlay === "admin"}
+            onClose={() => setOverlay(null)}
+          />
 
         {/* ── 토스트 ── */}
         {toast ? (
@@ -1043,15 +531,6 @@ export default function NoticeBoard({
           </div>
         ) : null}
       </div>
-
-      {/* keyframes */}
-      <style>{`
-        @keyframes nb-bookOpen{0%{clip-path:inset(0 50% 0 50% round 22px);opacity:.55}55%{opacity:1}100%{clip-path:inset(0 0 0 0 round 22px);opacity:1}}
-        @keyframes nb-winZoom{0%{transform:scale(.14);opacity:0;filter:blur(7px)}70%{opacity:1}100%{transform:scale(1);opacity:1;filter:blur(0)}}
-        @keyframes nb-pixelPop{0%{transform:scale(.1);opacity:0}45%{transform:scale(1.04)}70%{transform:scale(.98)}100%{transform:scale(1);opacity:1}}
-        @keyframes nb-floaty{0%,100%{transform:rotate(-1.5deg) translateY(0)}50%{transform:rotate(-1.5deg) translateY(-6px)}}
-        @keyframes nb-blink{0%,100%{opacity:1}50%{opacity:.25}}
-      `}</style>
     </div>
   );
 }

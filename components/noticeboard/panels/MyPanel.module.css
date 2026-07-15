@@ -1,0 +1,73 @@
+/* components/noticeboard/panels/MyPanel.module.css
+ *
+ * 이 파일이 담는 것:
+ *   1) keyframes 3개 (slosh, blink, pop) — CSS Modules 스코프에 로컬 정의
+ *   2) hover 인터랙션 클래스 4개 (bottle, memo, day, swatch)
+ *   3) animation 참조 클래스 3개 (bubbleBlink1, bubbleBlink2, tooltipPop)
+ *      → 원본에서 인라인 style의 animation 문자열로 참조되던 것을 클래스로 격리.
+ *
+ * 이 파일이 담지 않는 것:
+ *   - 본체 레이아웃/색상은 여전히 MyPanel.tsx의 인라인 style에 있음.
+ *     핸드오프상 마이패널은 프론트 리뉴얼 대상 밖이므로 이 상태를 유지.
+ *   - 규칙(핸드오프 4-3)에 따라 클래스명은 camelCase.
+ */
+
+/* ── keyframes ─────────────────────────────────── */
+@keyframes slosh {
+  0%, 100% { transform: rotate(0); }
+  25%      { transform: rotate(-4deg); }
+  60%      { transform: rotate(3deg); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .2; }
+}
+
+@keyframes pop {
+  0%   { transform: scale(.1);  opacity: 0; }
+  45%  { transform: scale(1.04); }
+  70%  { transform: scale(.98); }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+/* ── hover 인터랙션 ─────────────────────────────── */
+.bottle:hover {
+  animation: slosh .7s ease;
+}
+
+.memo {
+  transition: transform .16s;
+}
+.memo:hover {
+  transform: rotate(0deg) scale(1.08) !important;
+  z-index: 5;
+}
+
+.day {
+  transition: transform .12s;
+}
+.day:hover {
+  transform: scale(1.12);
+}
+
+.swatch {
+  transition: transform .12s;
+}
+.swatch:hover {
+  transform: scale(1.2);
+}
+
+/* ── animation 참조 클래스 ──────────────────────── */
+/* 유리병 안 물방울 반짝임 — 두 물방울이 duration/delay가 달라 클래스 2개로 분리 */
+.bubbleBlink1 {
+  animation: blink 2.2s infinite;
+}
+.bubbleBlink2 {
+  animation: blink 3.1s .6s infinite;
+}
+
+/* 인벤토리 아이템 hover 툴팁 등장 */
+.tooltipPop {
+  animation: pop .22s both;
+}

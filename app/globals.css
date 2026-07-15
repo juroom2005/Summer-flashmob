@@ -1,46 +1,27 @@
-/* app/globals.css */
+/* app/globals.css
+ *
+ * 전역 스타일 = 토큰 import + 최소 리셋 + 공용 keyframes.
+ * 브랜드 색·폰트 값은 styles/tokens.css에.
+ * 컴포넌트별 스타일은 각자의 *.module.css에.
+ */
 
-:root {
-  /* ── 폰트 (Google Fonts는 layout.tsx에서 로드) ── */
-  --mono:    'Space Mono', ui-monospace, 'Courier New', monospace;
-  --display: 'Syne', 'Inter', sans-serif;
-  --body:    'DM Sans', 'Inter', sans-serif;
-
-  /* ── 반응형 폰트 스케일 (KEYHOLE 정합) ── */
-  --fs-xs:  clamp(9px,  0.75vw, 11px);
-  --fs-sm:  clamp(11px, 0.9vw,  13px);
-  --fs-md:  clamp(13px, 1.1vw,  15px);
-  --fs-lg:  clamp(15px, 1.3vw,  18px);
-  --fs-xl:  clamp(20px, 2vw,    28px);
-  --fs-2xl: clamp(28px, 3.5vw,  48px);
-
-  /* ── 색 팔레트 (플레이스홀더 — 프론트 리뉴얼 때 확정) ── */
-  --bg:            #f4f5f8;
-  --text:          #0a0f1e;
-  --text-mid:      #4a5270;
-  --text-dim:      #8891aa;
-  --panel-border:  rgba(0, 0, 0, 0.07);
-  --accent:        #0055ff;
-  --accent-light:  rgba(0, 85, 255, 0.07);
-  --accent-border: rgba(0, 85, 255, 0.2);
-}
+@import "./styles/tokens.css";
 
 * {
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--body);
+  background: var(--color-bg-page);
+  color: var(--color-text-strong);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* KEYHOLE 함정 방지 — body overflow hidden 걸면 /debug 같은 페이지에서 스크롤 막힘.
-   기본은 auto로 유지. 필요 시 특정 페이지에서 fixed 컨테이너로 우회. */
 body {
   overflow-x: hidden;
 }
@@ -54,13 +35,55 @@ button {
   color: inherit;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   font-family: inherit;
   color: inherit;
 }
 
+
+/* ═══════════════════════════════════════════════════════
+   공용 keyframes
+   
+   NoticeBoard 시안에서 사용하던 nb-* 애니메이션을
+   여러 컴포넌트(AdminChatOverlay, AuthModal 등)가 참조하므로
+   globals로 이전.
+   
+   flashPulse: InviteCodeRow의 연장 성공 flash용 (이미 있던 것).
+   ═══════════════════════════════════════════════════════ */
+
 @keyframes flashPulse {
-  0% { transform: scale(1); }
-  15% { transform: scale(1.08); }
+  0%   { transform: scale(1); }
+  15%  { transform: scale(1.08); }
   100% { transform: scale(1); }
+}
+
+@keyframes nb-bookOpen {
+  0%   { clip-path: inset(0 50% 0 50% round 22px); opacity: 0.55; }
+  55%  { opacity: 1; }
+  100% { clip-path: inset(0 0 0 0 round 22px); opacity: 1; }
+}
+
+@keyframes nb-winZoom {
+  0%   { transform: scale(0.14); opacity: 0; filter: blur(7px); }
+  70%  { opacity: 1; }
+  100% { transform: scale(1); opacity: 1; filter: blur(0); }
+}
+
+@keyframes nb-pixelPop {
+  0%   { transform: scale(0.1); opacity: 0; }
+  45%  { transform: scale(1.04); }
+  70%  { transform: scale(0.98); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes nb-floaty {
+  0%, 100% { transform: rotate(-1.5deg) translateY(0); }
+  50%      { transform: rotate(-1.5deg) translateY(-6px); }
+}
+
+@keyframes nb-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.25; }
 }
