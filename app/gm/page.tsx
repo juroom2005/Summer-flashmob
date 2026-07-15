@@ -1,25 +1,18 @@
 // app/gm/page.tsx
 //
-// GM 관리 페이지 컨테이너 (v2 — 편의성 개편).
+// GM 관리 페이지 컨테이너 (v3 — InviteCodeList 훅업).
 //
-// 변경점 (v1 → v2):
-//   - 탭 3개 → 2개
-//   - [초대] 탭 = 발급 폼 + 코드 이력 (세로 배치, 연속 발급 최적화)
-//   - [유저] 탭 = UserList
-//   - 코드 이력이 폼 바로 아래에 있어 발급 즉시 확인·복사 가능
+// 변경점 (v2 → v3):
+//   - 초대 탭의 발급 이력 placeholder → 실제 InviteCodeList 컴포넌트로 교체
+//   - refreshKey 전달: InviteGenerateForm 성공 시 증가 → InviteCodeList 재조회
 //
-// refreshKey:
-//   - InviteGenerateForm에서 발급 성공 시 setInviteRefreshKey(k => k+1)
-//   - InviteCodeList가 refreshKey 변경 감지 → 재조회
-//
-// UserList는 자체적으로 재조회 관리 (삭제·GM 토글 후 자기 상태 재조회).
-//
-// 인증 가드는 app/gm/layout.tsx에서 처리 → 여기선 GM 확정 상태 전제.
+// 유저 탭은 아직 placeholder (UserList 컴포넌트 추가 예정).
 
 "use client";
 
 import { useState, type CSSProperties } from "react";
 import InviteGenerateForm from "@/components/gm/InviteGenerateForm";
+import InviteCodeList     from "@/components/gm/InviteCodeList";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
@@ -77,10 +70,7 @@ export default function GmPage() {
             <InviteGenerateForm
               onGenerated={() => setInviteRefreshKey((k) => k + 1)}
             />
-            <ListPlaceholder
-              title="발급 이력"
-              note={`InviteCodeList 컴포넌트 추가 예정 (refreshKey=${inviteRefreshKey})`}
-            />
+            <InviteCodeList refreshKey={inviteRefreshKey} />
           </div>
         )}
 
@@ -95,7 +85,7 @@ export default function GmPage() {
   );
 }
 
-/* ── 임시 placeholder ── */
+/* ── 임시 placeholder (유저 탭용) ── */
 
 function ListPlaceholder({ title, note }: { title: string; note: string }) {
   return (
@@ -155,11 +145,11 @@ const backLinkStyle: CSSProperties = {
 };
 
 const tabBarStyle: CSSProperties = {
-  maxWidth:  1080,
-  margin:    "0 auto 16px",
-  display:   "flex",
-  gap:       8,
-  flexWrap:  "wrap",
+  maxWidth: 1080,
+  margin:   "0 auto 16px",
+  display:  "flex",
+  gap:      8,
+  flexWrap: "wrap",
 };
 
 const tabButtonStyle: CSSProperties = {

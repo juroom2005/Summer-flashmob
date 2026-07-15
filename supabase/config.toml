@@ -9,3 +9,12 @@ verify_jwt = false
 
 [functions.grant-gm-role]
 verify_jwt = false
+
+[functions.extend-invite]
+verify_jwt = false
+
+[functions.delete-invite]
+verify_jwt = false
+
+[functions.preview-invite]
+verify_jwt = false

@@ -1,28 +1,20 @@
 // components/gm/InviteGenerateForm.tsx
 //
-// 초대코드 발급 폼 (v2 — 연속 발급 최적화).
+// 초대코드 발급 폼 (v3 — 이름 스키마 분리 반영).
 //
-// 변경점 (v1 → v2):
-//   - 발급 성공 시 전체 카드 교체하던 방식 제거
-//   - 대신 폼 상단에 컴팩트 배너로 "방금 발급된 코드" 표시
-//   - 폼은 자동 리셋되어 다음 대상 정보 바로 입력 가능
-//   - 배너는 다음 발급 시 갱신, X 버튼으로 수동 닫기 가능
-//   - 이전 발급 코드는 아래 InviteCodeList에서 확인·복사 (본 컴포넌트는 최근 1건만 표시)
+// 변경점 (v2 → v3):
+//   - character_name 단일 필드 → family_name(성) + given_name(이름) 두 필드로 분리
+//   - 필드 순서: 성 → 이름 (일본식 원어 순서)
+//   - 표시명 조합: `${family_name} ${given_name}` (스페이스 구분)
+//   - EF 요청 body: character_name → family_name, given_name
+//   - 사전 검증: 성·이름 각각 필수, 각각 빈 문자열 방지
 //
-// 흐름:
-//   1) 폼 필드 입력 → 발급하기
-//   2) 클라 사전 검증 → generate-invite EF 호출
-//   3) 성공: 배너에 코드 표시 + 폼 리셋 + onGenerated(code) 콜백
-//   4) onGenerated → 부모가 InviteCodeList 재조회 (refreshKey 증가)
-//
-// EF 사양 (사전 검증 규칙):
-//   - character_name: 비어있지 않음
-//   - age: 1~150 정수
-//   - gender: 'male' | 'female' | 'other'
-//   - school_name: 비어있지 않음
-//   - grade: 1~3 정수
-//   - expires_in_days: 7~30 정수 (선택, 기본 7)
-//   - invitee_note: 자유 (선택)
+// 폼 배치 (2열 grid):
+//   1행: 성 * | 이름 *
+//   2행: 나이 * | 성별 *
+//   3행: 학교명 * (span 2)
+//   4행: 학년 * | 유효기간
+//   5행: 메모 (span 2)
 
 "use client";
 
@@ -45,12 +37,15 @@ type Props = {
   onGenerated?: (code: string) => void;
 };
 
-// 배너에 표시할 최근 발급 정보 (표시명 포함 — 어느 캐릭터용이었는지 헷갈리지 않게)
-type LastIssued = GenerateInviteResponse & { character_name: string };
+type LastIssued = GenerateInviteResponse & {
+  family_name: string;
+  given_name:  string;
+};
 
 export default function InviteGenerateForm({ onGenerated }: Props) {
   // ── 폼 상태 ──
-  const [characterName,  setCharacterName]  = useState("");
+  const [familyName,     setFamilyName]     = useState("");
+  const [givenName,      setGivenName]      = useState("");
   const [age,            setAge]            = useState<string>("");
   const [gender,         setGender]         = useState<Gender | "">("");
   const [schoolName,     setSchoolName]     = useState("");
@@ -67,7 +62,8 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
   const [copied,     setCopied]     = useState(false);
 
   function resetFormFields() {
-    setCharacterName("");
+    setFamilyName("");
+    setGivenName("");
     setAge("");
     setGender("");
     setSchoolName("");
@@ -78,8 +74,8 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
   }
 
   function validate(): string | null {
-    const nameTrim = characterName.trim();
-    if (!nameTrim) return "캐릭터명을 입력하세요.";
+    if (!familyName.trim()) return "성을 입력하세요.";
+    if (!givenName.trim())  return "이름을 입력하세요.";
 
     const ageNum = parseInt(age, 10);
     if (!Number.isInteger(ageNum) || ageNum < 1 || ageNum > 150) {
@@ -90,8 +86,7 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       return "성별을 선택하세요.";
     }
 
-    const schoolTrim = schoolName.trim();
-    if (!schoolTrim) return "학교명을 입력하세요.";
+    if (!schoolName.trim()) return "학교명을 입력하세요.";
 
     const gradeNum = parseInt(grade, 10);
     if (!Number.isInteger(gradeNum) || gradeNum < 1 || gradeNum > 3) {
@@ -116,14 +111,17 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       return;
     }
 
-    const nameSnapshot = characterName.trim();  // 배너용, 리셋 전에 확보
+    // 리셋 전 스냅샷 확보 (배너 표시용)
+    const familySnap = familyName.trim();
+    const givenSnap  = givenName.trim();
 
     setLoading(true);
     try {
       const result = await callEdgeFunction<GenerateInviteResponse>(
         "generate-invite",
         {
-          character_name:   nameSnapshot,
+          family_name:      familySnap,
+          given_name:       givenSnap,
           age:              parseInt(age, 10),
           gender,
           school_name:      schoolName.trim(),
@@ -141,8 +139,11 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
         return;
       }
 
-      // 성공: 배너 갱신 + 폼 리셋 + 콜백
-      setLastIssued({ ...result.data, character_name: nameSnapshot });
+      setLastIssued({
+        ...result.data,
+        family_name: familySnap,
+        given_name:  givenSnap,
+      });
       setCopied(false);
       resetFormFields();
       onGenerated?.(result.data.code);
@@ -172,7 +173,9 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
         <div style={bannerStyle}>
           <div style={bannerLeftStyle}>
             <span style={bannerBadgeStyle}>✓ 발급 완료</span>
-            <span style={bannerTargetStyle}>{lastIssued.character_name}</span>
+            <span style={bannerTargetStyle}>
+              {lastIssued.family_name} {lastIssued.given_name}
+            </span>
           </div>
           <div style={bannerCodeStyle}>{lastIssued.code}</div>
           <div style={bannerRightStyle}>
@@ -200,13 +203,24 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
         <div style={formSubtitleStyle}>초대할 캐릭터 정보를 입력하세요.</div>
 
         <div style={fieldGridStyle}>
-          <Field label="캐릭터명 *">
+          <Field label="성 *">
             <input
               type="text"
-              value={characterName}
-              onChange={(e) => setCharacterName(e.target.value)}
+              value={familyName}
+              onChange={(e) => setFamilyName(e.target.value)}
               disabled={loading}
-              placeholder="예: 하루"
+              placeholder="예: 야마다"
+              style={inputStyle}
+            />
+          </Field>
+
+          <Field label="이름 *">
+            <input
+              type="text"
+              value={givenName}
+              onChange={(e) => setGivenName(e.target.value)}
+              disabled={loading}
+              placeholder="예: 하나코"
               style={inputStyle}
             />
           </Field>
@@ -238,6 +252,17 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
             </select>
           </Field>
 
+          <Field label="학교명 *" span={2}>
+            <input
+              type="text"
+              value={schoolName}
+              onChange={(e) => setSchoolName(e.target.value)}
+              disabled={loading}
+              placeholder="예: 여름고등학교"
+              style={inputStyle}
+            />
+          </Field>
+
           <Field label="학년 *">
             <select
               value={grade}
@@ -250,17 +275,6 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
               <option value="2">2학년</option>
               <option value="3">3학년</option>
             </select>
-          </Field>
-
-          <Field label="학교명 *" span={2}>
-            <input
-              type="text"
-              value={schoolName}
-              onChange={(e) => setSchoolName(e.target.value)}
-              disabled={loading}
-              placeholder="예: 여름중학교"
-              style={inputStyle}
-            />
           </Field>
 
           <Field label="유효기간(일)">
@@ -452,7 +466,7 @@ const bannerTargetStyle: CSSProperties = {
   overflow:      "hidden",
   textOverflow:  "ellipsis",
   whiteSpace:    "nowrap",
-  maxWidth:      140,
+  maxWidth:      180,
 };
 
 const bannerCodeStyle: CSSProperties = {
@@ -498,15 +512,15 @@ const bannerCopyStyle: CSSProperties = {
 };
 
 const bannerCloseStyle: CSSProperties = {
-  width:        28,
-  height:       28,
-  border:       "1.5px solid rgba(77,182,160,.4)",
-  borderRadius: 8,
-  background:   "rgba(255,255,255,.6)",
-  color:        "#2f8a75",
-  fontSize:     14,
-  cursor:       "pointer",
-  display:      "flex",
-  alignItems:   "center",
+  width:          28,
+  height:         28,
+  border:         "1.5px solid rgba(77,182,160,.4)",
+  borderRadius:   8,
+  background:     "rgba(255,255,255,.6)",
+  color:          "#2f8a75",
+  fontSize:       14,
+  cursor:         "pointer",
+  display:        "flex",
+  alignItems:     "center",
   justifyContent: "center",
 };

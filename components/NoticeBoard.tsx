@@ -100,7 +100,7 @@ export default function NoticeBoard({
   // ── 상태 ─────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
   const [authUser,setAuthUser]    = useState<User | null>(null);
-  const [characterName, setCharacterName] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [isGm,setIsGm] = useState(false);
   const [tab, setTab] = useState<Tab>("notice");
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -156,17 +156,31 @@ export default function NoticeBoard({
   useEffect(() => {
   let cancelled = false;
 
-  async function loadProfile(userId: string) {
-  const { data, error } = await supabase
+  async function loadProfile(userId: string, attempt = 1) {
+  const { data } = await supabase
     .from("profiles")
-    .select("character_name, is_gm")
+    .select("family_name, given_name, is_gm")
     .eq("user_id", userId)
     .maybeSingle();
 
-  console.log("[loadProfile]", { userId, data, error });   // ← 이 한 줄 추가
-
   if (cancelled) return;
-  setCharacterName(data?.character_name ?? null);
+  const shouldRetry =
+    data === null ||
+    (!data.is_gm && (!data.family_name || !data.given_name));
+
+  if (shouldRetry && attempt < 5) {
+    setTimeout(() => {
+      if (!cancelled) loadProfile(userId, attempt + 1);
+    }, 500);
+    return;
+  }
+
+  // family_name + given_name 조합해서 표시명 저장 (성 이름 순, 스페이스 구분)
+  const fullName = data && data.family_name && data.given_name
+    ? `${data.family_name} ${data.given_name}`
+    : null;
+
+  setDisplayName(fullName);
   setIsGm(data?.is_gm === true);
 }
 
@@ -177,7 +191,7 @@ export default function NoticeBoard({
     setAuthUser(u);
     if (u) loadProfile(u.id);
     else {
-      setCharacterName(null);
+      setDisplayName(null);
       setIsGm(false);
     }
   });
@@ -189,7 +203,7 @@ export default function NoticeBoard({
     setAuthUser(u);
     if (u) loadProfile(u.id);
     else {
-      setCharacterName(null);
+      setDisplayName(null);
       setIsGm(false);
     }
   });
@@ -404,7 +418,7 @@ export default function NoticeBoard({
                   boxShadow: "2px 3px 0 rgba(46,163,221,.4)",
                 }}
               >
-                {isGm ? "👑 " : ""}{characterName ?? "익명"}
+                {isGm ? "👑 " : ""}{displayName ?? "익명"}
               </div>
           
               {isGm ? (
