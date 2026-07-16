@@ -76,6 +76,7 @@ export type MyPanelProfileRow = {
   rhythm_stat:     number;   // NOT NULL DEFAULT 0
   physical_stat:   number;   // NOT NULL DEFAULT 0
   expression_stat: number;   // NOT NULL DEFAULT 0
+  mobil:           number;   // NOT NULL DEFAULT 0 (재화)
 };
 
 /**
@@ -84,17 +85,17 @@ export type MyPanelProfileRow = {
  * getCurrentProfile()과 별개로 두는 이유:
  *   - getCurrentProfile은 헤더·GM 가드 등 여러 곳에서 쓰이므로 select 컬럼을
  *     늘리면 불필요한 부하가 광범위하게 걸림.
- *   - 마이패널만 학교/학년/성별/스탯까지 필요하므로 전용 함수로 격리.
+ *   - 마이패널만 학교/학년/성별/스탯/재화까지 필요하므로 전용 함수로 격리.
  *
  * 반환 필드는 MyPanelProfileRow 참조.
  * 로그인 안 됐거나 shell 미연결이면 null.
  *
  * 주의:
  *   - profiles_select_all RLS (전체 공개) 상태에서 자기 행을 읽음.
- *     남의 스탯도 어차피 멤버란에서 공개될 정보라 정책상 문제 없음.
+ *     프로필·스탯·재화는 어차피 멤버란에 공개될 정보라 정책상 문제 없음.
  *   - family_name / given_name / school_name / grade / gender 는 등록 완료 전엔
  *     null 일 수 있음. 사용처에서 방어 처리 필요.
- *   - rhythm/physical/expression_stat 은 컬럼상 NOT NULL DEFAULT 0 이라 항상 숫자.
+ *   - rhythm/physical/expression_stat, mobil 은 컬럼상 NOT NULL DEFAULT 0 이라 항상 숫자.
  */
 export async function getMyPanelProfile(): Promise<MyPanelProfileRow | null> {
   const user = await getCurrentUser();
@@ -104,7 +105,7 @@ export async function getMyPanelProfile(): Promise<MyPanelProfileRow | null> {
     .from("profiles")
     .select(
       "id, family_name, given_name, school_name, grade, gender, " +
-      "rhythm_stat, physical_stat, expression_stat"
+      "rhythm_stat, physical_stat, expression_stat, mobil"
     )
     .eq("user_id", user.id)
     .maybeSingle<MyPanelProfileRow>();

@@ -1,68 +1,64 @@
 "use client";
 // components/noticeboard/panels/MyPanel.tsx — 마이패널 서랍
-// 닉네임 버튼 클릭 → 오른쪽에서 슬라이드로 열리는 개인 패널.
-// 학생증(배경 커스텀 + 서명 캔버스) · 유리병 파도 스탯 · 코르크보드 인벤토리 · 스탬프 달력(개인 메모)
+//
+// 로그인된 유저의 마이패널. 열릴 때마다 자체적으로 profile을 fetch.
+// 부모(NoticeBoard)는 open/onClose만 관리하고 profile 로직에서 자유로움.
+//
+// UX:
+//   - 우측 슬라이드 서랍
+//   - 뒷화면 조작 가능 (딤 오버레이 없음, pointer-events 서랍 영역만)
+//   - 닫기 = ✕ 버튼 or 헤더 닉네임 버튼 다시 클릭 (부모에서 토글)
+//
+// 학생증 커스터마이제이션:
+//   - 배경 색상 (cardColor) + 글씨 색상 (textColor) 각각 지정 가능
+//   - 서명: 팝업 큰 캔버스에서 편집, 저장 시 실제 그린 영역만 크롭
+//
+// 학생증 레이아웃:
+//   - 두상(왼쪽, 세로로 김) + 정보 컬럼(오른쪽: 이름/학교/학년성별/서명)
+//   - 하단: 스트라이프 · NO · 지갑 · 발급일
 //
 // 데이터 정책:
-//   - 학생증(성명·학교·학년·성별)과 유리병 스탯은 부모가 넘겨준 실 데이터를 사용.
-//   - 인벤토리·공용 일정은 아직 DB 스키마 없음 → props 미지정 시 DEFAULT 더미 표시.
-//     추후 별도 세션에서 스키마·EF·GM UI와 함께 실데이터로 교체.
-//   - 개인 메모·서명·카드 배경 선택(bgIdx)은 localStorage(storageKey 기준)에 저장.
-//     계정별 분리를 위해 부모는 storageKey에 profile.id를 넣어 넘기는 것을 권장.
-//
-// 스타일 원칙(핸드오프 4-3):
-//   - 본체 레이아웃은 인라인 style 유지 (마이패널은 프론트 리뉴얼 대상 밖).
-//   - keyframes와 hover 인터랙션·animation 참조는 MyPanel.module.css로 격리.
+//   - 학생증(성명·학교·학년·성별·mobil)과 유리병 스탯은 열릴 때마다 fetch.
+//   - 인벤토리·공용 일정은 아직 DB 스키마 없음 → props 미지정 시 DEFAULT 더미.
+//   - cardColor, textColor, signatureDataUrl, memos는 여전히 localStorage.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Wheel, ShadeSlider, hexToHsva, hsvaToHex, type HsvaColor } from "@uiw/react-color";
 import { JUA, GAEGU, BODY } from "../../auth/fonts";
+import { getMyPanelProfile, type MyPanelProfileRow } from "@/lib/auth-helpers";
 import styles from "./MyPanel.module.css";
 
 /* ── 타입 ─────────────────────────────────────── */
-export type MyPanelProfile = {
-  familyName:    string | null;                       // profiles.family_name (등록 완료 전엔 null)
-  givenName:     string | null;                       // profiles.given_name
-  schoolName:    string | null;                       // profiles.school_name
-  grade:         number | null;                       // profiles.grade (1~3)
-  gender:        "male" | "female" | "other" | null;  // profiles.gender
-  avatarUrl?:    string;                              // 캐릭터 두상 이미지 (미래)
-  cardImageUrl?: string;                              // 학생증 배경 사진 (미래)
+type MyPanelDisplayProfile = {
+  familyName:    string | null;
+  givenName:     string | null;
+  schoolName:    string | null;
+  grade:         number | null;
+  gender:        "male" | "female" | "other" | null;
+  mobil:         number;
+  avatarUrl?:    string;
+  cardImageUrl?: string;
 };
-export type MyPanelStat = { label: string; value: number; color: string }; // value 0~100
-export type MyPanelItem = { name: string; icon: string; qty: number; effect: string }; // 인벤토리 (미래 스키마)
-export type MyPanelEvent = { day: number; title: string; icon: string };               // 공용 일정 (미래 스키마)
+export type MyPanelStat = { label: string; value: number; color: string };
+export type MyPanelItem = { name: string; icon: string; qty: number; effect: string };
+export type MyPanelEvent = { day: number; title: string; icon: string };
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  profile: MyPanelProfile;
-  stats?: MyPanelStat[];
   items?: MyPanelItem[];
   events?: MyPanelEvent[];
-  /** 유저별 저장 키 (profile id 권장). 기본 "mypanel" */
-  storageKey?: string;
 };
 
-/* ── 팔레트 / 데모 데이터 ─────────────────────── */
-const NAVY = "#14406f";
-const PALETTES = [
-  "linear-gradient(135deg,#a5dbf7,#6fc3ee)",
-  "linear-gradient(135deg,#b9efdd,#7fd8bd)",
-  "linear-gradient(135deg,#ffe9a8,#ffd95e)",
-  "linear-gradient(135deg,#ffd7c9,#f5a988)",
-  "linear-gradient(135deg,#dcd6fb,#b3a8ef)",
-];
-const TAPE = ["rgba(205,238,255,.88)", "rgba(201,242,230,.88)", "rgba(255,243,166,.92)", "rgba(255,215,201,.88)"];
-const GENDER_LABEL: Record<NonNullable<MyPanelProfile["gender"]>, string> = { male: "남", female: "여", other: "기타" };
+type ColorTarget = "bg" | "text";
 
-// stats prop 미지정 시 폴백 (원본 시안값). 실데이터 붙일 땐 부모에서 stats 넘겨야 함.
-const DEFAULT_STATS: MyPanelStat[] = [
-  { label: "리듬감", value: 82, color: "#1a9edb" },
-  { label: "보컬", value: 64, color: "#4db6a0" },
-  { label: "체력", value: 71, color: "#e0a500" },
-  { label: "매력", value: 90, color: "#ef8f6a" },
-  { label: "팀워크", value: 58, color: "#4a7fe0" },
-];
+/* ── 상수 ─────────────────────────────────── */
+const NAVY = "#14406f";
+const DEFAULT_CARD_COLOR = "#a5dbf7";
+const DEFAULT_TEXT_COLOR = NAVY;
+const TAPE = ["rgba(205,238,255,.88)", "rgba(201,242,230,.88)", "rgba(255,243,166,.92)", "rgba(255,215,201,.88)"];
+const GENDER_LABEL: Record<"male" | "female" | "other", string> = { male: "남", female: "여", other: "기타" };
+
 // TODO(인벤토리): items 테이블 설계 후 실데이터 교체
 const DEFAULT_ITEMS: MyPanelItem[] = [
   { name: "밀짚모자", icon: "👒", qty: 1, effect: "착용하면 한여름 더위를 잊어요" },
@@ -72,7 +68,7 @@ const DEFAULT_ITEMS: MyPanelItem[] = [
   { name: "여름 필름", icon: "🎞️", qty: 5, effect: "추억 사진 1장 현상 가능" },
   { name: "시원한 사이다", icon: "🥤", qty: 2, effect: "체력 +20 즉시 회복" },
 ];
-// TODO(공용 일정): events 테이블 + GM 관리 UI 붙이면 실데이터 교체
+// TODO(공용 일정): community_events 테이블 + GM 관리 UI 붙이면 실데이터 교체
 const DEFAULT_EVENTS: MyPanelEvent[] = [
   { day: 4, title: "파트 모집 시작", icon: "📣" },
   { day: 11, title: "안무 1차 합주", icon: "🕺" },
@@ -81,90 +77,164 @@ const DEFAULT_EVENTS: MyPanelEvent[] = [
   { day: 28, title: "지원 폼 마감", icon: "⏰" },
 ];
 
-/* ── 컴포넌트 ─────────────────────────────────── */
+/* ── 유틸: 한 색상에서 학생증 배경 그라디언트 자동 생성 ── */
+function hexToHsl(hex: string): { h: number; s: number; l: number } {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0; let s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: h * 360, s: s * 100, l: l * 100 };
+}
+function hslToHex(h: number, s: number, l: number): string {
+  h /= 360; s /= 100; l /= 100;
+  const hue2rgb = (p: number, q: number, t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const r = hue2rgb(p, q, h + 1 / 3);
+  const g = hue2rgb(p, q, h);
+  const b = hue2rgb(p, q, h - 1 / 3);
+  const toHex = (x: number) => Math.round(x * 255).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+function toGradient(hex: string): string {
+  const { h, s, l } = hexToHsl(hex);
+  const lighter = hslToHex(h, s, Math.min(l + 8, 100));
+  const darker  = hslToHex(h, s, Math.max(l - 15, 0));
+  return `linear-gradient(135deg, ${lighter}, ${darker})`;
+}
+
+/* ═══════════════════════════════════════════════
+ * MyPanel 본체
+ * ═══════════════════════════════════════════════ */
 export default function MyPanel({
-  open, onClose, profile,
-  stats = DEFAULT_STATS, items = DEFAULT_ITEMS, events = DEFAULT_EVENTS,
-  storageKey = "mypanel",
+  open, onClose,
+  items = DEFAULT_ITEMS, events = DEFAULT_EVENTS,
 }: Props) {
-  const [bgIdx, setBgIdx] = useState(0);
+  /* ── profile 로드 ────────────────────────────── */
+  const [profileRow, setProfileRow] = useState<MyPanelProfileRow | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoadingProfile(true);
+    setProfileRow(null);
+    (async () => {
+      const p = await getMyPanelProfile();
+      if (cancelled) return;
+      setProfileRow(p);
+      setLoadingProfile(false);
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  /* ── 상태 ────────────────────────────────────── */
+  const [cardColor, setCardColor] = useState(DEFAULT_CARD_COLOR);
+  const [textColor, setTextColor] = useState(DEFAULT_TEXT_COLOR);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
+  const [colorPopupTarget, setColorPopupTarget] = useState<ColorTarget | null>(null);
+  const [showSignaturePopup, setShowSignaturePopup] = useState(false);
+
   const [hovItem, setHovItem] = useState(-1);
   const today = useMemo(() => new Date(), []);
   const [selDay, setSelDay] = useState(today.getDate());
   const [memos, setMemos] = useState<Record<number, string>>({});
   const [draft, setDraft] = useState("");
   const [loaded, setLoaded] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const drawing = useRef(false);
 
-  /* 파생값: 프로필 표시명 (family + given 조합, 둘 다 null이면 안내 문구) */
-  const characterName =
-    [profile.familyName, profile.givenName].filter(Boolean).join(" ") || "이름 미등록";
+  /* storageKey: profile id 기반. profile 없으면 fallback */
+  const storageKey = profileRow ? `mypanel:${profileRow.id}` : "mypanel:_pending";
 
-  /* 저장된 상태 복원 — TODO: supabase에서 profile별 로드로 교체 */
+  /* ── 저장된 상태 복원 (localStorage) — profile 로드 후 ─── */
   useEffect(() => {
+    if (!profileRow) {
+      setCardColor(DEFAULT_CARD_COLOR);
+      setTextColor(DEFAULT_TEXT_COLOR);
+      setSignatureDataUrl(null);
+      setMemos({});
+      setLoaded(false);
+      return;
+    }
     try {
       const raw = localStorage.getItem(`${storageKey}:state`);
       if (raw) {
         const s = JSON.parse(raw);
-        if (typeof s.bgIdx === "number") setBgIdx(s.bgIdx);
-        if (s.memos) setMemos(s.memos);
+        if (typeof s.cardColor === "string" && /^#[0-9a-fA-F]{6}$/.test(s.cardColor)) {
+          setCardColor(s.cardColor);
+        } else {
+          setCardColor(DEFAULT_CARD_COLOR);
+        }
+        if (typeof s.textColor === "string" && /^#[0-9a-fA-F]{6}$/.test(s.textColor)) {
+          setTextColor(s.textColor);
+        } else {
+          setTextColor(DEFAULT_TEXT_COLOR);
+        }
+        setMemos(s.memos ?? {});
+      } else {
+        setCardColor(DEFAULT_CARD_COLOR);
+        setTextColor(DEFAULT_TEXT_COLOR);
+        setMemos({});
       }
       const sig = localStorage.getItem(`${storageKey}:sig`);
-      if (sig && canvasRef.current) {
-        const img = new Image();
-        img.onload = () => canvasRef.current?.getContext("2d")?.drawImage(img, 0, 0);
-        img.src = sig;
-      }
+      setSignatureDataUrl(sig ?? null);
     } catch { /* ignore */ }
     setLoaded(true);
-  }, [storageKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileRow?.id]);
 
-  /* 상태 저장 — TODO: supabase upsert로 교체 */
+  /* ── 상태 저장 ───────────────────────────────── */
   useEffect(() => {
-    if (!loaded) return;
-    try { localStorage.setItem(`${storageKey}:state`, JSON.stringify({ bgIdx, memos })); } catch { /* ignore */ }
-  }, [bgIdx, memos, loaded, storageKey]);
+    if (!loaded || !profileRow) return;
+    try {
+      localStorage.setItem(
+        `${storageKey}:state`,
+        JSON.stringify({ cardColor, textColor, memos })
+      );
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardColor, textColor, memos, loaded, profileRow?.id]);
 
-  /* ── 서명 캔버스 ── */
-  const sigCtx = () => {
-    const el = canvasRef.current;
-    if (!el) return null;
-    const c = el.getContext("2d")!;
-    c.lineWidth = 2.2; c.lineCap = "round"; c.lineJoin = "round"; c.strokeStyle = NAVY;
-    return c;
-  };
-  const sigPos = (e: React.PointerEvent) => {
-    const el = canvasRef.current!;
-    const r = el.getBoundingClientRect();
-    return { x: (e.clientX - r.left) * el.width / r.width, y: (e.clientY - r.top) * el.height / r.height };
-  };
-  const sigDown = (e: React.PointerEvent) => {
-    const c = sigCtx(); if (!c) return;
-    try { (e.target as Element).setPointerCapture(e.pointerId); } catch { /* ignore */ }
-    const p = sigPos(e);
-    drawing.current = true;
-    c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + 0.01, p.y + 0.01); c.stroke();
-  };
-  const sigMove = (e: React.PointerEvent) => {
-    if (!drawing.current) return;
-    const c = sigCtx(); if (!c) return;
-    const p = sigPos(e); c.lineTo(p.x, p.y); c.stroke();
-  };
-  const sigUp = () => {
-    if (!drawing.current) return;
-    drawing.current = false;
-    try { localStorage.setItem(`${storageKey}:sig`, canvasRef.current!.toDataURL()); } catch { /* ignore */ }
-    // TODO: supabase — 서명 dataURL(또는 stroke 데이터) 저장
-  };
-  const sigClear = () => {
-    const el = canvasRef.current;
-    if (el) el.getContext("2d")!.clearRect(0, 0, el.width, el.height);
-    try { localStorage.removeItem(`${storageKey}:sig`); } catch { /* ignore */ }
+  /* ── 파생: 프로필 표시명·스탯 ─────────────────── */
+  const displayProfile: MyPanelDisplayProfile = profileRow ? {
+    familyName: profileRow.family_name,
+    givenName:  profileRow.given_name,
+    schoolName: profileRow.school_name,
+    grade:      profileRow.grade,
+    gender:     profileRow.gender,
+    mobil:      profileRow.mobil,
+  } : {
+    familyName: null, givenName: null, schoolName: null, grade: null, gender: null, mobil: 0,
   };
 
-  /* ── 달력 ── */
-  const year = today.getFullYear(), month = today.getMonth();
+  const characterName =
+    [displayProfile.familyName, displayProfile.givenName].filter(Boolean).join(" ") || "이름 미등록";
+
+  const stats: MyPanelStat[] = profileRow ? [
+    { label: "리듬감", value: profileRow.rhythm_stat,     color: "#1a9edb" },
+    { label: "체력",   value: profileRow.physical_stat,   color: "#e0a500" },
+    { label: "표현력", value: profileRow.expression_stat, color: "#ef8f6a" },
+  ] : [];
+
+  /* ── 달력 파생값 ─────────────────────────────── */
+  const year = today.getFullYear(); const month = today.getMonth();
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const evMap = useMemo(() => {
@@ -180,204 +250,525 @@ export default function MyPanel({
   };
   const selEv = evMap[selDay];
 
+  /* ── 인라인 스타일 프리셋 (chip은 흰 배경이라 색상 고정) ─── */
   const secTitle: React.CSSProperties = { fontFamily: JUA, fontSize: 19, color: "#0d6fa8" };
   const secHint: React.CSSProperties = { fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#2ea3dd" };
   const chip: React.CSSProperties = { fontFamily: JUA, fontSize: 11, background: "rgba(255,255,255,.85)", color: "#0d6fa8", borderRadius: 999, padding: "2px 9px" };
-  const gaeguVal: React.CSSProperties = { fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: NAVY };
+  // 그라디언트 배경 위 텍스트에 적용될 스타일 (사용자 지정 textColor 사용)
+  const cardText: React.CSSProperties = { color: textColor };
+  const gaeguVal: React.CSSProperties = { fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: textColor };
 
+  const cardGradient = toGradient(cardColor);
+
+  /* ═══ 서랍 래퍼 ═══════════════════════════════ */
   return (
-    <>
-      {/* 딤 오버레이 */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "absolute", inset: 0, background: "rgba(8,60,105,.28)", backdropFilter: "blur(2px)",
-          opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none", transition: "opacity .4s", zIndex: 35,
-        }}
-      />
-
-      {/* 서랍 */}
+    <div style={{
+      position: "absolute", top: 0, bottom: 0, right: 0, width: 470, zIndex: 40,
+      transform: open ? "translateX(0)" : "translateX(112%)",
+      transition: "transform .55s cubic-bezier(.25,.9,.3,1)",
+      pointerEvents: open ? "auto" : "none",
+    }}>
       <div style={{
-        position: "absolute", top: 0, bottom: 0, right: 0, width: 470, zIndex: 40,
-        transform: open ? "translateX(0)" : "translateX(112%)",
-        transition: "transform .55s cubic-bezier(.25,.9,.3,1)",
-      }}>
-        <div style={{
-          position: "absolute", inset: 0, background: "#fffdf4", borderLeft: "2.5px solid #2ea3dd",
-          borderRadius: "18px 0 0 18px", boxShadow: "-16px 0 40px rgba(20,58,99,.3)",
-          backgroundImage: "repeating-linear-gradient(180deg,transparent,transparent 31px,rgba(46,163,221,.08) 31px,rgba(46,163,221,.08) 32px)",
-        }} />
-        {/* 왼쪽 가장자리 마스킹테이프 */}
-        <div style={{ position: "absolute", left: -13, top: 96, width: 26, height: 62, background: "repeating-linear-gradient(45deg,#cdeeff 0 8px,#e9f8ff 8px 16px)", opacity: .92, transform: "rotate(3deg)", borderRadius: 2, boxShadow: "0 2px 5px rgba(20,58,99,.15)", zIndex: 2 }} />
-        <div style={{ position: "absolute", left: -13, top: 330, width: 26, height: 62, background: "repeating-linear-gradient(45deg,#fff3a6 0 8px,#fff9d6 8px 16px)", opacity: .92, transform: "rotate(-2deg)", borderRadius: 2, boxShadow: "0 2px 5px rgba(20,58,99,.15)", zIndex: 2 }} />
-        <button onClick={onClose} style={{ position: "absolute", top: 16, right: 18, width: 34, height: 34, borderRadius: "50%", border: "2px solid #2ea3dd", background: "#fff", color: "#0d6fa8", fontFamily: JUA, fontSize: 16, zIndex: 6 }}>✕</button>
+        position: "absolute", inset: 0, background: "#fffdf4", borderLeft: "2.5px solid #2ea3dd",
+        borderRadius: "18px 0 0 18px", boxShadow: "-16px 0 40px rgba(20,58,99,.3)",
+        backgroundImage: "repeating-linear-gradient(180deg,transparent,transparent 31px,rgba(46,163,221,.08) 31px,rgba(46,163,221,.08) 32px)",
+      }} />
+      <div style={{ position: "absolute", left: -13, top: 96, width: 26, height: 62, background: "repeating-linear-gradient(45deg,#cdeeff 0 8px,#e9f8ff 8px 16px)", opacity: .92, transform: "rotate(3deg)", borderRadius: 2, boxShadow: "0 2px 5px rgba(20,58,99,.15)", zIndex: 2 }} />
+      <div style={{ position: "absolute", left: -13, top: 330, width: 26, height: 62, background: "repeating-linear-gradient(45deg,#fff3a6 0 8px,#fff9d6 8px 16px)", opacity: .92, transform: "rotate(-2deg)", borderRadius: 2, boxShadow: "0 2px 5px rgba(20,58,99,.15)", zIndex: 2 }} />
+      <button onClick={onClose} style={{ position: "absolute", top: 16, right: 18, width: 34, height: 34, borderRadius: "50%", border: "2px solid #2ea3dd", background: "#fff", color: "#0d6fa8", fontFamily: JUA, fontSize: 16, zIndex: 6, cursor: "pointer" }}>✕</button>
 
-        <div style={{ position: "absolute", inset: 0, overflowY: "auto", padding: "20px 24px 28px", fontFamily: BODY }}>
-          <div style={{ fontFamily: JUA, fontSize: 23, color: "#0d6fa8" }}>🎒 {characterName}의 마이 패널</div>
-          <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 17, color: "#2ea3dd", marginTop: 2 }}>여름 플래시몹 학생 수첩</div>
-
-          {/* ── 학생증 ── */}
-          <div style={{ position: "relative", marginTop: 14, borderRadius: 16, overflow: "hidden", border: `2.5px solid ${NAVY}`, boxShadow: "4px 5px 0 rgba(20,58,99,.22)" }}>
-            {profile.cardImageUrl && (
-              <img src={profile.cardImageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-            )}
-            <div style={{ position: "absolute", inset: 0, background: PALETTES[bgIdx], opacity: .85, pointerEvents: "none", transition: "opacity .3s" }} />
-            <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle,rgba(255,255,255,.5) 1px,transparent 1.4px)", backgroundSize: "6px 6px", opacity: .3, pointerEvents: "none" }} />
-            <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "rgba(255,255,255,.8)", borderBottom: "1.5px dashed rgba(20,64,111,.3)" }}>
-              <span style={{ fontFamily: JUA, fontSize: 15, color: NAVY }}>학생증</span>
-              <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 13, color: "#2a5878", letterSpacing: 1 }}>STUDENT ID CARD</span>
-              <span style={{ marginLeft: "auto", fontFamily: JUA, fontSize: 10.5, background: NAVY, color: "#fff", borderRadius: 999, padding: "2px 9px" }}>여름 플래시몹 학생회</span>
-            </div>
-            <div style={{ position: "absolute", top: 44, right: 12, width: 34, height: 34, borderRadius: "50%", background: "conic-gradient(from 0deg,#ffd1e8,#d1e6ff,#d6ffe3,#fff3c9,#ffd1e8)", opacity: .85, boxShadow: "0 0 8px rgba(255,255,255,.8)", pointerEvents: "none" }} />
-            <div style={{ position: "relative", display: "flex", gap: 14, padding: "12px 14px 0" }}>
-              <div style={{ width: 112, height: 126, background: "#fff", border: "3px solid #fff", borderRadius: 10, boxShadow: "0 3px 8px rgba(20,58,99,.25)", overflow: "hidden", flex: "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {profile.avatarUrl
-                  ? <img src={profile.avatarUrl} alt="캐릭터 두상" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 7 }} />
-                  : <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 13, color: "#a4b6cc", textAlign: "center" }}>캐릭터<br />두상</span>}
-              </div>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
-                <div style={{ fontFamily: JUA, fontSize: 24, color: NAVY, lineHeight: 1.1 }}>
-                  {characterName}
-                </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={chip}>학교</span><span style={gaeguVal}>{profile.schoolName ?? "—"}</span>
-                </div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={chip}>학년</span>
-                  <span style={gaeguVal}>{profile.grade != null ? `${profile.grade}학년` : "—"}</span>
-                  <span style={{ ...chip, marginLeft: 8 }}>성별</span>
-                  <span style={gaeguVal}>{profile.gender ? GENDER_LABEL[profile.gender] : "—"}</span>
-                </div>
-              </div>
-            </div>
-            {/* 서명 */}
-            <div style={{ position: "relative", margin: "10px 14px 0", background: "rgba(255,255,255,.85)", border: "1.5px dashed rgba(20,64,111,.35)", borderRadius: 10, display: "flex", alignItems: "center", gap: 8, padding: "3px 10px" }}>
-              <span style={{ fontFamily: JUA, fontSize: 11, color: "#2a5878", flex: "none" }}>서명<br />SIGN</span>
-              <canvas
-                ref={canvasRef} width={240} height={38}
-                onPointerDown={sigDown} onPointerMove={sigMove} onPointerUp={sigUp} onPointerLeave={sigUp}
-                style={{ width: 240, height: 38, touchAction: "none", cursor: "crosshair", flex: "none" }}
-              />
-              <button onClick={sigClear} style={{ marginLeft: "auto", height: 24, padding: "0 9px", border: "1.5px solid #2ea3dd", borderRadius: 999, background: "#fff", color: "#0d6fa8", fontFamily: JUA, fontSize: 11, flex: "none" }}>지움</button>
-            </div>
-            <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 10px" }}>
-              <div style={{ width: 104, height: 20, background: `repeating-linear-gradient(90deg,${NAVY} 0 2px,transparent 2px 5px,${NAVY} 5px 6px,transparent 6px 9px)`, opacity: .85 }} />
-              <span style={{ fontFamily: JUA, fontSize: 11, color: NAVY }}>NO. 2026-0715</span>
-              <span style={{ marginLeft: "auto", fontFamily: GAEGU, fontWeight: 700, fontSize: 13, color: "#2a5878" }}>발급 2026.07.15</span>
+      <div style={{ position: "absolute", inset: 0, overflowY: "auto", padding: "20px 24px 28px", fontFamily: BODY }}>
+        {loadingProfile && !profileRow ? (
+          <div style={{ marginTop: 40, textAlign: "center", fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#0d6fa8" }}>
+            불러오는 중...
+          </div>
+        ) : !profileRow ? (
+          <div style={{ marginTop: 40, textAlign: "center", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontFamily: JUA, fontSize: 20, color: "#0d6fa8" }}>로그인이 필요해요</div>
+            <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#2a5878" }}>
+              메인 페이지에서 로그인 후 다시 열어주세요
             </div>
           </div>
-          {/* 배경 스와치 */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 9 }}>
-            <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#2a5878" }}>카드 배경</span>
-            {PALETTES.map((g, i) => (
-              <button key={i} className={styles.swatch} onClick={() => setBgIdx(i)}
-                style={{ width: 22, height: 22, borderRadius: "50%", background: g, boxShadow: `0 0 0 2.5px ${bgIdx === i ? NAVY : "rgba(20,64,111,.18)"}` }} />
-            ))}
-          </div>
+        ) : (
+          <>
+            <div style={{ fontFamily: JUA, fontSize: 23, color: "#0d6fa8" }}>🎒 {characterName}의 마이 패널</div>
+            <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 17, color: "#2ea3dd", marginTop: 2 }}>Summer-flashmob!</div>
 
-          {/* ── 스탯 : 유리병 파도 ── */}
-          <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              <span style={secTitle}>🫧 이번 여름 스탯</span>
-              <span style={secHint}>병에 마우스를 올리면 파도가 찰랑—</span>
-            </div>
-            <div style={{ display: "flex", gap: 14, justifyContent: "center", alignItems: "flex-end", marginTop: 12, background: "linear-gradient(180deg,#eaf6fe,#fff)", border: "2px solid #cdeeff", borderRadius: 14, padding: "16px 10px 12px" }}>
-              {stats.map((s) => (
-                <div key={s.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <div style={{ width: 20, height: 12, background: "#d9a05b", borderRadius: "4px 4px 0 0", boxShadow: "inset 0 -2px 0 rgba(0,0,0,.15)" }} />
-                  <div className={styles.bottle} style={{ position: "relative", width: 54, height: 108, marginTop: -4, background: "rgba(255,255,255,.6)", border: "2px solid rgba(46,163,221,.5)", borderRadius: "11px 11px 16px 16px", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${s.value}%`, backgroundColor: s.color, opacity: .78 }}>
-                      <div style={{ position: "absolute", top: -1, left: 0, right: 0, height: 6, backgroundImage: "radial-gradient(circle at 5px 0px,rgba(255,255,255,.95) 4px,transparent 4.5px)", backgroundSize: "10px 6px" }} />
-                      <div className={styles.bubbleBlink1} style={{ position: "absolute", left: 10, bottom: 12, width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,.8)" }} />
-                      <div className={styles.bubbleBlink2} style={{ position: "absolute", right: 12, bottom: 28, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.7)" }} />
+            {/* ── 학생증 ── */}
+            <div style={{ position: "relative", maxHeight:230, marginTop: 14, borderRadius: 16, overflow: "hidden", border: `2.5px solid ${NAVY}`, boxShadow: "4px 5px 0 rgba(20,58,99,.22)" }}>
+              {displayProfile.cardImageUrl && (
+                <img src={displayProfile.cardImageUrl} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+              )}
+              <div style={{ position: "absolute", inset: 0, background: cardGradient, opacity: .85, pointerEvents: "none", transition: "background .3s" }} />
+              <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle,rgba(255,255,255,.5) 1px,transparent 1.4px)", backgroundSize: "6px 6px", opacity: .3, pointerEvents: "none" }} />
+
+              {/* 상단 흰 바 — 색 고정 (배경이 흰색이라 유지) */}
+              <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "rgba(255,255,255,.8)", borderBottom: "1.5px dashed rgba(20,64,111,.3)" }}>
+                <span style={{ fontFamily: JUA, fontSize: 15, color: NAVY }}>학생증</span>
+                <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 13, color: "#2a5878", letterSpacing: 1 }}>STUDENT ID CARD</span>
+                <span style={{ marginLeft: "auto", fontFamily: JUA, fontSize: 10.5, background: NAVY, color: "#fff", borderRadius: 999, padding: "2px 9px" }}>플래시몹 운영 위원회</span>
+              </div>
+
+              <div style={{ position: "absolute", top: 44, right: 12, width: 34, height: 34, borderRadius: "50%", background: "conic-gradient(from 0deg,#ffd1e8,#d1e6ff,#d6ffe3,#fff3c9,#ffd1e8)", opacity: .85, boxShadow: "0 0 8px rgba(255,255,255,.8)", pointerEvents: "none" }} />
+
+              {/* 본문 — 두상(세로로 김) + 정보 컬럼(이름/학교/학년성별/서명) */}
+              <div style={{ position: "relative", display: "flex", gap: 14, padding: "12px 14px 5px" }}>
+                <div style={{
+                  width: 112, height: 135,
+                  background: "#fff", border: "3px solid #fff", borderRadius: 10,
+                  boxShadow: "0 3px 8px rgba(20,58,99,.25)", overflow: "hidden", flex: "none",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {displayProfile.avatarUrl
+                    ? <img src={displayProfile.avatarUrl} alt="캐릭터 두상" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 7 }} />
+                    : <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 13, color: "#a4b6cc", textAlign: "center" }}>캐릭터<br />두상</span>}
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+                  {/* 캐릭터 이름 — 사용자 지정 글씨 색 */}
+                  <div style={{ fontFamily: JUA, fontSize: 24, lineHeight: 1.1, ...cardText }}>
+                    {characterName}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={chip}>학교</span><span style={gaeguVal}>{displayProfile.schoolName ?? "—"}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={chip}>학년</span>
+                    <span style={gaeguVal}>{displayProfile.grade != null ? `${displayProfile.grade}학년` : "—"}</span>
+                    <span style={{ ...chip, marginLeft: 8 }}>성별</span>
+                    <span style={gaeguVal}>{displayProfile.gender ? GENDER_LABEL[displayProfile.gender] : "—"}</span>
+                  </div>
+
+                  {/* 서명란 — 두상 옆, 정보 아래에 컴팩트 배치 */}
+                  <div
+                    className={styles.signatureSlot}
+                    onClick={() => setShowSignaturePopup(true)}
+                    title="서명 편집"
+                    style={{ marginTop: "auto" }}
+                  >
+                    <span style={{ fontFamily: JUA, fontSize: 10, color: "#2a5878", flex: "none", lineHeight: 1.1 }}>서명<br />SIGN</span>
+                    <div className={styles.signaturePreviewWrap}>
+                      {signatureDataUrl
+                        ? <img src={signatureDataUrl} alt="서명" className={styles.signaturePreview} />
+                        : <span className={styles.signaturePlaceholder}>눌러서 서명</span>}
                     </div>
-                    <span style={{ position: "absolute", left: 0, right: 0, bottom: 7, textAlign: "center", fontFamily: JUA, fontSize: 14, color: "#fff", textShadow: "0 1px 2px rgba(8,50,90,.5)" }}>{s.value}</span>
+                    <span style={{ fontFamily: JUA, fontSize: 10, color: "#0d6fa8", flex: "none" }}>▸</span>
                   </div>
-                  <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#2a5878" }}>{s.label}</span>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          {/* ── 인벤토리 : 코르크보드 ── */}
-          <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              <span style={secTitle}>🧺 인벤토리</span>
-              <span style={secHint}>메모지에 마우스를 올리면 효과가 보여요</span>
-            </div>
-            <div style={{ marginTop: 10, background: "#f2e0bd", border: "2.5px solid #d8bd8a", borderRadius: 14, padding: "18px 12px 16px", backgroundImage: "radial-gradient(circle,rgba(160,120,60,.16) 1.5px,transparent 2px)", backgroundSize: "9px 9px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "16px 10px" }}>
-                {items.map((it, i) => (
-                  <div key={it.name} className={styles.memo}
-                    onMouseEnter={() => setHovItem(i)} onMouseLeave={() => setHovItem(-1)}
-                    style={{ position: "relative", background: "#fff", borderRadius: 3, boxShadow: "0 4px 9px rgba(90,60,20,.28)", padding: "14px 6px 9px", textAlign: "center", transform: `rotate(${(i % 2 ? 1 : -1) * (1 + (i % 3)) * 1.3}deg)`, cursor: "help" }}>
-                    <div style={{ position: "absolute", top: -7, left: "50%", width: 46, height: 15, marginLeft: -23, background: TAPE[i % 4], transform: "rotate(-3deg)", boxShadow: "0 1px 3px rgba(90,60,20,.25)" }} />
-                    {/* 아이콘 자리 — 제작한 아이템 아이콘 이미지로 교체 예정 */}
-                    <div style={{ fontSize: 26, lineHeight: 1 }}>{it.icon}</div>
-                    <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 14, color: "#2a5878", marginTop: 4 }}>{it.name}</div>
-                    <div style={{ position: "absolute", right: -6, bottom: -6, minWidth: 22, height: 22, borderRadius: "50%", background: "#ffef3e", border: "2px solid #e2d15a", fontFamily: JUA, fontSize: 11, color: "#7a6a12", display: "flex", alignItems: "center", justifyContent: "center" }}>x{it.qty}</div>
-                    {hovItem === i && (
-                      <div className={styles.tooltipPop} style={{ position: "absolute", left: "50%", bottom: -42, width: 154, marginLeft: -77, background: NAVY, color: "#fff", fontFamily: GAEGU, fontWeight: 700, fontSize: 14, lineHeight: 1.3, padding: "6px 9px", borderRadius: 9, zIndex: 30, boxShadow: "0 8px 18px rgba(8,50,90,.35)", pointerEvents: "none" }}>{it.effect}</div>
-                    )}
-                  </div>
-                ))}
+              {/* 스트라이프 · NO · 지갑 · 발급일 — 그라디언트 배경 위, 사용자 지정 글씨 색 */}
+              <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10, padding: "8px 14px 10px", borderTop: "1.5px dashed rgba(20,64,111,.2)" }}>
+                <div style={{ width: 80, height: 20, background: `repeating-linear-gradient(90deg,${textColor} 0 2px,transparent 2px 5px,${textColor} 5px 6px,transparent 6px 9px)`, opacity: .85 }} />
+                <span style={{ fontFamily: JUA, fontSize: 11, ...cardText }}>NO. 2026-0715</span>
+                <span style={{ fontFamily: JUA, fontSize: 12, background: "#ffef3e", color: "#7a6a12", borderRadius: 999, padding: "2px 10px", border: "1.5px solid #e2d15a" }}>
+                  🪙 {displayProfile.mobil}
+                </span>
+                <span style={{ marginLeft: "auto", fontFamily: GAEGU, fontWeight: 700, fontSize: 13, ...cardText }}>발급 2026.07.15</span>
               </div>
             </div>
-          </div>
 
-          {/* ── 달력 : 스탬프 달력 + 개인 메모 ── */}
-          <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              <span style={secTitle}>📅 나의 {month + 1}월</span>
-              <span style={secHint}>날짜를 눌러 나만의 메모를 남겨요</span>
-            </div>
-            <div style={{ marginTop: 10, background: "#fff", border: "2px solid #cdeeff", borderRadius: 14, padding: "12px 10px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, textAlign: "center", fontFamily: JUA, fontSize: 11, color: "#7fb3d4" }}>
-                <span style={{ color: "#e2695f" }}>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span style={{ color: "#2ea3dd" }}>토</span>
+            {/* 카드 배경·글씨 색상 트리거 (두 세트) */}
+            <div className={styles.colorTrigger}>
+              <div className={styles.colorTriggerItem}>
+                <span className={styles.colorTriggerLabel}>배경</span>
+                <div
+                  className={styles.colorPreview}
+                  style={{ background: cardGradient }}
+                  onClick={() => setColorPopupTarget("bg")}
+                  title="배경색 편집"
+                />
+                <button className={styles.colorEditButton} onClick={() => setColorPopupTarget("bg")}>편집</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginTop: 4 }}>
-                {Array.from({ length: firstDow }).map((_, i) => <div key={`b${i}`} />)}
-                {Array.from({ length: daysInMonth }).map((_, i) => {
-                  const d = i + 1;
-                  const ev = evMap[d];
-                  const isSel = selDay === d;
-                  const isToday = d === today.getDate();
+              <div className={styles.colorTriggerItem}>
+                <span className={styles.colorTriggerLabel}>글씨</span>
+                <div
+                  className={styles.colorPreview}
+                  style={{ background: textColor }}
+                  onClick={() => setColorPopupTarget("text")}
+                  title="글씨색 편집"
+                />
+                <button className={styles.colorEditButton} onClick={() => setColorPopupTarget("text")}>편집</button>
+              </div>
+            </div>
+
+            {/* ── 스탯 : 유리병 파도 ── */}
+            <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={secTitle}>🫧 이번 여름 스탯</span>
+                <span style={secHint}>병에 마우스를 올리면 파도가 찰랑—</span>
+              </div>
+              <div style={{ display: "flex", gap: 14, justifyContent: "center", alignItems: "flex-end", marginTop: 12, background: "linear-gradient(180deg,#eaf6fe,#fff)", border: "2px solid #cdeeff", borderRadius: 14, padding: "16px 10px 12px" }}>
+                {stats.map((s) => {
+                  const isEmpty = s.value <= 0;
+                  const isFull = s.value >= 100;
+                  const bottleClass = [styles.bottle, isFull ? styles.fullBottle : ""].filter(Boolean).join(" ");
                   return (
-                    <div key={d} className={styles.day} onClick={() => setSelDay(d)}
-                      style={{
-                        position: "relative", height: 37, borderRadius: 9, display: "flex", flexDirection: "column",
-                        alignItems: "center", justifyContent: "center", cursor: "pointer",
-                        backgroundColor: isSel ? "#ffef3e" : ev ? "#cdeeff" : "transparent",
-                        border: isToday ? "2px solid #2ea3dd" : "2px solid transparent",
-                      }}>
-                      <span style={{ fontFamily: JUA, fontSize: 13, color: isSel ? NAVY : "#2a5878", lineHeight: 1.1 }}>{d}</span>
-                      {ev && <span style={{ fontSize: 9, lineHeight: 1, color: "#e0721f", fontFamily: JUA }}>♪</span>}
+                    <div key={s.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 20, height: 12, background: "#d9a05b", borderRadius: "4px 4px 0 0", boxShadow: "inset 0 -2px 0 rgba(0,0,0,.15)" }} />
+                      <div className={bottleClass} style={{ position: "relative", width: 54, height: 108, marginTop: -4, background: "rgba(255,255,255,.6)", border: "2px solid rgba(46,163,221,.5)", borderRadius: "11px 11px 16px 16px", overflow: "hidden" }}>
+                        {!isEmpty && (
+                          <div
+                            className={isFull ? styles.rainbowFill : undefined}
+                            style={{
+                              position: "absolute", left: 0, right: 0, bottom: 0,
+                              height: `${Math.min(s.value, 100)}%`,
+                              backgroundColor: isFull ? undefined : s.color,
+                              opacity: .78,
+                            }}
+                          >
+                            <div style={{ position: "absolute", top: -1, left: 0, right: 0, height: 6, backgroundImage: "radial-gradient(circle at 5px 0px,rgba(255,255,255,.95) 4px,transparent 4.5px)", backgroundSize: "10px 6px" }} />
+                            <div className={styles.bubbleBlink1} style={{ position: "absolute", left: 10, bottom: 12, width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,.8)" }} />
+                            <div className={styles.bubbleBlink2} style={{ position: "absolute", right: 12, bottom: 28, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.7)" }} />
+                          </div>
+                        )}
+                        <span style={{
+                          position: "absolute", left: 0, right: 0, bottom: 7, textAlign: "center",
+                          fontFamily: JUA, fontSize: 14,
+                          color: isEmpty ? "#c8dae8" : "#fff",
+                          textShadow: isEmpty ? "none" : "0 1px 2px rgba(8,50,90,.5)",
+                        }}>{s.value}</span>
+                      </div>
+                      <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#2a5878" }}>{s.label}</span>
                     </div>
                   );
                 })}
               </div>
             </div>
-            <div style={{ marginTop: 10, background: "#e8f7ff", border: "2px solid #a8dcf5", borderRadius: 12, padding: "11px 14px" }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                <span style={{ fontFamily: JUA, fontSize: 16, color: "#0d6fa8" }}>{month + 1}월 {selDay}일</span>
-                <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#2a5878" }}>{selEv ? `${selEv.icon} ${selEv.title}` : "🌤️ 등록된 일정 없음"}</span>
+
+            {/* ── 인벤토리 : 코르크보드 ── */}
+            <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={secTitle}>🧺 인벤토리</span>
+                <span style={secHint}>메모지에 마우스를 올리면 효과가 보여요</span>
               </div>
-              {memos[selDay] && (
-                <div style={{ marginTop: 7, fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#1e7d6a", background: "#fff", borderRadius: 8, padding: "5px 10px" }}>✏️ {memos[selDay]}</div>
-              )}
-              <div style={{ display: "flex", gap: 7, marginTop: 8 }}>
-                <input
-                  value={draft} onChange={(e) => setDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") saveMemo(); }}
-                  placeholder="이 날의 메모..."
-                  style={{ flex: 1, height: 34, border: "2px solid #bfe4f7", borderRadius: 9, padding: "0 11px", fontFamily: BODY, fontSize: 13, color: "#1e4b6e", outline: "none", background: "#fff", minWidth: 0 }}
-                />
-                <button onClick={saveMemo} style={{ height: 34, padding: "0 14px", borderRadius: 9, background: "#1a9edb", color: "#fff", fontFamily: JUA, fontSize: 13, boxShadow: "0 3px 0 #0d6fa8", flex: "none" }}>저장</button>
+              <div style={{ marginTop: 10, background: "#f2e0bd", border: "2.5px solid #d8bd8a", borderRadius: 14, padding: "18px 12px 16px", backgroundImage: "radial-gradient(circle,rgba(160,120,60,.16) 1.5px,transparent 2px)", backgroundSize: "9px 9px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "16px 10px" }}>
+                  {items.map((it, i) => (
+                    <div key={it.name} className={styles.memo}
+                      onMouseEnter={() => setHovItem(i)} onMouseLeave={() => setHovItem(-1)}
+                      style={{ position: "relative", background: "#fff", borderRadius: 3, boxShadow: "0 4px 9px rgba(90,60,20,.28)", padding: "14px 6px 9px", textAlign: "center", transform: `rotate(${(i % 2 ? 1 : -1) * (1 + (i % 3)) * 1.3}deg)`, cursor: "help" }}>
+                      <div style={{ position: "absolute", top: -7, left: "50%", width: 46, height: 15, marginLeft: -23, background: TAPE[i % 4], transform: "rotate(-3deg)", boxShadow: "0 1px 3px rgba(90,60,20,.25)" }} />
+                      <div style={{ fontSize: 26, lineHeight: 1 }}>{it.icon}</div>
+                      <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 14, color: "#2a5878", marginTop: 4 }}>{it.name}</div>
+                      <div style={{ position: "absolute", right: -6, bottom: -6, minWidth: 22, height: 22, borderRadius: "50%", background: "#ffef3e", border: "2px solid #e2d15a", fontFamily: JUA, fontSize: 11, color: "#7a6a12", display: "flex", alignItems: "center", justifyContent: "center" }}>x{it.qty}</div>
+                      {hovItem === i && (
+                        <div className={styles.tooltipPop} style={{ position: "absolute", left: "50%", bottom: -42, width: 154, marginLeft: -77, background: NAVY, color: "#fff", fontFamily: GAEGU, fontWeight: 700, fontSize: 14, lineHeight: 1.3, padding: "6px 9px", borderRadius: 9, zIndex: 30, boxShadow: "0 8px 18px rgba(8,50,90,.35)", pointerEvents: "none" }}>{it.effect}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+
+            {/* ── 달력 ── */}
+            <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={secTitle}>📅 나의 {month + 1}월</span>
+                <span style={secHint}>날짜를 눌러 나만의 메모를 남겨요</span>
+              </div>
+              <div style={{ marginTop: 10, background: "#fff", border: "2px solid #cdeeff", borderRadius: 14, padding: "12px 10px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, textAlign: "center", fontFamily: JUA, fontSize: 11, color: "#7fb3d4" }}>
+                  <span style={{ color: "#e2695f" }}>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span style={{ color: "#2ea3dd" }}>토</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginTop: 4 }}>
+                  {Array.from({ length: firstDow }).map((_, i) => <div key={`b${i}`} />)}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const d = i + 1;
+                    const ev = evMap[d];
+                    const isSel = selDay === d;
+                    const isToday = d === today.getDate();
+                    return (
+                      <div key={d} className={styles.day} onClick={() => setSelDay(d)}
+                        style={{
+                          position: "relative", height: 37, borderRadius: 9, display: "flex", flexDirection: "column",
+                          alignItems: "center", justifyContent: "center", cursor: "pointer",
+                          backgroundColor: isSel ? "#ffef3e" : ev ? "#cdeeff" : "transparent",
+                          border: isToday ? "2px solid #2ea3dd" : "2px solid transparent",
+                        }}>
+                        <span style={{ fontFamily: JUA, fontSize: 13, color: isSel ? NAVY : "#2a5878", lineHeight: 1.1 }}>{d}</span>
+                        {ev && <span style={{ fontSize: 9, lineHeight: 1, color: "#e0721f", fontFamily: JUA }}>♪</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ marginTop: 10, background: "#e8f7ff", border: "2px solid #a8dcf5", borderRadius: 12, padding: "11px 14px" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                  <span style={{ fontFamily: JUA, fontSize: 16, color: "#0d6fa8" }}>{month + 1}월 {selDay}일</span>
+                  <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#2a5878" }}>{selEv ? `${selEv.icon} ${selEv.title}` : "🌤️ 등록된 일정 없음"}</span>
+                </div>
+                {memos[selDay] && (
+                  <div style={{ marginTop: 7, fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#1e7d6a", background: "#fff", borderRadius: 8, padding: "5px 10px" }}>✏️ {memos[selDay]}</div>
+                )}
+                <div style={{ display: "flex", gap: 7, marginTop: 8 }}>
+                  <input
+                    value={draft} onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveMemo(); }}
+                    placeholder="이 날의 메모..."
+                    style={{ flex: 1, height: 34, border: "2px solid #bfe4f7", borderRadius: 9, padding: "0 11px", fontFamily: BODY, fontSize: 13, color: "#1e4b6e", outline: "none", background: "#fff", minWidth: 0 }}
+                  />
+                  <button onClick={saveMemo} style={{ height: 34, padding: "0 14px", borderRadius: 9, background: "#1a9edb", color: "#fff", fontFamily: JUA, fontSize: 13, boxShadow: "0 3px 0 #0d6fa8", flex: "none", cursor: "pointer", border: 0 }}>저장</button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── 팝업: 색상 픽커 (배경 or 글씨) ── */}
+      {profileRow && colorPopupTarget !== null && (
+        <ColorPickerPopup
+          key={colorPopupTarget}
+          title={colorPopupTarget === "bg" ? "학생증 배경색" : "학생증 글씨색"}
+          initialColor={colorPopupTarget === "bg" ? cardColor : textColor}
+          onLivePreview={(hex) => {
+            if (colorPopupTarget === "bg") setCardColor(hex);
+            else setTextColor(hex);
+          }}
+          onConfirm={() => setColorPopupTarget(null)}
+          onCancel={(origHex) => {
+            if (colorPopupTarget === "bg") setCardColor(origHex);
+            else setTextColor(origHex);
+            setColorPopupTarget(null);
+          }}
+        />
+      )}
+
+      {/* ── 팝업: 서명 ── */}
+      {profileRow && showSignaturePopup && (
+        <SignaturePopup
+          initialDataUrl={signatureDataUrl}
+          onSave={(dataUrl) => {
+            setSignatureDataUrl(dataUrl);
+            try {
+              if (dataUrl) localStorage.setItem(`${storageKey}:sig`, dataUrl);
+              else localStorage.removeItem(`${storageKey}:sig`);
+            } catch { /* ignore */ }
+            setShowSignaturePopup(false);
+          }}
+          onCancel={() => setShowSignaturePopup(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+ * ColorPickerPopup — 원형 색상환 + 명도 + HEX 입력
+ * 재사용: 배경색·글씨색 편집 둘 다 이 컴포넌트로 처리 (title/initialColor만 다르게)
+ * ═══════════════════════════════════════════════ */
+function ColorPickerPopup({
+  title,
+  initialColor,
+  onLivePreview,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  initialColor: string;
+  onLivePreview: (hex: string) => void;
+  onConfirm: () => void;
+  onCancel: (origHex: string) => void;
+}) {
+  const origColorRef = useRef(initialColor);
+  const [hsva, setHsva] = useState<HsvaColor>(hexToHsva(initialColor));
+  const [hexInput, setHexInput] = useState(initialColor.toUpperCase());
+
+  const applyHsva = (next: HsvaColor) => {
+    setHsva(next);
+    const hex = hsvaToHex(next);
+    setHexInput(hex.toUpperCase());
+    onLivePreview(hex);
+  };
+
+  const applyHexInput = (raw: string) => {
+    setHexInput(raw.toUpperCase());
+    const trimmed = raw.trim();
+    const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+    if (/^#[0-9a-fA-F]{6}$/.test(withHash)) {
+      setHsva(hexToHsva(withHash));
+      onLivePreview(withHash);
+    }
+  };
+
+  return (
+    <div className={styles.popupDim} onClick={() => onCancel(origColorRef.current)}>
+      <div className={styles.popupBox} onClick={(e) => e.stopPropagation()} style={{ width: 300 }}>
+        <div className={styles.popupTitle}>{title}</div>
+
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Wheel color={hsva} onChange={(c) => applyHsva(c.hsva)} width={180} height={180} />
+        </div>
+
+        <ShadeSlider
+          hsva={hsva}
+          onChange={(newShade) => applyHsva({ ...hsva, ...newShade })}
+          style={{ marginTop: 2 }}
+        />
+
+        <div className={styles.hexInputRow}>
+          <span className={styles.hexLabel}>HEX</span>
+          <input
+            className={styles.hexInput}
+            value={hexInput}
+            onChange={(e) => applyHexInput(e.target.value)}
+            maxLength={7}
+            placeholder="#A5DBF7"
+          />
+        </div>
+
+        <div className={styles.popupActions}>
+          <button className={styles.popupCancelButton} onClick={() => onCancel(origColorRef.current)}>취소</button>
+          <button className={styles.popupButton} onClick={onConfirm}>저장</button>
         </div>
       </div>
-    </>
+    </div>
   );
+}
+
+/* ═══════════════════════════════════════════════
+ * SignaturePopup — 큰 캔버스에서 서명 편집
+ * 저장 시: 실제 그린 영역(bbox)만 크롭해서 dataURL 생성 → 서명란에 딱 맞게 표시.
+ * ═══════════════════════════════════════════════ */
+function SignaturePopup({
+  initialDataUrl,
+  onSave,
+  onCancel,
+}: {
+  initialDataUrl: string | null;
+  onSave: (dataUrl: string | null) => void;
+  onCancel: () => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawing = useRef(false);
+  const [dirty, setDirty] = useState(false);
+
+  /* 팝업 열 때 기존 서명을 캔버스 중앙에 그리기 */
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el || !initialDataUrl) return;
+    const img = new Image();
+    img.onload = () => {
+      const ctx = el.getContext("2d");
+      if (!ctx) return;
+      const cW = el.width, cH = el.height;
+      const iW = img.width, iH = img.height;
+      const scale = Math.min(cW / iW, cH / iH);
+      const dW = iW * scale, dH = iH * scale;
+      const dx = (cW - dW) / 2, dy = (cH - dH) / 2;
+      ctx.drawImage(img, dx, dy, dW, dH);
+    };
+    img.src = initialDataUrl;
+  }, [initialDataUrl]);
+
+  const ctx = () => {
+    const el = canvasRef.current;
+    if (!el) return null;
+    const c = el.getContext("2d")!;
+    c.lineWidth = 2.4; c.lineCap = "round"; c.lineJoin = "round"; c.strokeStyle = "#14406f";
+    return c;
+  };
+  const pos = (e: React.PointerEvent) => {
+    const el = canvasRef.current!;
+    const r = el.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * el.width / r.width, y: (e.clientY - r.top) * el.height / r.height };
+  };
+  const down = (e: React.PointerEvent) => {
+    const c = ctx(); if (!c) return;
+    try { (e.target as Element).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    const p = pos(e);
+    drawing.current = true;
+    c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x + 0.01, p.y + 0.01); c.stroke();
+    setDirty(true);
+  };
+  const move = (e: React.PointerEvent) => {
+    if (!drawing.current) return;
+    const c = ctx(); if (!c) return;
+    const p = pos(e); c.lineTo(p.x, p.y); c.stroke();
+  };
+  const up = () => { drawing.current = false; };
+  const clear = () => {
+    const el = canvasRef.current;
+    if (!el) return;
+    el.getContext("2d")!.clearRect(0, 0, el.width, el.height);
+    setDirty(true);
+  };
+
+  const save = () => {
+    const el = canvasRef.current;
+    if (!el) { onSave(null); return; }
+    const cropped = cropToBounds(el, 8);
+    onSave(cropped);
+  };
+
+  return (
+    <div className={styles.popupDim} onClick={onCancel}>
+      <div className={styles.popupBox} onClick={(e) => e.stopPropagation()} style={{ width: 360 }}>
+        <div className={styles.popupTitle}>서명</div>
+
+        <div style={{
+          background: "#fff", border: "1.5px dashed rgba(20,64,111,.35)", borderRadius: 10,
+          padding: 6, display: "flex", justifyContent: "center",
+        }}>
+          <canvas
+            ref={canvasRef}
+            width={320}
+            height={140}
+            onPointerDown={down}
+            onPointerMove={move}
+            onPointerUp={up}
+            onPointerLeave={up}
+            style={{ width: 320, height: 140, touchAction: "none", cursor: "crosshair" }}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button className={styles.popupGhostButton} onClick={clear}>지움</button>
+          <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 13, color: "#7fb3d4", marginLeft: 4 }}>
+            {dirty ? "변경사항 있음" : "서명하기"}
+          </span>
+        </div>
+
+        <div className={styles.popupActions}>
+          <button className={styles.popupCancelButton} onClick={onCancel}>취소</button>
+          <button className={styles.popupButton} onClick={save}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════
+ * 유틸: 캔버스에서 실제 그려진 영역만 크롭
+ * ═══════════════════════════════════════════════ */
+function cropToBounds(source: HTMLCanvasElement, padding: number): string | null {
+  const ctx = source.getContext("2d");
+  if (!ctx) return null;
+  const { data, width, height } = ctx.getImageData(0, 0, source.width, source.height);
+  let minX = width, minY = height, maxX = -1, maxY = -1;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const alpha = data[(y * width + x) * 4 + 3];
+      if (alpha > 0) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return null;
+
+  const bw = maxX - minX + 1;
+  const bh = maxY - minY + 1;
+  const outW = bw + padding * 2;
+  const outH = bh + padding * 2;
+
+  const out = document.createElement("canvas");
+  out.width = outW;
+  out.height = outH;
+  const outCtx = out.getContext("2d");
+  if (!outCtx) return null;
+  outCtx.drawImage(source, minX, minY, bw, bh, padding, padding, bw, bh);
+  return out.toDataURL("image/png");
 }

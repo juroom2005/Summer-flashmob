@@ -6,6 +6,7 @@
 //   - user:        Supabase User | null (auth.users)
 //   - displayName: string | null (family_name + " " + given_name, 또는 null)
 //   - isGm:        boolean
+//   - mobil:       number (profiles.mobil, 재화. 로그인 안 됐거나 shell 미연결이면 0)
 //   - loading:     초기 조회 or 세션 변경 중 재조회 상태
 //
 // 특징:
@@ -15,12 +16,15 @@
 //   3) unmount·세션 변경 시 cancelled 플래그로 stale 콜백 안전 취소
 //
 // 사용처:
-//   - NoticeBoard 헤더 (displayName·isGm 표시)
-//   - 향후 여러 페이지에서 auth 상태 필요 시 공용
+//   - NoticeBoard 헤더 (displayName·isGm·mobil 표시, MyPanel 트리거)
 //
 // 주의:
 //   각 컴포넌트에서 이 훅을 호출하면 그 컴포넌트별로 독립 구독 발생.
 //   앱 전체에서 하나만 유지하고 싶어지면 나중에 Context로 감싸기.
+//
+//   mobil은 헤더 표시용 캐시. MyPanel은 열릴 때마다 getMyPanelProfile로 별도 fetch
+//   하므로 헤더 mobil과 MyPanel mobil이 잠시 불일치할 수 있음. 실서비스 진입 후
+//   재화 CRUD가 붙으면 이 훅을 Context로 승격 + refetch 트리거 붙일 예정.
 
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -30,6 +34,7 @@ export type CurrentUserState = {
   user:        User | null;
   displayName: string | null;
   isGm:        boolean;
+  mobil:       number;
   loading:     boolean;
 };
 
@@ -40,6 +45,7 @@ export function useCurrentUser(): CurrentUserState {
   const [user,        setUser]        = useState<User | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [isGm,        setIsGm]        = useState(false);
+  const [mobil,       setMobil]       = useState(0);
   const [loading,     setLoading]     = useState(true);
 
   useEffect(() => {
@@ -48,7 +54,7 @@ export function useCurrentUser(): CurrentUserState {
     async function loadProfile(userId: string, attempt = 1) {
       const { data } = await supabase
         .from("profiles")
-        .select("family_name, given_name, is_gm")
+        .select("family_name, given_name, is_gm, mobil")
         .eq("user_id", userId)
         .maybeSingle();
 
@@ -76,6 +82,7 @@ export function useCurrentUser(): CurrentUserState {
 
       setDisplayName(fullName);
       setIsGm(data?.is_gm === true);
+      setMobil(typeof data?.mobil === "number" ? data.mobil : 0);
       setLoading(false);
     }
 
@@ -89,6 +96,7 @@ export function useCurrentUser(): CurrentUserState {
       } else {
         setDisplayName(null);
         setIsGm(false);
+        setMobil(0);
         setLoading(false);
       }
     });
@@ -104,6 +112,7 @@ export function useCurrentUser(): CurrentUserState {
       } else {
         setDisplayName(null);
         setIsGm(false);
+        setMobil(0);
         setLoading(false);
       }
     });
@@ -114,5 +123,5 @@ export function useCurrentUser(): CurrentUserState {
     };
   }, []);
 
-  return { user, displayName, isGm, loading };
+  return { user, displayName, isGm, mobil, loading };
 }

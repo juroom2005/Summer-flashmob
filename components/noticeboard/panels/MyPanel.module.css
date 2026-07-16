@@ -1,15 +1,13 @@
 /* components/noticeboard/panels/MyPanel.module.css
  *
- * 이 파일이 담는 것:
- *   1) keyframes 3개 (slosh, blink, pop) — CSS Modules 스코프에 로컬 정의
- *   2) hover 인터랙션 클래스 4개 (bottle, memo, day, swatch)
- *   3) animation 참조 클래스 3개 (bubbleBlink1, bubbleBlink2, tooltipPop)
- *      → 원본에서 인라인 style의 animation 문자열로 참조되던 것을 클래스로 격리.
+ * 담는 것:
+ *   1) keyframes — 스코프 로컬 정의
+ *   2) hover 인터랙션 클래스
+ *   3) 인라인 style에서 참조되는 animation 클래스
+ *   4) 팝업 오버레이 (색상 픽커, 서명) 공용 스타일
+ *   5) 유리병 특수 상태 (value=100 무지개)
  *
- * 이 파일이 담지 않는 것:
- *   - 본체 레이아웃/색상은 여전히 MyPanel.tsx의 인라인 style에 있음.
- *     핸드오프상 마이패널은 프론트 리뉴얼 대상 밖이므로 이 상태를 유지.
- *   - 규칙(핸드오프 4-3)에 따라 클래스명은 camelCase.
+ * 규칙(핸드오프 4-3): 클래스명 camelCase
  */
 
 /* ── keyframes ─────────────────────────────────── */
@@ -29,6 +27,19 @@
   45%  { transform: scale(1.04); }
   70%  { transform: scale(.98); }
   100% { transform: scale(1);   opacity: 1; }
+}
+
+/* 무지개 액체 흐름 (value=100) */
+@keyframes rainbowFlow {
+  0%   { background-position:   0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+/* 지속 slosh (value=100 병 지속 흔들림) */
+@keyframes autoSlosh {
+  0%, 100% { transform: rotate(0); }
+  35%      { transform: rotate(-3deg); }
+  70%      { transform: rotate(2deg); }
 }
 
 /* ── hover 인터랙션 ─────────────────────────────── */
@@ -59,7 +70,6 @@
 }
 
 /* ── animation 참조 클래스 ──────────────────────── */
-/* 유리병 안 물방울 반짝임 — 두 물방울이 duration/delay가 달라 클래스 2개로 분리 */
 .bubbleBlink1 {
   animation: blink 2.2s infinite;
 }
@@ -67,7 +77,212 @@
   animation: blink 3.1s .6s infinite;
 }
 
-/* 인벤토리 아이템 hover 툴팁 등장 */
 .tooltipPop {
   animation: pop .22s both;
+}
+
+/* ── 유리병 특수 상태 (value=100) ─────────────── */
+.rainbowFill {
+  background: linear-gradient(
+    90deg,
+    #ff6b6b, #ffd93d, #6bcf7f, #4d9de0, #b298dc, #ff6b6b
+  );
+  background-size: 200% 100%;
+  animation: rainbowFlow 3s linear infinite;
+}
+
+.fullBottle {
+  animation: autoSlosh 2.4s ease-in-out infinite;
+}
+
+/* ── 팝업 오버레이 (색상 픽커 / 서명) ─────────── */
+.popupDim {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 60, 105, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: pop .18s ease-out both;
+  padding: 20px;
+}
+
+.popupBox {
+  background: #fffdf4;
+  border: 2.5px solid #2ea3dd;
+  border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(8, 50, 90, 0.35);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 100%;
+}
+
+.popupTitle {
+  font-family: "Jua", sans-serif;
+  font-size: 17px;
+  color: #0d6fa8;
+  text-align: center;
+}
+
+.popupActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.popupButton {
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #1a9edb;
+  color: #fff;
+  font-family: "Jua", sans-serif;
+  font-size: 13px;
+  box-shadow: 0 3px 0 #0d6fa8;
+  cursor: pointer;
+}
+
+.popupCancelButton {
+  height: 34px;
+  padding: 0 14px;
+  border: 2px solid #a8dcf5;
+  border-radius: 999px;
+  background: #fff;
+  color: #2a5878;
+  font-family: "Jua", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.popupGhostButton {
+  height: 30px;
+  padding: 0 12px;
+  border: 1.5px solid #cdeeff;
+  border-radius: 999px;
+  background: #fff;
+  color: #2a5878;
+  font-family: "Jua", sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ── 색상 픽커 트리거들 (배경·글씨 두 세트) ─── */
+.colorTrigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 9px;
+  flex-wrap: wrap;
+}
+
+.colorTriggerItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.colorTriggerLabel {
+  font-family: "Gaegu", cursive;
+  font-weight: 700;
+  font-size: 14px;
+  color: #2a5878;
+}
+
+.colorPreview {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(20, 64, 111, 0.35);
+  cursor: pointer;
+  transition: transform .12s;
+}
+.colorPreview:hover {
+  transform: scale(1.1);
+}
+
+.colorEditButton {
+  height: 26px;
+  padding: 0 10px;
+  border: 2px solid #cdeeff;
+  border-radius: 999px;
+  background: #fff;
+  color: #0d6fa8;
+  font-family: "Jua", sans-serif;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.hexInputRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hexInput {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  border: 2px solid #bfe4f7;
+  border-radius: 8px;
+  background: #fff;
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 13px;
+  color: #1e4b6e;
+  outline: none;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hexLabel {
+  font-family: "Jua", sans-serif;
+  font-size: 12px;
+  color: #2a5878;
+}
+
+/* ── 서명란 (정보 컬럼 안 컴팩트 배치) ────────── */
+.signatureSlot {
+  position: relative;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px dashed rgba(20, 64, 111, 0.35);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  min-height: 40px;
+  transition: background .16s;
+}
+.signatureSlot:hover {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+/* 서명 이미지가 크롭된 형태로 오므로, 종횡비 유지하며 슬롯 중앙에 표시. */
+.signaturePreviewWrap {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signaturePreview {
+  max-height: 32px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.signaturePlaceholder {
+  font-family: "Gaegu", cursive;
+  font-weight: 700;
+  font-size: 12px;
+  color: #7fb3d4;
+  white-space: nowrap;
 }

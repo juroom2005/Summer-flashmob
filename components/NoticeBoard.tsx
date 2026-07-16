@@ -9,15 +9,13 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ChangeEvent,
 } from "react";
 
-import { supabase } from "@/lib/supabase";
 import AdminChatOverlay from "./admin-chat/AdminChatOverlay";
 import AuthModal from "./auth/AuthModal";
 import Header from "./noticeboard/Header";
 import NavRail, { type Tab } from "./noticeboard/NavRail";
+import MyPanel from "./noticeboard/panels/MyPanel";
 
 // ── 폰트 상수 ──────────────────────────────────────────────
 const JUA = "'Jua', sans-serif";
@@ -25,7 +23,7 @@ const GAEGU = "'Gaegu', cursive";
 const BODY = "'Gowun Dodum', sans-serif";
 
 // ── 타입 ──────────────────────────────────────────────────
-type Overlay = null | "login" | "register" | "admin";
+type Overlay = null | "login" | "register" | "admin" | "mypanel";
 
 type Mission = { t: string; r: number; done: boolean };
 type ShopItem = {
@@ -81,7 +79,8 @@ export default function NoticeBoard({
   const [tab, setTab] = useState<Tab>("notice");
   const [overlay, setOverlay] = useState<Overlay>(null);
 
-  const [coins, setCoins] = useState(5);
+  // 시안 상태 — 미션·상점은 실 재화 연동 전까지 시각적 인터랙션만 유지.
+  // 코인 잔액 표시는 헤더의 실 mobil이 담당하고, 미션 체크·구매는 UI 반응만 함.
   const [missions, setMissions] = useState<Mission[]>(INITIAL_MISSIONS);
   const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [flipped, setFlipped] = useState<string | null>(null);
@@ -95,7 +94,6 @@ export default function NoticeBoard({
 
   // ── 참조 ─────────────────────────────────────────────────
   const flipRef = useRef<HTMLDivElement>(null);
-  const coinRef = useRef<HTMLDivElement>(null);
 
   // ── 부모 폭에 맞춰 1366×768 스테이지 자동 스케일 ────────
   const hostRef = useRef<HTMLDivElement>(null);
@@ -125,24 +123,6 @@ export default function NoticeBoard({
   };
 
   // ── 애니메이션 헬퍼 ──────────────────────────────────────
-  const popCoin = () => {
-    coinRef.current?.animate?.(
-      [{ transform: "scale(1)" }, { transform: "scale(1.28)" }, { transform: "scale(1)" }],
-      { duration: 320, easing: "ease-out" }
-    );
-  };
-  const shakeCoin = () => {
-    coinRef.current?.animate?.(
-      [
-        { transform: "translateX(0)" },
-        { transform: "translateX(-6px)" },
-        { transform: "translateX(6px)" },
-        { transform: "translateX(-4px)" },
-        { transform: "translateX(0)" },
-      ],
-      { duration: 320 }
-    );
-  };
   const doFlip = () => {
     flipRef.current?.animate?.(
       [
@@ -165,26 +145,15 @@ export default function NoticeBoard({
   };
 
   const toggleMission = (i: number) => {
-    setMissions((prev) => {
-      const next = prev.map((m, j) => (j === i ? { ...m, done: !m.done } : m));
-      const delta = next[i].done ? next[i].r : -next[i].r;
-      setCoins((c) => c + delta);
-      return next;
-    });
-    popCoin();
+    // 시안: 체크 상태만 토글, 실 재화 변경 없음
+    setMissions((prev) => prev.map((m, j) => (j === i ? { ...m, done: !m.done } : m)));
   };
 
   const buy = (key: string) => {
     const item = SHOP.find((x) => x.key === key);
     if (!item || owned[key]) return;
-    if (coins < item.price) {
-      shakeCoin();
-      showToast("🪙 코인이 부족해요! 일일 미션으로 모아보세요");
-      return;
-    }
-    setCoins((c) => c - item.price);
+    // 시안: 잔액 체크 없이 항상 구매 성공 (실 상점 연동 시 재구현)
     setOwned((o) => ({ ...o, [key]: true }));
-    popCoin();
     showToast(`${item.emoji} ${item.name} 구매 완료!`);
   };
 
@@ -257,10 +226,10 @@ export default function NoticeBoard({
 
         {/* ── 상단 헤더 ── */}
           <Header
-            coins={coins}
-            coinRef={coinRef}
             onLoginClick={() => setOverlay("login")}
-            onAdminClick={() => setOverlay((prev) => (prev === "admin" ? null : "admin"))}
+            onMyPanelClick={() =>
+              setOverlay((prev) => (prev === "mypanel" ? null : "mypanel"))
+            }
           />
         
 
@@ -329,6 +298,34 @@ export default function NoticeBoard({
             ))}
           </div>
         </div>
+
+        {/* ── 관리자호출 버튼 (좌하단 · 참여명단 겹침 감수, z-index 우선) ── */}
+        <button
+          onClick={() => setOverlay((prev) => (prev === "admin" ? null : "admin"))}
+          style={{
+            position: "absolute",
+            left: 24,
+            bottom: 26,
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            background: "#1a9edb",
+            border: "2px solid #fff",
+            color: "#fff",
+            fontFamily: JUA,
+            fontSize: 15,
+            padding: "9px 18px",
+            borderRadius: 999,
+            boxShadow: "2px 3px 0 rgba(20,40,90,.25)",
+            zIndex: 20,
+            cursor: "pointer",
+            transition: "transform .15s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
+          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        >
+          📞 관리자호출
+        </button>
 
         {/* ── NOW PLAYING (재생 토글) ── */}
         <button
@@ -480,7 +477,7 @@ export default function NoticeBoard({
                 />
               ) : null}
               {tab === "shop" ? (
-                <ShopPanel coins={coins} owned={owned} onBuy={buy} />
+                <ShopPanel owned={owned} onBuy={buy} />
               ) : null}
             </div>
           </div>
@@ -495,6 +492,12 @@ export default function NoticeBoard({
         {/* ── 관리자 호출 채팅 ── */}
           <AdminChatOverlay
             open={overlay === "admin"}
+            onClose={() => setOverlay(null)}
+          />
+
+        {/* ── 마이 패널 (우측 서랍, 열려도 뒷화면 조작 가능) ── */}
+          <MyPanel
+            open={overlay === "mypanel"}
             onClose={() => setOverlay(null)}
           />
 
@@ -538,18 +541,6 @@ export default function NoticeBoard({
 // ═══════════════════════════════════════════════════════════
 // 서브 패널
 // ═══════════════════════════════════════════════════════════
-
-const loginInputStyle: CSSProperties = {
-  height: 44,
-  border: "2px solid #bfe4f7",
-  borderRadius: 12,
-  padding: "0 14px",
-  fontFamily: BODY,
-  fontSize: 15,
-  color: "#1e4b6e",
-  outline: "none",
-  background: "#f4fbff",
-};
 
 const chip = (bg: string, color: string): CSSProperties => ({
   fontFamily: JUA,
@@ -872,7 +863,7 @@ function DailyPanel({
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
         <span style={{ fontFamily: JUA, fontSize: 24, color: "#0d6fa8" }}>✅ 일일 미션</span>
         <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#2ea3dd" }}>
-          눌러서 체크하면 코인이 짤랑- 들어와요
+          체크는 시각적 표시만 (실 재화 연동 예정)
         </span>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 540 }}>
@@ -942,11 +933,9 @@ function DailyPanel({
 }
 
 function ShopPanel({
-  coins,
   owned,
   onBuy,
 }: {
-  coins: number;
   owned: Record<string, boolean>;
   onBuy: (key: string) => void;
 }) {
@@ -955,7 +944,7 @@ function ShopPanel({
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
         <span style={{ fontFamily: JUA, fontSize: 24, color: "#0d6fa8" }}>🛒 상점</span>
         <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#2ea3dd" }}>
-          보유 코인 {coins}🪙 — 모자라면 일일 미션으로!
+          시안 — 구매는 시각적 표시만 (실 재화 연동 예정)
         </span>
       </div>
       <div style={{ display: "flex", gap: 16 }}>

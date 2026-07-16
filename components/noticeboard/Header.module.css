@@ -2,6 +2,10 @@
  *
  * NoticeBoard 상단 유틸 바 스타일.
  * absolute 배치: 부모 stage(1366×768) 기준.
+ *
+ * 변경:
+ *   - .nameBadge: div → button. 커서·hover 인터랙션 추가.
+ *   - .adminCallButton: 삭제 (NoticeBoard 좌하단으로 이동)
  */
 
 
@@ -36,7 +40,7 @@
 }
 
 
-/* ── 코인 뱃지 (노랑 톤) ── */
+/* ── 코인 뱃지 (노랑 톤) — 로그인 시에만 표시 ── */
 
 .coinBadge {
   height: 36px;
@@ -54,7 +58,7 @@
 }
 
 
-/* ── 닉네임 뱃지 ── */
+/* ── 닉네임 뱃지 (button, 클릭 시 MyPanel 토글) ── */
 
 .nameBadge {
   height: 36px;
@@ -68,6 +72,16 @@
   font-family: var(--font-heading);
   font-size: 14px;
   box-shadow: 2px 3px 0 var(--color-primary-shadow-mid);
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.nameBadge:hover {
+  transform: translateY(-1px);
+  box-shadow: 2px 4px 0 var(--color-primary-shadow-mid);
+}
+.nameBadge:active {
+  transform: translateY(1px);
+  box-shadow: 1px 1px 0 var(--color-primary-shadow-mid);
 }
 
 
@@ -105,7 +119,7 @@
 }
 
 
-/* ── 로그인 버튼 (닉네임/로그아웃과 같은 톤, 폰트 크기만 살짝 큼) ── */
+/* ── 로그인 버튼 ── */
 
 .loginButton {
   height: 36px;
@@ -118,20 +132,4 @@
   font-size: 15px;
   cursor: pointer;
   box-shadow: 2px 3px 0 var(--color-primary-shadow-mid);
-}
-
-
-/* ── 관리자호출 버튼 (강조 파랑) ── */
-
-.adminCallButton {
-  height: 36px;
-  padding: 0 18px;
-  border: 2px solid #fff;
-  border-radius: var(--radius-round);
-  background: var(--color-primary);
-  color: #fff;
-  font-family: var(--font-heading);
-  font-size: 15px;
-  cursor: pointer;
-  box-shadow: 2px 3px 0 rgba(13, 80, 130, 0.35);
 }

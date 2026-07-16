@@ -46,6 +46,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
+      translate="no"
       className={`${jua.variable} ${gaegu.variable} ${gowunDodum.variable} ${nanumPen.variable}`}
     >
       <body>{children}</body>
