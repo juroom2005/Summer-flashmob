@@ -6,7 +6,9 @@
  */
 
 @import "./styles/tokens.css";
-
+* {
+  cursor: url('/cursors/heart.ani'), url('/cursors/heart.webp') 0 0, auto;
+}
 * {
   box-sizing: border-box;
 }
