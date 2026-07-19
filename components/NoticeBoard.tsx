@@ -197,6 +197,7 @@ export default function NoticeBoard({
     >
       <div
         style={{
+          position: "relative",
           width: 1366,
           height: 768,
           flexShrink: 0,
