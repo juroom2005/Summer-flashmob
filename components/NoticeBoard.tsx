@@ -95,15 +95,23 @@ export default function NoticeBoard({
   // ── 참조 ─────────────────────────────────────────────────
   const flipRef = useRef<HTMLDivElement>(null);
 
-  // ── 부모 폭에 맞춰 1366×768 스테이지 자동 스케일 ────────
+  // ── 뷰포트에 맞춰 1366×768 스테이지 자동 스케일 ────────
+  // 폭·높이 중 더 빡빡한 쪽을 기준(min)으로 잡아 스테이지 전체가
+  // 스크롤 없이 한 화면에 들어오도록 함. 스테이지는 host 안에 중앙정렬.
   const hostRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
     const el = hostRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setScale(el.clientWidth / 1366));
+    const compute = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w <= 0 || h <= 0) return;
+      setScale(Math.min(w / 1366, h / 768));
+    };
+    const ro = new ResizeObserver(compute);
     ro.observe(el);
-    setScale(el.clientWidth / 1366);
+    compute();
     return () => ro.disconnect();
   }, []);
 
@@ -177,17 +185,23 @@ export default function NoticeBoard({
   return (
     <div
       ref={hostRef}
-      style={{ width: "100%", height: 768 * scale, position: "relative", overflow: "hidden" }}
+      style={{
+        width: "100vw",
+        height: "100vh",
+        position: "relative",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
     >
       <div
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
           width: 1366,
           height: 768,
+          flexShrink: 0,
           transform: `scale(${scale})`,
-          transformOrigin: "top left",
+          transformOrigin: "center center",
           borderRadius: 16,
           overflow: "hidden",
           boxShadow: "0 22px 60px rgba(20,58,99,.28)",
