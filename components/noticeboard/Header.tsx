@@ -78,7 +78,7 @@ export default function Header({ onLoginClick, onMyPanelClick }: Props) {
   return (
     <>
       {/* 좌측 로고 */}
-      <div className={styles.logo}>[메인홍]</div>
+      <div className={styles.logo}>[메인홈]</div>
 
       {/* 우측 유틸 바 */}
       <div className={styles.utilBar}>

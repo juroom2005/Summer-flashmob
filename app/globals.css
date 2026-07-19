@@ -62,9 +62,15 @@ select {
 }
 
 @keyframes nb-bookOpen {
-  0%   { clip-path: inset(0 50% 0 50% round 22px); opacity: 0.55; }
+  0%   { transform: scaleX(0); opacity: 0.55; }
   55%  { opacity: 1; }
-  100% { clip-path: inset(0 0 0 0 round 22px); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+
+@keyframes nb-bookClose {
+  0%   { transform: scaleX(1); opacity: 1; }
+  45%  { opacity: 1; }
+  100% { transform: scaleX(0); opacity: 0.55; }
 }
 
 @keyframes nb-winZoom {

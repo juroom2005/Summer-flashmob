@@ -1,5 +1,14 @@
 // components/NoticeBoard.tsx
 // 폰트: Jua · Gowun Dodum · Gaegu (app/layout.tsx 에서 next/font 로 로드)
+//
+// 변경점 (v5):
+//   - 뷰포트 딱 맞춤 레이아웃 (position: fixed; inset: 0)
+//   - 스케일 = min(뷰포트_w / 1366, 뷰포트_h / 768) — 가로/세로 둘 다 봐서 항상 뷰포트 안에 들어감
+//   - 스테이지 바깥 여백은 그라디언트로 채움 (스테이지 배경과 이어지는 톤)
+//   - 좁은 뷰포트(< 640px)에서는 "PC 접속 권장" 안내 오버레이 (모바일 전용 UI는 §추후)
+//   - 페이지 스크롤 발생하지 않음 → 관리자호출·NOW PLAYING 등 하단 UI 항상 보임
+//
+// 기존 시안 로직(미션·상점 시각 인터랙션만)은 그대로 유지.
 
 "use client";
 
@@ -21,6 +30,13 @@ import MyPanel from "./noticeboard/panels/MyPanel";
 const JUA = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
 const BODY = "'Gowun Dodum', sans-serif";
+
+// ── 스테이지 원본 크기 ─────────────────────────────────────
+const STAGE_W = 1366;
+const STAGE_H = 768;
+
+// 이 폭 미만은 모바일로 간주 → 안내 오버레이 (모바일 전용 UI 나오기 전 임시)
+const MIN_SUPPORTED_VIEWPORT_W = 640;
 
 // ── 타입 ──────────────────────────────────────────────────
 type Overlay = null | "login" | "register" | "admin" | "mypanel";
@@ -79,8 +95,11 @@ export default function NoticeBoard({
   const [tab, setTab] = useState<Tab>("notice");
   const [overlay, setOverlay] = useState<Overlay>(null);
 
+  const [panelVisible, setPanelVisible] = useState(false);
+  const [panelClosing, setPanelClosing] = useState(false);
+  const panelExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // 시안 상태 — 미션·상점은 실 재화 연동 전까지 시각적 인터랙션만 유지.
-  // 코인 잔액 표시는 헤더의 실 mobil이 담당하고, 미션 체크·구매는 UI 반응만 함.
   const [missions, setMissions] = useState<Mission[]>(INITIAL_MISSIONS);
   const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [flipped, setFlipped] = useState<string | null>(null);
@@ -94,17 +113,29 @@ export default function NoticeBoard({
 
   // ── 참조 ─────────────────────────────────────────────────
   const flipRef = useRef<HTMLDivElement>(null);
+  const PANEL_ANIM_MS = 300;
 
-  // ── 부모 폭에 맞춰 1366×768 스테이지 자동 스케일 ────────
-  const hostRef = useRef<HTMLDivElement>(null);
+  // ── 뷰포트에 맞춰 스케일 계산 (window 크기 관찰) ────────
+  //
+  // 가로·세로 둘 다 봐서 min 을 취함:
+  //   - 가로 스케일이 병목이면 세로에 여백
+  //   - 세로 스케일이 병목이면 가로에 여백
+  // 어느 쪽이든 스테이지 전체가 뷰포트에 들어감 → 스크롤 없음.
+  //
+  // viewportW 를 함께 저장해 좁은 뷰포트에서 모바일 안내 분기.
   const [scale, setScale] = useState(1);
+  const [viewportW, setViewportW] = useState(0);
   useLayoutEffect(() => {
-    const el = hostRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setScale(el.clientWidth / 1366));
-    ro.observe(el);
-    setScale(el.clientWidth / 1366);
-    return () => ro.disconnect();
+    function recompute() {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      setViewportW(vw);
+      const s = Math.min(vw / STAGE_W, vh / STAGE_H);
+      setScale(s > 0 ? s : 1);
+    }
+    recompute();
+    window.addEventListener("resize", recompute);
+    return () => window.removeEventListener("resize", recompute);
   }, []);
 
 
@@ -114,6 +145,31 @@ export default function NoticeBoard({
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, []);
+
+
+  useEffect(() => {
+  if (open) {
+    if (panelExitTimerRef.current) {
+      clearTimeout(panelExitTimerRef.current);
+      panelExitTimerRef.current = null;
+    }
+    setPanelVisible(true);
+    setPanelClosing(false);
+  } else if (panelVisible) {
+    setPanelClosing(true);
+    panelExitTimerRef.current = setTimeout(() => {
+      setPanelVisible(false);
+      setPanelClosing(false);
+      panelExitTimerRef.current = null;
+    }, PANEL_ANIM_MS);
+  }
+  return () => {
+    if (panelExitTimerRef.current) {
+      clearTimeout(panelExitTimerRef.current);
+      panelExitTimerRef.current = null;
+    }
+  };
+  }, [open, panelVisible]);
 
 
   const showToast = (t: string) => {
@@ -171,372 +227,425 @@ export default function NoticeBoard({
   const progressPct = Math.round((doneCount / missions.length) * 100);
   const allDone = missions.every((m) => m.done);
 
+  // ── 스테이지 실제 렌더 크기 (스케일 적용 후) ───────────
+  const stageRenderedW = STAGE_W * scale;
+  const stageRenderedH = STAGE_H * scale;
+
+  const tooNarrow = viewportW > 0 && viewportW < MIN_SUPPORTED_VIEWPORT_W;
+
   // ═══════════════════════════════════════════════════════════
   // 렌더
   // ═══════════════════════════════════════════════════════════
   return (
-    <div
-      ref={hostRef}
-      style={{ width: "100%", height: 768 * scale, position: "relative", overflow: "hidden" }}
-    >
+    <div style={viewportShellStyle}>
+      {/* ── 뷰포트 배경 (이미지를 화면에 늘려 채움) ── */}
       <div
         style={{
           position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1366,
-          height: 768,
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-          borderRadius: 16,
-          overflow: "hidden",
-          boxShadow: "0 22px 60px rgba(20,58,99,.28)",
-          background: "linear-gradient(180deg,#7cc9f2 0%,#b8e6fb 38%,#e6f9ff 55%,#9adcf5 78%,#5fb4e0 100%)",
-          fontFamily: BODY,
-          color: "#14406f",
+          inset: 0,
+          backgroundImage: backgroundSrc ? `url(${backgroundSrc})` : undefined,
+          backgroundSize: "100% 100%",   // 종횡비 무시하고 화면 꽉 채움 (뭉개짐 감수)
+          backgroundColor: "#7cc9f2",     // 이미지 없을 때 fallback
+          zIndex: 0,
+          // 패널 열렸을 때 블러 (transition으로 자연스러운 적용)
+          filter: open ? "blur(8px)" : "none",
+          transition: "filter 0.35s ease",
         }}
-      >
-        {/* ── 배경 (교체 가능) ── */}
-        {backgroundSrc ? (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              backgroundImage: `url(${backgroundSrc})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              filter: "grayscale(1) contrast(1.12) brightness(1.1)",
-            }}
-          />
-        ) : null}
-        <div style={{ position: "absolute", inset: 0, background: "#17a0e6", mixBlendMode: "multiply", opacity: 0.42, pointerEvents: "none" }} />
-        <div style={{ position: "absolute", inset: 0, background: "#e2fbff", mixBlendMode: "screen",   opacity: 0.34, pointerEvents: "none" }} />
-        <div style={{ position: "absolute", top: -90, right: 110, width: 460, height: 460, background: "radial-gradient(circle,rgba(255,255,255,.85),rgba(255,255,255,0) 62%)", pointerEvents: "none" }} />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage: "radial-gradient(circle,rgba(8,105,170,.35) 1px,transparent 1.5px)",
-            backgroundSize: "5px 5px",
-            mixBlendMode: "multiply",
-            opacity: 0.32,
-            pointerEvents: "none",
-          }}
-        />
+      />
 
-        {/* ── 상단 헤더 ── */}
-          <Header
-            onLoginClick={() => setOverlay("login")}
-            onMyPanelClick={() =>
-              setOverlay((prev) => (prev === "mypanel" ? null : "mypanel"))
-            }
-          />
-        
-
-        {/* ── 좌측 nav rail (스티커 탭) ── */}
-          <NavRail
-            activeTab={open ? tab : null}
-            onTabClick={openTab}
-          />
-
-        {/* ── 위젯: 참여 명단 스티키 ── */}
-        <div
-          style={{
-            position: "absolute",
-            left: 24,
-            bottom: 34,
-            width: 150,
-            background: "#dff4ff",
-            border: "2px solid #a8dcf5",
-            borderRadius: "4px 4px 12px 12px",
-            padding: "14px 13px",
-            boxShadow: "3px 5px 12px rgba(20,58,99,.22)",
-            animation: "nb-floaty 6s ease-in-out infinite",
-            zIndex: 8,
-            transform: "rotate(-1.5deg)",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: -9,
-              left: 38,
-              width: 64,
-              height: 18,
-              background: "rgba(255,239,62,.8)",
-              border: "1px solid rgba(216,207,106,.6)",
-              transform: "rotate(-3deg)",
-            }}
-          />
-          <div style={{ fontFamily: JUA, fontSize: 13, color: "#0d6fa8", marginBottom: 6 }}>〈 참여 명단 〉</div>
-          <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, lineHeight: 1.3, color: "#2a5878" }}>
-            안무 · 하루, 소이, 진<br />보컬 · 유나, 물결<br />영상 · 케이
-          </div>
-          <div
-            style={{
-              marginTop: 7,
-              paddingTop: 6,
-              borderTop: "1.5px dashed #a8dcf5",
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-            }}
-          >
-            {attendees.map((nm, i) => (
-              <div
-                key={`${nm}-${i}`}
-                style={{
-                  fontFamily: GAEGU,
-                  fontWeight: 700,
-                  fontSize: 15,
-                  color: "#2ea3dd",
-                  animation: "nb-pixelPop .35s both",
-                }}
-              >
-                ☀️ {nm} 출석!
-              </div>
-            ))}
+      {/* 좁은 뷰포트 안내 (임시, 모바일 전용 UI 나오기 전까지) */}
+      {tooNarrow ? (
+        <div style={narrowNoticeStyle}>
+          <div style={narrowNoticeCardStyle}>
+            <div style={{ fontFamily: JUA, fontSize: 22, color: "#fff", marginBottom: 8 }}>
+              🖥️ PC 접속 권장
+            </div>
+            <div style={{ fontFamily: BODY, fontSize: 14, color: "rgba(255,255,255,.85)", lineHeight: 1.6 }}>
+              현재 화면이 좁아 UI가 정상적으로 보이지 않을 수 있습니다.
+              PC나 태블릿 가로 모드에서 접속 바랍니다.
+              <br />
+              모바일 전용 화면은 추후 지원 예정입니다.
+            </div>
           </div>
         </div>
+      ) : null}
 
-        {/* ── 관리자호출 버튼 (좌하단 · 참여명단 겹침 감수, z-index 우선) ── */}
-        <button
-          onClick={() => setOverlay((prev) => (prev === "admin" ? null : "admin"))}
+      {/* ── 스테이지 (1366×768 원본 → scale 적용, 중앙 정렬) ── */}
+      <div
+        style={{
+          position: "absolute",
+          left: `calc(50% - ${stageRenderedW / 2}px)`,
+          top:  `calc(50% - ${stageRenderedH / 2}px)`,
+          width: stageRenderedW,
+          height: stageRenderedH,
+          overflow: "hidden",
+          // 프레임감 제거: 그림자·모서리 없음
+        }}
+      >
+        <div
           style={{
             position: "absolute",
-            left: 24,
-            bottom: 26,
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            background: "#1a9edb",
-            border: "2px solid #fff",
-            color: "#fff",
-            fontFamily: JUA,
-            fontSize: 15,
-            padding: "9px 18px",
-            borderRadius: 999,
-            boxShadow: "2px 3px 0 rgba(20,40,90,.25)",
-            zIndex: 20,
-            cursor: "pointer",
-            transition: "transform .15s",
+            top: 0,
+            left: 0,
+            width: STAGE_W,
+            height: STAGE_H,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+            fontFamily: BODY,
+            color: "#14406f",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
-          📞 관리자호출
-        </button>
 
-        {/* ── NOW PLAYING (재생 토글) ── */}
-        <button
-          onClick={() => setPlaying((p) => !p)}
-          style={{
-            position: "absolute",
-            right: 26,
-            bottom: 26,
-            display: "flex",
-            alignItems: "center",
-            gap: 9,
-            background: "#1a9edb",
-            border: "2px solid #fff",
-            color: "#fff",
-            fontFamily: JUA,
-            fontSize: 15,
-            padding: "9px 18px",
-            borderRadius: 999,
-            boxShadow: "2px 3px 0 rgba(20,40,90,.25)",
-            zIndex: 15,
-            cursor: "pointer",
-            transition: "transform .15s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-        >
-          <span style={{ animation: playing ? "nb-blink 1.4s infinite" : "none" }}>
-            {playing ? "♪" : "▶"}
-          </span>{" "}
-          {playing ? "NOW PLAYING — 여름날 (2025 ver.)" : "PAUSED — 눌러서 재생"}
-        </button>
+          {/* ── 상단 헤더 ── */}
+            <Header
+              onLoginClick={() => setOverlay("login")}
+              onMyPanelClick={() =>
+                setOverlay((prev) => (prev === "mypanel" ? null : "mypanel"))
+              }
+            />
 
-        {/* ── 힌트 (닫힘 상태) ── */}
-        {!open ? (
+
+          {/* ── 좌측 nav rail (스티커 탭) ── */}
+            <NavRail
+              activeTab={open ? tab : null}
+              onTabClick={openTab}
+            />
+
+          {/* ── 위젯: 참여 명단 스티키 ── */}
           <div
             style={{
               position: "absolute",
-              left: 198,
-              top: 300,
-              fontFamily: GAEGU,
-              fontWeight: 700,
-              fontSize: 27,
-              color: "#0d6fa8",
-              textShadow: "1px 1px 0 #fff",
-              zIndex: 5,
+              left: 24,
+              bottom: 34,
+              width: 150,
+              background: "#dff4ff",
+              border: "2px solid #a8dcf5",
+              borderRadius: "4px 4px 12px 12px",
+              padding: "14px 13px",
+              boxShadow: "3px 5px 12px rgba(20,58,99,.22)",
+              animation: "nb-floaty 6s ease-in-out infinite",
+              zIndex: 8,
+              transform: "rotate(-1.5deg)",
             }}
           >
-        
-          </div>
-        ) : null}
-
-        {/* ── 패널 ── */}
-        {open ? (
-          <div
-            style={{
-              position: "absolute",
-              left: 172,
-              top: 118,
-              right: 34,
-              bottom: 96,
-              background: "#fffdf4",
-              border: "2.5px solid #2ea3dd",
-              borderRadius: 22,
-              boxShadow: "0 18px 44px rgba(20,58,99,.28)",
-              zIndex: 10,
-              animation: "nb-bookOpen .58s cubic-bezier(.2,.85,.2,1) both",
-              backgroundImage:
-                "repeating-linear-gradient(180deg,transparent,transparent 31px,rgba(46,163,221,.1) 31px,rgba(46,163,221,.1) 32px)",
-            }}
-          >
-            {/* 상단 마스킹테이프 데코 */}
             <div
               style={{
                 position: "absolute",
-                top: -11,
-                left: 120,
-                width: 96,
-                height: 24,
-                background: "repeating-linear-gradient(45deg,#cdeeff 0 8px,#e9f8ff 8px 16px)",
-                opacity: 0.92,
+                top: -9,
+                left: 38,
+                width: 64,
+                height: 18,
+                background: "rgba(255,239,62,.8)",
+                border: "1px solid rgba(216,207,106,.6)",
                 transform: "rotate(-3deg)",
-                borderRadius: 2,
-                boxShadow: "0 2px 5px rgba(20,58,99,.15)",
               }}
             />
+            <div style={{ fontFamily: JUA, fontSize: 13, color: "#0d6fa8", marginBottom: 6 }}>〈 참여 명단 〉</div>
+            <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, lineHeight: 1.3, color: "#2a5878" }}>
+              안무 · 하루, 소이, 진<br />보컬 · 유나, 물결<br />영상 · 케이
+            </div>
+            <div
+              style={{
+                marginTop: 7,
+                paddingTop: 6,
+                borderTop: "1.5px dashed #a8dcf5",
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+              }}
+            >
+              {attendees.map((nm, i) => (
+                <div
+                  key={`${nm}-${i}`}
+                  style={{
+                    fontFamily: GAEGU,
+                    fontWeight: 700,
+                    fontSize: 15,
+                    color: "#2ea3dd",
+                    animation: "nb-pixelPop .35s both",
+                  }}
+                >
+                  ☀️ {nm} 출석!
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── 관리자호출 버튼 (좌하단 · 참여명단 겹침 감수, z-index 우선) ── */}
+          <button
+            onClick={() => setOverlay((prev) => (prev === "admin" ? null : "admin"))}
+            style={{
+              position: "absolute",
+              left: 24,
+              bottom: 26,
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              background: "#1a9edb",
+              border: "2px solid #fff",
+              color: "#fff",
+              fontFamily: JUA,
+              fontSize: 15,
+              padding: "9px 18px",
+              borderRadius: 999,
+              boxShadow: "2px 3px 0 rgba(20,40,90,.25)",
+              zIndex: 20,
+              cursor: "pointer",
+              transition: "transform .15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            📞 관리자호출
+          </button>
+
+          {/* ── NOW PLAYING (재생 토글) ── */}
+          <button
+            onClick={() => setPlaying((p) => !p)}
+            style={{
+              position: "absolute",
+              right: 26,
+              bottom: 26,
+              display: "flex",
+              alignItems: "center",
+              gap: 9,
+              background: "#1a9edb",
+              border: "2px solid #fff",
+              color: "#fff",
+              fontFamily: JUA,
+              fontSize: 15,
+              padding: "9px 18px",
+              borderRadius: 999,
+              boxShadow: "2px 3px 0 rgba(20,40,90,.25)",
+              zIndex: 15,
+              cursor: "pointer",
+              transition: "transform .15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          >
+            <span style={{ animation: playing ? "nb-blink 1.4s infinite" : "none" }}>
+              {playing ? "♪" : "▶"}
+            </span>{" "}
+            {playing ? "NOW PLAYING — 여름날 (2025 ver.)" : "PAUSED — 눌러서 재생"}
+          </button>
+
+          {/* ── 힌트 (닫힘 상태) ── */}
+          {!open ? (
             <div
               style={{
                 position: "absolute",
-                top: -11,
-                right: 150,
-                width: 96,
-                height: 24,
-                background: "repeating-linear-gradient(45deg,#c9f2e6 0 8px,#e9fbf5 8px 16px)",
-                opacity: 0.92,
-                transform: "rotate(2deg)",
-                borderRadius: 2,
-                boxShadow: "0 2px 5px rgba(20,58,99,.15)",
-              }}
-            />
-
-            <button
-              onClick={() => setOpen(false)}
-              style={{
-                position: "absolute",
-                top: 14,
-                right: 16,
-                width: 34,
-                height: 34,
-                borderRadius: "50%",
-                border: "2px solid #2ea3dd",
-                background: "#fff",
+                left: 198,
+                top: 300,
+                fontFamily: GAEGU,
+                fontWeight: 700,
+                fontSize: 27,
                 color: "#0d6fa8",
-                fontFamily: JUA,
-                fontSize: 16,
-                cursor: "pointer",
+                textShadow: "1px 1px 0 #fff",
                 zIndex: 5,
               }}
             >
-              ✕
-            </button>
 
+            </div>
+          ) : null}
+
+          {/* ── 패널 ── */}
+          {panelVisible ? (
             <div
-              ref={flipRef}
               style={{
                 position: "absolute",
-                inset: 0,
-                padding: "26px 36px",
-                overflow: "auto",
-                transformOrigin: "left center",
+                left: 172,
+                top: 118,
+                right: 34,
+                bottom: 96,
+                background: "#fffdf4",
+                border: "2.5px solid #2ea3dd",
+                borderRadius: 22,
+                boxShadow: "0 18px 44px rgba(20,58,99,.28)",
+                zIndex: 10,
+                animation: panelClosing
+                ? "nb-bookClose .3s cubic-bezier(.5,.15,.85,.3) both"
+                : "nb-bookOpen .3s cubic-bezier(.2,.85,.2,1) both",
+                backgroundImage:
+                  "repeating-linear-gradient(180deg,transparent,transparent 31px,rgba(46,163,221,.1) 31px,rgba(46,163,221,.1) 32px)",
+                willChange: "clip-path, opacity",
               }}
             >
-              {tab === "notice" ? (
-                <NoticePanel
-                  attendName={attendName}
-                  onAttendNameChange={(v) => setAttendName(v)}
-                  onAttend={attend}
-                />
-              ) : null}
-              {tab === "member" ? (
-                <MemberPanel flipped={flipped} onFlip={(name) => setFlipped((f) => (f === name ? null : name))} />
-              ) : null}
-              {tab === "daily" ? (
-                <DailyPanel
-                  missions={missions}
-                  onToggle={toggleMission}
-                  doneCount={doneCount}
-                  progressPct={progressPct}
-                  allDone={allDone}
-                />
-              ) : null}
-              {tab === "shop" ? (
-                <ShopPanel owned={owned} onBuy={buy} />
-              ) : null}
+              {/* 상단 마스킹테이프 데코 */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: -11,
+                  left: 120,
+                  width: 96,
+                  height: 24,
+                  background: "repeating-linear-gradient(45deg,#cdeeff 0 8px,#e9f8ff 8px 16px)",
+                  opacity: 0.92,
+                  transform: "rotate(-3deg)",
+                  borderRadius: 2,
+                  boxShadow: "0 2px 5px rgba(20,58,99,.15)",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  top: -11,
+                  right: 150,
+                  width: 96,
+                  height: 24,
+                  background: "repeating-linear-gradient(45deg,#c9f2e6 0 8px,#e9fbf5 8px 16px)",
+                  opacity: 0.92,
+                  transform: "rotate(2deg)",
+                  borderRadius: 2,
+                  boxShadow: "0 2px 5px rgba(20,58,99,.15)",
+                }}
+              />
+
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  position: "absolute",
+                  top: 14,
+                  right: 16,
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  border: "2px solid #2ea3dd",
+                  background: "#fff",
+                  color: "#0d6fa8",
+                  fontFamily: JUA,
+                  fontSize: 16,
+                  cursor: "pointer",
+                  zIndex: 5,
+                }}
+              >
+                ✕
+              </button>
+
+              <div
+                ref={flipRef}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  padding: "26px 36px",
+                  overflow: "auto",
+                  transformOrigin: "left center",
+                }}
+              >
+                {tab === "notice" ? (
+                  <NoticePanel
+                    attendName={attendName}
+                    onAttendNameChange={(v) => setAttendName(v)}
+                    onAttend={attend}
+                  />
+                ) : null}
+                {tab === "member" ? (
+                  <MemberPanel flipped={flipped} onFlip={(name) => setFlipped((f) => (f === name ? null : name))} />
+                ) : null}
+                {tab === "daily" ? (
+                  <DailyPanel
+                    missions={missions}
+                    onToggle={toggleMission}
+                    doneCount={doneCount}
+                    progressPct={progressPct}
+                    allDone={allDone}
+                  />
+                ) : null}
+                {tab === "shop" ? (
+                  <ShopPanel owned={owned} onBuy={buy} />
+                ) : null}
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        {/* ── 로그인·가입 모달 ── */}
-          <AuthModal
-            open={overlay === "login" || overlay === "register"}
-            initialTab={overlay === "register" ? "register" : "login"}
-            onClose={() => setOverlay(null)}
-          />
-        {/* ── 관리자 호출 채팅 ── */}
-          <AdminChatOverlay
-            open={overlay === "admin"}
-            onClose={() => setOverlay(null)}
-          />
+          {/* ── 로그인·가입 모달 ── */}
+            <AuthModal
+              open={overlay === "login" || overlay === "register"}
+              initialTab={overlay === "register" ? "register" : "login"}
+              onClose={() => setOverlay(null)}
+            />
+          {/* ── 관리자 호출 채팅 ── */}
+            <AdminChatOverlay
+              open={overlay === "admin"}
+              onClose={() => setOverlay(null)}
+            />
 
-        {/* ── 마이 패널 (우측 서랍, 열려도 뒷화면 조작 가능) ── */}
-          <MyPanel
-            open={overlay === "mypanel"}
-            onClose={() => setOverlay(null)}
-          />
+          {/* ── 마이 패널 (우측 서랍, 열려도 뒷화면 조작 가능) ── */}
+            <MyPanel
+              open={overlay === "mypanel"}
+              onClose={() => setOverlay(null)}
+            />
 
-        {/* ── 토스트 ── */}
-        {toast ? (
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 100,
-              display: "flex",
-              justifyContent: "center",
-              pointerEvents: "none",
-              zIndex: 60,
-            }}
-          >
+          {/* ── 토스트 ── */}
+          {toast ? (
             <div
               style={{
-                background: "#14406f",
-                color: "#fff",
-                fontFamily: JUA,
-                fontSize: 16,
-                padding: "11px 24px",
-                borderRadius: 999,
-                border: "2px solid #fff",
-                boxShadow: "0 10px 26px rgba(8,50,90,.4)",
-                animation: "nb-pixelPop .3s both",
-                whiteSpace: "nowrap",
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 100,
+                display: "flex",
+                justifyContent: "center",
+                pointerEvents: "none",
+                zIndex: 60,
               }}
             >
-              {toast}
+              <div
+                style={{
+                  background: "#14406f",
+                  color: "#fff",
+                  fontFamily: JUA,
+                  fontSize: 16,
+                  padding: "11px 24px",
+                  borderRadius: 999,
+                  border: "2px solid #fff",
+                  boxShadow: "0 10px 26px rgba(8,50,90,.4)",
+                  animation: "nb-pixelPop .3s both",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {toast}
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </div>
   );
 }
+
+// ═══════════════════════════════════════════════════════════
+// 뷰포트 셸 & 배경 스타일
+// ═══════════════════════════════════════════════════════════
+
+// 뷰포트 전체를 덮는 최상위 컨테이너 (fixed로 body 스크롤과 무관)
+const viewportShellStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  overflow: "hidden",
+};
+
+// 모바일 안내 오버레이 (스테이지 위, 뷰포트 전체 덮음)
+const narrowNoticeStyle: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  background: "rgba(20, 40, 90, 0.72)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 1000,
+  padding: 24,
+};
+
+const narrowNoticeCardStyle: CSSProperties = {
+  maxWidth: 360,
+  padding: "24px 28px",
+  background: "rgba(20, 64, 111, 0.92)",
+  border: "2px solid rgba(255,255,255,.35)",
+  borderRadius: 16,
+  textAlign: "center",
+  boxShadow: "0 20px 40px rgba(0,0,0,.35)",
+};
 
 // ═══════════════════════════════════════════════════════════
 // 서브 패널
