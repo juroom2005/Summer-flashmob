@@ -1,33 +1,49 @@
 // app/gm/page.tsx
 //
-// GM 관리 페이지 컨테이너 (v3 — InviteCodeList 훅업).
+// GM 관리 페이지 컨테이너 (v5 — 문의 탭 실제 리스트 붙임).
 //
-// 변경점 (v2 → v3):
-//   - 초대 탭의 발급 이력 placeholder → 실제 InviteCodeList 컴포넌트로 교체
-//   - refreshKey 전달: InviteGenerateForm 성공 시 증가 → InviteCodeList 재조회
-//
-// 유저 탭은 아직 placeholder (UserList 컴포넌트 추가 예정).
+// 변경점 (v4 → v5):
+//   - 문의 탭 진입 시 자동 read 마킹 로직 제거
+//     (스키마에서 read_at 폐기됨. 미완료 문의는 GM이 명시적으로 완료 처리해야 사라짐)
+//   - 안내 카드 placeholder 제거 → ReportList 실제 리스트 렌더
+//   - 미완료 카운트는 탭 전환 시마다 재조회 (뱃지 동기화)
 
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import InviteGenerateForm from "@/components/gm/InviteGenerateForm";
 import InviteCodeList     from "@/components/gm/InviteCodeList";
+import ReportList         from "@/components/gm/reports/ReportList";
+import { getPendingReportCount } from "@/lib/auth-helpers";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
 const BODY  = "'Gowun Dodum', sans-serif";
 
-type TabKey = "invite" | "users";
+type TabKey = "invite" | "users" | "reports";
 
 const TABS: { key: TabKey; label: string; emoji: string }[] = [
-  { key: "invite", label: "초대", emoji: "📮" },
-  { key: "users",  label: "유저", emoji: "👥" },
+  { key: "invite",  label: "초대", emoji: "📮" },
+  { key: "users",   label: "유저", emoji: "👥" },
+  { key: "reports", label: "문의", emoji: "🙋" },
 ];
 
 export default function GmPage() {
   const [tab, setTab] = useState<TabKey>("invite");
   const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // 탭 전환 시 미완료 카운트 재조회.
+  // 완료 처리는 문의 탭 내 ReportList에서 발생하므로,
+  // 탭에서 나올 때 뱃지가 최신 상태로 반영됨.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const n = await getPendingReportCount();
+      if (!cancelled) setPendingCount(n);
+    })();
+    return () => { cancelled = true; };
+  }, [tab]);
 
   return (
     <div style={pageStyle}>
@@ -44,6 +60,7 @@ export default function GmPage() {
       <nav style={tabBarStyle}>
         {TABS.map((t) => {
           const active = tab === t.key;
+          const showBadge = t.key === "reports" && pendingCount > 0;
           return (
             <button
               key={t.key}
@@ -54,10 +71,14 @@ export default function GmPage() {
                 color:       active ? "#fff"    : "#0d6fa8",
                 borderColor: active ? "#0d6fa8" : "#bfe4f7",
                 boxShadow:   active ? "0 3px 0 #0d6fa8" : "0 2px 0 rgba(46,163,221,.2)",
+                position:    "relative",
               }}
             >
               <span style={{ marginRight: 6 }}>{t.emoji}</span>
               {t.label}
+              {showBadge ? (
+                <span style={tabBadgeStyle}>{pendingCount > 99 ? "99+" : pendingCount}</span>
+              ) : null}
             </button>
           );
         })}
@@ -80,6 +101,8 @@ export default function GmPage() {
             note="UserList + DeleteConfirmDialog 컴포넌트 추가 예정"
           />
         )}
+
+        {tab === "reports" && <ReportList />}
       </main>
     </div>
   );
@@ -161,6 +184,25 @@ const tabButtonStyle: CSSProperties = {
   fontSize:     15,
   cursor:       "pointer",
   transition:   "background 120ms, color 120ms",
+};
+
+// 탭 라벨 옆 빨간 뱃지 (문의 미완료 카운트)
+const tabBadgeStyle: CSSProperties = {
+  position:       "absolute",
+  top:            -6,
+  right:          -6,
+  minWidth:       20,
+  height:         20,
+  padding:        "0 6px",
+  borderRadius:   999,
+  background:     "#e2695f",
+  color:          "#fff",
+  fontFamily:     JUA,
+  fontSize:       11,
+  lineHeight:     "20px",
+  textAlign:      "center",
+  border:         "2px solid #fff",
+  boxSizing:      "content-box",
 };
 
 const mainStyle: CSSProperties = {

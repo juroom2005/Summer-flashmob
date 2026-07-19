@@ -1,20 +1,26 @@
 // components/gm/InviteGenerateForm.tsx
 //
-// 초대코드 발급 폼 (v3 — 이름 스키마 분리 반영).
+// 초대코드 발급 폼 (v4 — 초기 스탯 입력 추가).
 //
-// 변경점 (v2 → v3):
-//   - character_name 단일 필드 → family_name(성) + given_name(이름) 두 필드로 분리
-//   - 필드 순서: 성 → 이름 (일본식 원어 순서)
-//   - 표시명 조합: `${family_name} ${given_name}` (스페이스 구분)
-//   - EF 요청 body: character_name → family_name, given_name
-//   - 사전 검증: 성·이름 각각 필수, 각각 빈 문자열 방지
+// 변경점 (v3 → v4):
+//   - 초기 스탯 3칸 추가: 리듬감 / 체력 / 표현력 (선택 입력, 비우면 0)
+//   - 각 스탯 0~100 정수 검증 (빈칸은 통과 → 0으로 발급)
+//   - EF 요청 body에 rhythm_stat / physical_stat / expression_stat 추가
+//   - 발급 완료 배너에 스탯 요약(리 00 · 체 00 · 표 00) 표시
+//   - (v3까지) 이름 스키마 분리(성/이름)는 그대로 유지
 //
 // 폼 배치 (2열 grid):
 //   1행: 성 * | 이름 *
 //   2행: 나이 * | 성별 *
 //   3행: 학교명 * (span 2)
 //   4행: 학년 * | 유효기간
-//   5행: 메모 (span 2)
+//   5행: [스탯] 리듬감 | 체력
+//   6행: [스탯] 표현력 | (빈칸)
+//   7행: 메모 (span 2)
+//
+// 스탯 정책:
+//   - 시스템상 유저가 자기 초기 스탯을 아는 상태. GM이 발급 시 값 입력.
+//   - 비우면 0으로 발급. 나중에 GM이 stat 편집 UI로 조정(별도 세션).
 
 "use client";
 
@@ -38,8 +44,11 @@ type Props = {
 };
 
 type LastIssued = GenerateInviteResponse & {
-  family_name: string;
-  given_name:  string;
+  family_name:     string;
+  given_name:      string;
+  rhythm_stat:     number;
+  physical_stat:   number;
+  expression_stat: number;
 };
 
 export default function InviteGenerateForm({ onGenerated }: Props) {
@@ -52,6 +61,11 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
   const [grade,          setGrade]          = useState<string>("");
   const [expiresInDays,  setExpiresInDays]  = useState<string>("7");
   const [inviteeNote,    setInviteeNote]    = useState("");
+
+  // ── 초기 스탯 상태 (선택 입력, 빈칸 = 0) ──
+  const [rhythmStat,     setRhythmStat]     = useState<string>("");
+  const [physicalStat,   setPhysicalStat]   = useState<string>("");
+  const [expressionStat, setExpressionStat] = useState<string>("");
 
   // ── 실행 상태 ──
   const [loading, setLoading] = useState(false);
@@ -70,7 +84,23 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
     setGrade("");
     // expiresInDays는 유지 (대부분 같은 값으로 연속 발급)
     setInviteeNote("");
+    // 스탯도 리셋 (사람마다 다르므로)
+    setRhythmStat("");
+    setPhysicalStat("");
+    setExpressionStat("");
     setError(null);
+  }
+
+  // 빈칸이면 0, 값이 있으면 0~100 정수인지 확인.
+  // 반환: { value } (검증 통과) | { err } (검증 실패)
+  function parseStat(raw: string, label: string): { value: number } | { err: string } {
+    const t = raw.trim();
+    if (t === "") return { value: 0 };
+    const n = Number(t);
+    if (!Number.isInteger(n) || n < 0 || n > 100) {
+      return { err: `${label}은(는) 0~100 사이의 정수여야 합니다.` };
+    }
+    return { value: n };
   }
 
   function validate(): string | null {
@@ -98,6 +128,14 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       return "유효기간은 7~30일 사이여야 합니다.";
     }
 
+    // 스탯 검증 (빈칸 허용)
+    const r = parseStat(rhythmStat, "리듬감");
+    if ("err" in r) return r.err;
+    const p = parseStat(physicalStat, "체력");
+    if ("err" in p) return p.err;
+    const e = parseStat(expressionStat, "표현력");
+    if ("err" in e) return e.err;
+
     return null;
   }
 
@@ -110,6 +148,11 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       setError(validationErr);
       return;
     }
+
+    // 스탯 값 확정 (validate 통과했으므로 안전)
+    const rhythmVal     = (parseStat(rhythmStat, "리듬감") as { value: number }).value;
+    const physicalVal   = (parseStat(physicalStat, "체력") as { value: number }).value;
+    const expressionVal = (parseStat(expressionStat, "표현력") as { value: number }).value;
 
     // 리셋 전 스냅샷 확보 (배너 표시용)
     const familySnap = familyName.trim();
@@ -128,6 +171,9 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
           grade:            parseInt(grade, 10),
           expires_in_days:  parseInt(expiresInDays, 10),
           invitee_note:     inviteeNote.trim() || null,
+          rhythm_stat:      rhythmVal,
+          physical_stat:    physicalVal,
+          expression_stat:  expressionVal,
         }
       );
 
@@ -141,8 +187,11 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
 
       setLastIssued({
         ...result.data,
-        family_name: familySnap,
-        given_name:  givenSnap,
+        family_name:     familySnap,
+        given_name:      givenSnap,
+        rhythm_stat:     rhythmVal,
+        physical_stat:   physicalVal,
+        expression_stat: expressionVal,
       });
       setCopied(false);
       resetFormFields();
@@ -175,6 +224,9 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
             <span style={bannerBadgeStyle}>✓ 발급 완료</span>
             <span style={bannerTargetStyle}>
               {lastIssued.family_name} {lastIssued.given_name}
+            </span>
+            <span style={bannerStatStyle}>
+              리 {lastIssued.rhythm_stat} · 체 {lastIssued.physical_stat} · 표 {lastIssued.expression_stat}
             </span>
           </div>
           <div style={bannerCodeStyle}>{lastIssued.code}</div>
@@ -285,6 +337,50 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
               disabled={loading}
               min={7}
               max={30}
+              style={inputStyle}
+            />
+          </Field>
+
+          {/* ── 초기 스탯 구분선 ── */}
+          <div style={statDividerStyle}>
+            <span style={statDividerLabelStyle}>🫧 초기 스탯 (비우면 0)</span>
+          </div>
+
+          <Field label="리듬감 (0~100)">
+            <input
+              type="number"
+              value={rhythmStat}
+              onChange={(e) => setRhythmStat(e.target.value)}
+              disabled={loading}
+              min={0}
+              max={100}
+              placeholder="0"
+              style={inputStyle}
+            />
+          </Field>
+
+          <Field label="체력 (0~100)">
+            <input
+              type="number"
+              value={physicalStat}
+              onChange={(e) => setPhysicalStat(e.target.value)}
+              disabled={loading}
+              min={0}
+              max={100}
+              placeholder="0"
+              style={inputStyle}
+            />
+          </Field>
+
+          <Field label="표현력 (0~100)">
+            <input
+              type="number"
+              value={expressionStat}
+              onChange={(e) => setExpressionStat(e.target.value)}
+              disabled={loading}
+              min={0}
+              max={100}
+              placeholder="0"
               style={inputStyle}
             />
           </Field>
@@ -403,6 +499,24 @@ const inputStyle: CSSProperties = {
   width:        "100%",
 };
 
+// 스탯 구분선 (grid 2열 전체 차지)
+const statDividerStyle: CSSProperties = {
+  gridColumn:    "span 2",
+  display:       "flex",
+  alignItems:    "center",
+  gap:           10,
+  marginTop:     4,
+  paddingTop:    12,
+  borderTop:     "2px dashed #cdeeff",
+};
+
+const statDividerLabelStyle: CSSProperties = {
+  fontFamily: GAEGU,
+  fontWeight: 700,
+  fontSize:   14,
+  color:      "#2ea3dd",
+};
+
 const errorStyle: CSSProperties = {
   padding:      "10px 14px",
   fontFamily:   BODY,
@@ -467,6 +581,17 @@ const bannerTargetStyle: CSSProperties = {
   textOverflow:  "ellipsis",
   whiteSpace:    "nowrap",
   maxWidth:      180,
+};
+
+const bannerStatStyle: CSSProperties = {
+  fontFamily:   BODY,
+  fontSize:     12,
+  color:        "#2f8a75",
+  background:   "rgba(255,255,255,.6)",
+  border:       "1.5px solid rgba(77,182,160,.4)",
+  borderRadius: 999,
+  padding:      "2px 10px",
+  whiteSpace:   "nowrap",
 };
 
 const bannerCodeStyle: CSSProperties = {

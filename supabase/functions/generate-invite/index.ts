@@ -1,18 +1,17 @@
 // supabase/functions/generate-invite/index.ts
 //
-// GM이 초대코드 발급하는 EF (v2 — 이름 스키마 분리 반영).
+// GM이 초대코드 발급하는 EF (v3 — 초기 스탯 입력 반영).
 //
-// 변경점 (v1 → v2):
-//   - 요청 body: character_name → family_name, given_name
-//   - 검증: 성·이름 각각 필수, 각각 빈 문자열 방지
-//   - RPC 파라미터: p_character_name → p_family_name, p_given_name
-//   - character_name UNIQUE 위반 처리 제거 (동명이인 허용 정책)
-//   - 프로필 조회 실패 시 detail 노출 patch 원복 (디버깅 완료)
+// 변경점 (v2 → v3):
+//   - body에 rhythm_stat / physical_stat / expression_stat 추가 (선택, 미지정 시 0)
+//   - 각 스탯 0~100 정수 검증. 미지정/null/빈값은 0으로 정규화.
+//   - RPC 호출에 p_rhythm_stat / p_physical_stat / p_expression_stat 전달
+//   - (v2까지) 이름 스키마 분리, 동명이인 허용은 그대로 유지
 //
 // 흐름:
 //   1) Authorization 헤더에서 JWT → auth.getUser()로 user_id 확보
 //   2) GM 검증 + issued_by에 쓸 profile.id 확보 (service_role)
-//   3) body 파싱 및 검증
+//   3) body 파싱 및 검증 (스탯 포함)
 //   4) 코드 생성 (XXXX-XXXX-XXXX)
 //   5) RPC generate_invite_with_shell 호출 (원자적 shell + invite 생성)
 
@@ -30,6 +29,26 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+/**
+ * 스탯 값 정규화 + 검증.
+ * - undefined / null / "" → 0 (미입력은 0으로)
+ * - 숫자(또는 숫자 문자열)면 0~100 정수인지 확인
+ * 반환: { ok: true, value } | { ok: false, error }
+ */
+function normalizeStat(
+  raw: unknown,
+  label: string
+): { ok: true; value: number } | { ok: false; error: string } {
+  if (raw === undefined || raw === null || raw === "") {
+    return { ok: true, value: 0 };
+  }
+  const n = typeof raw === "string" ? Number(raw) : raw;
+  if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > 100) {
+    return { ok: false, error: `${label}은(는) 0~100 정수여야 합니다.` };
+  }
+  return { ok: true, value: n };
 }
 
 serve(async (req) => {
@@ -95,6 +114,9 @@ serve(async (req) => {
       grade,
       expires_in_days = 7,
       invitee_note,
+      rhythm_stat,
+      physical_stat,
+      expression_stat,
     } = body as Record<string, unknown>;
 
     // 5) 이름 필드 검증 (성·이름 각각)
@@ -126,7 +148,15 @@ serve(async (req) => {
       return json({ error: "학년은 1~3 정수여야 합니다." }, 400);
     }
 
-    // 7) expires_in_days 검증 (7~30)
+    // 7) 초기 스탯 검증 (미지정 시 0, 지정 시 0~100 정수)
+    const rhythmRes     = normalizeStat(rhythm_stat,     "리듬감");
+    if (!rhythmRes.ok)     return json({ error: rhythmRes.error }, 400);
+    const physicalRes   = normalizeStat(physical_stat,   "체력");
+    if (!physicalRes.ok)   return json({ error: physicalRes.error }, 400);
+    const expressionRes = normalizeStat(expression_stat, "표현력");
+    if (!expressionRes.ok) return json({ error: expressionRes.error }, 400);
+
+    // 8) expires_in_days 검증 (7~30)
     if (
       typeof expires_in_days !== "number" ||
       !Number.isInteger(expires_in_days) ||
@@ -136,7 +166,7 @@ serve(async (req) => {
       return json({ error: "유효기간은 7~30일 사이여야 합니다." }, 400);
     }
 
-    // 8) invitee_note (선택)
+    // 9) invitee_note (선택)
     let noteVal: string | null = null;
     if (invitee_note !== undefined && invitee_note !== null) {
       if (typeof invitee_note !== "string") {
@@ -146,29 +176,32 @@ serve(async (req) => {
       noteVal = t === "" ? null : t;
     }
 
-    // 9) 코드 생성 (XXXX-XXXX-XXXX, 대문자+숫자)
+    // 10) 코드 생성 (XXXX-XXXX-XXXX, 대문자+숫자)
     const segment = () =>
       Math.random().toString(36).substring(2, 6).toUpperCase().padEnd(4, "X");
     const code = `${segment()}-${segment()}-${segment()}`;
 
-    // 10) 만료 시각 계산 (setDate 함정 회피: ms 단위 덧셈)
+    // 11) 만료 시각 계산 (setDate 함정 회피: ms 단위 덧셈)
     const expiresAt = new Date(
       Date.now() + expires_in_days * 24 * 60 * 60 * 1000
     );
 
-    // 11) RPC 호출 (원자적 shell + invite_codes 생성)
+    // 12) RPC 호출 (원자적 shell + invite_codes 생성)
     const { data: rpcData, error: rpcErr } = await adminClient
       .rpc("generate_invite_with_shell", {
-        p_code:          code,
-        p_gm_profile_id: gmProfileId,
-        p_expires_at:    expiresAt.toISOString(),
-        p_invitee_note:  noteVal,
-        p_family_name:   familyTrim,
-        p_given_name:    givenTrim,
-        p_age:           age,
-        p_gender:        gender,
-        p_school_name:   schoolTrim,
-        p_grade:         grade,
+        p_code:            code,
+        p_gm_profile_id:   gmProfileId,
+        p_expires_at:      expiresAt.toISOString(),
+        p_invitee_note:    noteVal,
+        p_family_name:     familyTrim,
+        p_given_name:      givenTrim,
+        p_age:             age,
+        p_gender:          gender,
+        p_school_name:     schoolTrim,
+        p_grade:           grade,
+        p_rhythm_stat:     rhythmRes.value,
+        p_physical_stat:   physicalRes.value,
+        p_expression_stat: expressionRes.value,
       });
 
     if (rpcErr) {
@@ -185,7 +218,7 @@ serve(async (req) => {
         return json({ error: "중복된 값이 있습니다.", detail: msg }, 409);
       }
 
-      // CHECK 위반
+      // CHECK 위반 (스탯 0~100 등)
       if (rpcErr.code === "23514") {
         return json(
           { error: "입력값이 제약 조건을 벗어났습니다.", detail: msg },

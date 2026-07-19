@@ -17,15 +17,25 @@
 //   - 두상(왼쪽, 세로로 김) + 정보 컬럼(오른쪽: 이름/학교/학년성별/서명)
 //   - 하단: 스트라이프 · NO · 지갑 · 발급일
 //
-// 데이터 정책:
+// 데이터 정책 (v5: 색/서명 DB 이관):
 //   - 학생증(성명·학교·학년·성별·mobil)과 유리병 스탯은 열릴 때마다 fetch.
+//   - cardColor, textColor, signatureData 도 이제 DB(profiles)에서 로드/저장.
+//     · 색상: ColorPickerPopup 저장(onConfirm) 시 updateMyCardColors 로 DB UPDATE
+//     · 서명: SignaturePopup 저장(onSave) 시 updateMySignature 로 DB UPDATE
+//   - localStorage 는 더 이상 사용 안 함. 과거 값이 남아 있으면 로드 없이 "제거만".
 //   - 인벤토리·공용 일정은 아직 DB 스키마 없음 → props 미지정 시 DEFAULT 더미.
-//   - cardColor, textColor, signatureDataUrl, memos는 여전히 localStorage.
+//   - memos(개인 메모)는 아직 DB 스키마 없음 → 이번 세션 범위 밖. 임시로 컴포넌트
+//     생명주기 동안만 유지(새로고침 시 초기화). §7-C 에서 DB 이관 예정.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Wheel, ShadeSlider, hexToHsva, hsvaToHex, type HsvaColor } from "@uiw/react-color";
 import { JUA, GAEGU, BODY } from "../../auth/fonts";
-import { getMyPanelProfile, type MyPanelProfileRow } from "@/lib/auth-helpers";
+import {
+  getMyPanelProfile,
+  updateMyCardColors,
+  updateMySignature,
+  type MyPanelProfileRow,
+} from "@/lib/auth-helpers";
 import styles from "./MyPanel.module.css";
 
 /* ── 타입 ─────────────────────────────────────── */
@@ -58,6 +68,7 @@ const DEFAULT_CARD_COLOR = "#a5dbf7";
 const DEFAULT_TEXT_COLOR = NAVY;
 const TAPE = ["rgba(205,238,255,.88)", "rgba(201,242,230,.88)", "rgba(255,243,166,.92)", "rgba(255,215,201,.88)"];
 const GENDER_LABEL: Record<"male" | "female" | "other", string> = { male: "남", female: "여", other: "기타" };
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
 // TODO(인벤토리): items 테이블 설계 후 실데이터 교체
 const DEFAULT_ITEMS: MyPanelItem[] = [
@@ -121,6 +132,19 @@ function toGradient(hex: string): string {
   return `linear-gradient(135deg, ${lighter}, ${darker})`;
 }
 
+/* ── 유틸: DB에서 온 색상 값 방어 (null·형식 위반 시 기본값) ── */
+function normalizeColor(raw: string | null | undefined, fallback: string): string {
+  return typeof raw === "string" && HEX6.test(raw) ? raw : fallback;
+}
+
+/* ── 유틸: 과거 localStorage 잔재 제거 (읽지 않고 삭제만) ── */
+function purgeLegacyLocalStorage(profileId: string) {
+  try {
+    localStorage.removeItem(`mypanel:${profileId}:state`);
+    localStorage.removeItem(`mypanel:${profileId}:sig`);
+  } catch { /* ignore */ }
+}
+
 /* ═══════════════════════════════════════════════
  * MyPanel 본체
  * ═══════════════════════════════════════════════ */
@@ -152,65 +176,32 @@ export default function MyPanel({
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [colorPopupTarget, setColorPopupTarget] = useState<ColorTarget | null>(null);
   const [showSignaturePopup, setShowSignaturePopup] = useState(false);
+  // 저장 실패 시 사용자 안내용 (null이면 배너 없음)
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [hovItem, setHovItem] = useState(-1);
   const today = useMemo(() => new Date(), []);
   const [selDay, setSelDay] = useState(today.getDate());
+  // memos: 아직 DB 스키마 없음. 컴포넌트 생명주기 동안만 유지(§7-C 이관 예정).
   const [memos, setMemos] = useState<Record<number, string>>({});
   const [draft, setDraft] = useState("");
-  const [loaded, setLoaded] = useState(false);
 
-  /* storageKey: profile id 기반. profile 없으면 fallback */
-  const storageKey = profileRow ? `mypanel:${profileRow.id}` : "mypanel:_pending";
-
-  /* ── 저장된 상태 복원 (localStorage) — profile 로드 후 ─── */
+  /* ── DB값으로 색/서명 초기화 + 과거 localStorage 잔재 제거 ─── */
+  // profileRow 가 바뀔 때(=열릴 때마다 재fetch) DB값을 state에 반영.
+  // 로컬 저장은 더 이상 안 함. 과거 키가 남아 있으면 읽지 않고 삭제만.
   useEffect(() => {
     if (!profileRow) {
       setCardColor(DEFAULT_CARD_COLOR);
       setTextColor(DEFAULT_TEXT_COLOR);
       setSignatureDataUrl(null);
-      setMemos({});
-      setLoaded(false);
       return;
     }
-    try {
-      const raw = localStorage.getItem(`${storageKey}:state`);
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (typeof s.cardColor === "string" && /^#[0-9a-fA-F]{6}$/.test(s.cardColor)) {
-          setCardColor(s.cardColor);
-        } else {
-          setCardColor(DEFAULT_CARD_COLOR);
-        }
-        if (typeof s.textColor === "string" && /^#[0-9a-fA-F]{6}$/.test(s.textColor)) {
-          setTextColor(s.textColor);
-        } else {
-          setTextColor(DEFAULT_TEXT_COLOR);
-        }
-        setMemos(s.memos ?? {});
-      } else {
-        setCardColor(DEFAULT_CARD_COLOR);
-        setTextColor(DEFAULT_TEXT_COLOR);
-        setMemos({});
-      }
-      const sig = localStorage.getItem(`${storageKey}:sig`);
-      setSignatureDataUrl(sig ?? null);
-    } catch { /* ignore */ }
-    setLoaded(true);
+    setCardColor(normalizeColor(profileRow.card_bg_color, DEFAULT_CARD_COLOR));
+    setTextColor(normalizeColor(profileRow.card_text_color, DEFAULT_TEXT_COLOR));
+    setSignatureDataUrl(profileRow.signature_data ?? null);
+    purgeLegacyLocalStorage(profileRow.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileRow?.id]);
-
-  /* ── 상태 저장 ───────────────────────────────── */
-  useEffect(() => {
-    if (!loaded || !profileRow) return;
-    try {
-      localStorage.setItem(
-        `${storageKey}:state`,
-        JSON.stringify({ cardColor, textColor, memos })
-      );
-    } catch { /* ignore */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardColor, textColor, memos, loaded, profileRow?.id]);
+  }, [profileRow?.id, profileRow?.card_bg_color, profileRow?.card_text_color, profileRow?.signature_data]);
 
   /* ── 파생: 프로필 표시명·스탯 ─────────────────── */
   const displayProfile: MyPanelDisplayProfile = profileRow ? {
@@ -232,6 +223,36 @@ export default function MyPanel({
     { label: "체력",   value: profileRow.physical_stat,   color: "#e0a500" },
     { label: "표현력", value: profileRow.expression_stat, color: "#ef8f6a" },
   ] : [];
+
+  /* ── 색상 저장 (팝업 저장 시 DB UPDATE) ──────────
+   * 낙관적 반영: state는 이미 라이브 프리뷰로 바뀐 상태.
+   * DB UPDATE 실패해도 화면은 유지하고 배너로만 알림(재시도 여지).
+   * 성공 시 profileRow 캐시도 갱신해 다음 열람에서 일관성 유지.
+   */
+  const persistColors = async (nextBg: string, nextText: string) => {
+    setSaveError(null);
+    const res = await updateMyCardColors({ cardBgColor: nextBg, cardTextColor: nextText });
+    if (!res.ok) {
+      setSaveError("색상 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    setProfileRow((prev) =>
+      prev ? { ...prev, card_bg_color: nextBg, card_text_color: nextText } : prev
+    );
+  };
+
+  /* ── 서명 저장 (팝업 저장 시 DB UPDATE) ────────── */
+  const persistSignature = async (dataUrl: string | null) => {
+    setSaveError(null);
+    // 낙관적 UI 반영
+    setSignatureDataUrl(dataUrl);
+    const res = await updateMySignature(dataUrl);
+    if (!res.ok) {
+      setSaveError("서명 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    setProfileRow((prev) => (prev ? { ...prev, signature_data: dataUrl } : prev));
+  };
 
   /* ── 달력 파생값 ─────────────────────────────── */
   const year = today.getFullYear(); const month = today.getMonth();
@@ -293,6 +314,14 @@ export default function MyPanel({
           <>
             <div style={{ fontFamily: JUA, fontSize: 23, color: "#0d6fa8" }}>🎒 {characterName}의 마이 패널</div>
             <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 17, color: "#2ea3dd", marginTop: 2 }}>Summer-flashmob!</div>
+
+            {/* 저장 실패 배너 */}
+            {saveError && (
+              <div style={{ marginTop: 10, background: "#ffe1e1", border: "2px solid #f2a8a8", borderRadius: 10, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 14, color: "#b03a3a", flex: 1 }}>{saveError}</span>
+                <button onClick={() => setSaveError(null)} style={{ border: 0, background: "transparent", color: "#b03a3a", fontFamily: JUA, fontSize: 14, cursor: "pointer" }}>✕</button>
+              </div>
+            )}
 
             {/* ── 학생증 ── */}
             <div style={{ position: "relative", maxHeight:230, marginTop: 14, borderRadius: 16, overflow: "hidden", border: `2.5px solid ${NAVY}`, boxShadow: "4px 5px 0 rgba(20,58,99,.22)" }}>
@@ -525,7 +554,12 @@ export default function MyPanel({
             if (colorPopupTarget === "bg") setCardColor(hex);
             else setTextColor(hex);
           }}
-          onConfirm={() => setColorPopupTarget(null)}
+          onConfirm={() => {
+            // 확정 시 현재 두 색을 함께 DB 저장.
+            // 편집 중이던 쪽은 라이브 프리뷰로 이미 state 최신값이라 그대로 넘김.
+            void persistColors(cardColor, textColor);
+            setColorPopupTarget(null);
+          }}
           onCancel={(origHex) => {
             if (colorPopupTarget === "bg") setCardColor(origHex);
             else setTextColor(origHex);
@@ -539,11 +573,7 @@ export default function MyPanel({
         <SignaturePopup
           initialDataUrl={signatureDataUrl}
           onSave={(dataUrl) => {
-            setSignatureDataUrl(dataUrl);
-            try {
-              if (dataUrl) localStorage.setItem(`${storageKey}:sig`, dataUrl);
-              else localStorage.removeItem(`${storageKey}:sig`);
-            } catch { /* ignore */ }
+            void persistSignature(dataUrl);
             setShowSignaturePopup(false);
           }}
           onCancel={() => setShowSignaturePopup(false)}

@@ -4,8 +4,10 @@
  * absolute 배치: 부모 stage(1366×768) 기준.
  *
  * 변경:
- *   - .nameBadge: div → button. 커서·hover 인터랙션 추가.
- *   - .adminCallButton: 삭제 (NoticeBoard 좌하단으로 이동)
+ *   - v5: .gmLink 에 position:relative + overflow:visible
+ *         .gmBadge 신규 (미처리 mismatch 문의 개수 오버레이)
+ *   - v4: .nameBadge div → button, hover 인터랙션 추가
+ *         .adminCallButton 삭제
  */
 
 
@@ -88,6 +90,8 @@
 /* ── GM 관리 링크 (노랑 톤) ── */
 
 .gmLink {
+  position: relative;         /* v5: .gmBadge 오버레이 앵커 */
+  overflow: visible;
   height: 36px;
   display: flex;
   align-items: center;
@@ -100,6 +104,29 @@
   font-size: 14px;
   text-decoration: none;
   box-shadow: 2px 3px 0 var(--color-warning-shadow);
+}
+
+
+/* ── GM 관리 링크 위 미처리 문의 뱃지 (v5 신규) ── */
+
+.gmBadge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #e2695f;
+  color: #fff;
+  border: 2px solid #fff;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  box-sizing: content-box;
+  box-shadow: 0 2px 4px rgba(226, 105, 95, 0.4);
+  pointer-events: none;
 }
 
 

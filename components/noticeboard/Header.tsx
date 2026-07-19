@@ -9,20 +9,22 @@
 //                  + (GM이면) GM 관리 링크 + 로그아웃 버튼
 //     · [비로그인]  로그인 버튼
 //   ※ 관리자호출 버튼은 이 헤더에서 제거됨 → NoticeBoard 좌하단으로 이동
-//     (MyPanel 서랍이 우측에서 열릴 때 가리지 않도록)
+//
+// 변경점 (v4 → v5):
+//   - GM일 때 GM 관리 링크에 미처리 mismatch 문의 개수 뱃지 오버레이
+//   - 마운트 시 + focus/visibility 이벤트 시 카운트 재조회 (탭 전환 대응)
+//   - 자체 조회이므로 부모/다른 컴포넌트에 파급 없음
 //
 // 자체 관리:
-//   - useCurrentUser 훅 직접 호출 (부모는 auth 상태 신경 안 씀)
+//   - useCurrentUser 훅 직접 호출
 //   - 로그아웃도 내부 처리 (supabase.auth.signOut, onAuthStateChange가 상태 자동 리셋)
-//
-// Props:
-//   - onLoginClick:   로그인 버튼 클릭 시 (부모가 AuthModal 오픈)
-//   - onMyPanelClick: 닉네임 버튼 클릭 시 (부모가 MyPanel 토글)
 
 "use client";
 
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useCurrentUser } from "@/components/shared/useCurrentUser";
+import { getPendingReportCount } from "@/lib/auth-helpers";
 import styles from "./Header.module.css";
 
 type Props = {
@@ -32,11 +34,46 @@ type Props = {
 
 export default function Header({ onLoginClick, onMyPanelClick }: Props) {
   const { user, displayName, isGm, mobil } = useCurrentUser();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // GM 미처리 문의 카운트 조회.
+  // - GM 아닌 유저는 RLS로 SELECT 자체가 막혀서 count=0 반환 → 뱃지 안 뜸.
+  // - 다른 탭에서 GM 페이지 방문해 read 마킹된 경우도 반영되도록,
+  //   focus/visibility 이벤트에서도 재조회.
+  useEffect(() => {
+    if (!isGm) {
+      setPendingCount(0);
+      return;
+    }
+    let cancelled = false;
+
+    async function refresh() {
+      const n = await getPendingReportCount();
+      if (!cancelled) setPendingCount(n);
+    }
+
+    void refresh();
+
+    const onFocus = () => { void refresh(); };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isGm]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     // useCurrentUser의 onAuthStateChange가 상태 자동 리셋
   }
+
+  const showGmBadge = isGm && pendingCount > 0;
 
   return (
     <>
@@ -64,6 +101,11 @@ export default function Header({ onLoginClick, onMyPanelClick }: Props) {
             {isGm ? (
               <a href="/gm" className={styles.gmLink}>
                 GM 관리
+                {showGmBadge ? (
+                  <span className={styles.gmBadge}>
+                    {pendingCount > 99 ? "99+" : pendingCount}
+                  </span>
+                ) : null}
               </a>
             ) : null}
 
