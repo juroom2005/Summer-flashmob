@@ -1,0 +1,41 @@
+/* components/admin-chat/UserChatView.module.css
+ *
+ * 로딩·에러 안내 상태 전용 스타일.
+ * 정상 상태의 본문·입력바는 ChatRoomBody.module.css 소관.
+ */
+
+.notice {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  background: var(--color-bg-page-top);
+  color: var(--color-text-dim);
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.noticeText {
+  margin: 0;
+}
+
+.retryButton {
+  height: 34px;
+  padding: 0 18px;
+  border: 1.5px solid var(--color-primary-border);
+  border-radius: var(--radius-round);
+  background: #fff;
+  color: var(--color-primary);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.retryButton:hover {
+  background: var(--color-bg-input);
+}

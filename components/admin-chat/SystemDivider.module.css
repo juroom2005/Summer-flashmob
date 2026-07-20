@@ -1,0 +1,26 @@
+/* components/admin-chat/SystemDivider.module.css
+ *
+ * 완료 안내 구분선 스타일.
+ * 프론트 리뉴얼 예정이라 시각적 화려함은 배제하고 기능 명확성 우선.
+ */
+
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  color: var(--color-text-dim);
+  font-size: 11px;
+  font-family: var(--font-body);
+}
+
+.line {
+  flex: 1;
+  height: 1px;
+  background: var(--color-primary-border-soft);
+}
+
+.text {
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}

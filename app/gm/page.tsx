@@ -14,6 +14,7 @@ import { useEffect, useState, type CSSProperties } from "react";
 import InviteGenerateForm from "@/components/gm/InviteGenerateForm";
 import InviteCodeList     from "@/components/gm/InviteCodeList";
 import ReportList         from "@/components/gm/reports/ReportList";
+import UserList           from "@/components/gm/users/UserList";
 import { getPendingReportCount } from "@/lib/auth-helpers";
 
 const JUA   = "'Jua', sans-serif";
@@ -95,26 +96,10 @@ export default function GmPage() {
           </div>
         )}
 
-        {tab === "users" && (
-          <ListPlaceholder
-            title="유저 목록"
-            note="UserList + DeleteConfirmDialog 컴포넌트 추가 예정"
-          />
-        )}
+        {tab === "users" && <UserList />}
 
         {tab === "reports" && <ReportList />}
       </main>
-    </div>
-  );
-}
-
-/* ── 임시 placeholder (유저 탭용) ── */
-
-function ListPlaceholder({ title, note }: { title: string; note: string }) {
-  return (
-    <div style={placeholderCardStyle}>
-      <div style={placeholderTitleStyle}>{title}</div>
-      <div style={placeholderNoteStyle}>🚧 {note}</div>
     </div>
   );
 }
@@ -214,25 +199,4 @@ const sectionStackStyle: CSSProperties = {
   display:       "flex",
   flexDirection: "column",
   gap:           20,
-};
-
-const placeholderCardStyle: CSSProperties = {
-  padding:      "32px 32px",
-  background:   "#fff",
-  border:       "2px dashed #a8dcf5",
-  borderRadius: 18,
-  textAlign:    "center",
-};
-
-const placeholderTitleStyle: CSSProperties = {
-  fontFamily:   JUA,
-  fontSize:     18,
-  color:        "#14406f",
-  marginBottom: 6,
-};
-
-const placeholderNoteStyle: CSSProperties = {
-  fontFamily: BODY,
-  fontSize:   13,
-  color:      "#7fb3d4",
 };

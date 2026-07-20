@@ -21,7 +21,9 @@ import {
 } from "react";
 
 import AdminChatOverlay from "./admin-chat/AdminChatOverlay";
+import { useAdminChatBadge } from "./admin-chat/useAdminChatBadge";
 import AuthModal from "./auth/AuthModal";
+import { useCurrentUser } from "./shared/useCurrentUser";
 import Header from "./noticeboard/Header";
 import NavRail, { type Tab } from "./noticeboard/NavRail";
 import MyPanel from "./noticeboard/panels/MyPanel";
@@ -94,6 +96,12 @@ export default function NoticeBoard({
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("notice");
   const [overlay, setOverlay] = useState<Overlay>(null);
+
+  // 관리자호출: 로그인 여부 판정 + 미읽음 뱃지
+  const { user: currentUser } = useCurrentUser();
+  const { count: adminChatUnread } = useAdminChatBadge({
+    chatOpen: overlay === "admin",
+  });
 
   const [panelVisible, setPanelVisible] = useState(false);
   const [panelClosing, setPanelClosing] = useState(false);
@@ -372,8 +380,16 @@ export default function NoticeBoard({
           </div>
 
           {/* ── 관리자호출 버튼 (좌하단 · 참여명단 겹침 감수, z-index 우선) ── */}
+          {/* 미로그인 시: 오버레이 대신 로그인 모달을 열어 진입 통제 */}
+          {/* 뱃지: 유저=미읽음 메시지 수 / GM=미읽음 방 수 */}
           <button
-            onClick={() => setOverlay((prev) => (prev === "admin" ? null : "admin"))}
+            onClick={() => {
+              if (!currentUser) {
+                setOverlay("login");
+                return;
+              }
+              setOverlay((prev) => (prev === "admin" ? null : "admin"));
+            }}
             style={{
               position: "absolute",
               left: 24,
@@ -397,7 +413,27 @@ export default function NoticeBoard({
             onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
             📞 관리자호출
+            {adminChatUnread > 0 ? (
+              <span
+                style={{
+                  minWidth: 19,
+                  height: 19,
+                  padding: "0 6px",
+                  borderRadius: 999,
+                  background: "#e5484d",
+                  color: "#fff",
+                  fontFamily: JUA,
+                  fontSize: 11,
+                  lineHeight: "19px",
+                  textAlign: "center",
+                  boxShadow: "0 1px 3px rgba(0,0,0,.25)",
+                }}
+              >
+                {adminChatUnread > 99 ? "99+" : adminChatUnread}
+              </span>
+            ) : null}
           </button>
+
 
           {/* ── NOW PLAYING (재생 토글) ── */}
           <button

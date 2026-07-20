@@ -1,0 +1,392 @@
+// lib/gm-user-helpers.ts
+//
+// GM 유저 관리 데이터 접근 헬퍼.
+//
+// 스키마: sql/2026-07-20_gm_user_admin.sql
+//   · profiles.deactivated_at 컬럼
+//   · RPC 7개 (assert_caller_is_gm 포함)
+// Edge Function: gm-delete-user (완전 삭제 전용, service_role 필요)
+//
+// 방침:
+//   · profiles UPDATE RLS는 확대하지 않음 → 모든 수정은 RPC 경유
+//   · RPC는 예외를 던지므로, 여기서 잡아서 { ok, reason } 형태로 정규화
+//     (호출부가 try/catch 없이 분기할 수 있게)
+//   · 조회 실패는 빈 배열 반환 (목록이 안 뜨는 편이 잘못 뜨는 것보다 안전)
+//
+// mobil 지급 주의:
+//   · 절대값 덮어쓰기 없음. 반드시 증감(delta) + mobil_grants 이력 기록
+//   · granted_by 는 EF/RPC 내부에서 auth.uid() 로 자동 기록 (호출부 관여 불필요)
+
+import { supabase } from "./supabase";
+import { callEdgeFunction } from "./ef-client";
+
+/* ═══════════════════════════════════════════════════════════
+ * 타입
+ * ─────────────────────────────────────────────────────────── */
+
+export type GmUserRow = {
+  id:              string;
+  user_id:         string | null;
+  email:           string | null;
+  family_name:     string | null;
+  given_name:      string | null;
+  age:             number | null;
+  gender:          "male" | "female" | "other" | null;
+  school_name:     string | null;
+  grade:           number | null;
+  rhythm_stat:     number;
+  physical_stat:   number;
+  expression_stat: number;
+  mobil:           number;
+  is_gm:           boolean;
+  /** user_id가 있으면 가입 완료, 없으면 shell(초대만 발급된 상태) */
+  is_registered:   boolean;
+  /** NULL이면 활성, 값이 있으면 비활성 시각 */
+  deactivated_at:  string | null;
+  created_at:      string;
+};
+
+/** RPC 호출 결과 정규화 형태. */
+export type RpcResult<T = void> =
+  | { ok: true;  data: T }
+  | { ok: false; reason: string; message: string };
+
+/** RPC 에러 코드 → 한국어 안내 문구. */
+const RPC_ERROR_MESSAGES: Record<string, string> = {
+  auth_required:        "로그인이 필요합니다.",
+  gm_only:              "GM 권한이 필요합니다.",
+  profile_not_found:    "대상 유저를 찾을 수 없습니다.",
+  invalid_age:          "나이는 1에서 150 사이여야 합니다.",
+  invalid_gender:       "성별 값이 올바르지 않습니다.",
+  invalid_grade:        "학년은 1에서 3 사이여야 합니다.",
+  invalid_family_name:  "성을 입력해주십시오.",
+  invalid_given_name:   "이름을 입력해주십시오.",
+  invalid_amount:       "지급 수량이 올바르지 않습니다.",
+  insufficient_mobil:   "차감 후 잔액이 음수가 됩니다.",
+  cannot_deactivate_gm: "GM 계정은 비활성화할 수 없습니다.",
+};
+
+/**
+ * Postgres 예외 메시지에서 RAISE EXCEPTION 코드를 추출.
+ * supabase-js는 error.message에 예외 메시지를 그대로 담아준다.
+ */
+function normalizeRpcError(message: string | undefined): {
+  reason: string;
+  message: string;
+} {
+  const raw = (message ?? "").trim();
+  for (const code of Object.keys(RPC_ERROR_MESSAGES)) {
+    if (raw.includes(code)) {
+      return { reason: code, message: RPC_ERROR_MESSAGES[code] };
+    }
+  }
+  return {
+    reason:  "unknown",
+    message: "처리 중 오류가 발생하였습니다. 잠시 후 다시 시도해주십시오.",
+  };
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 조회
+ * ─────────────────────────────────────────────────────────── */
+
+/**
+ * GM용 유저 목록 조회.
+ *
+ * @param includeInactive  true면 비활성 유저도 포함
+ *
+ * 정렬: GM 우선 → created_at DESC
+ * shell profile(미가입)도 포함되며 is_registered=false 로 구분.
+ * 실패 시 빈 배열.
+ */
+export async function listGmUsers(
+  includeInactive: boolean
+): Promise<GmUserRow[]> {
+  const { data, error } = await supabase.rpc("gm_list_users", {
+    p_include_inactive: includeInactive,
+  });
+
+  if (error) {
+    console.error("[listGmUsers] failed:", error.message);
+    return [];
+  }
+  return (data as GmUserRow[] | null) ?? [];
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 기본 정보 수정
+ * ─────────────────────────────────────────────────────────── */
+
+export type GmProfilePatch = {
+  family_name?: string;
+  given_name?:  string;
+  age?:         number;
+  gender?:      "male" | "female" | "other";
+  school_name?: string;
+  grade?:       number;
+};
+
+/**
+ * 기본 정보 수정.
+ *
+ * 넘기지 않은 필드(undefined)는 변경되지 않음.
+ * RPC 내부에서 COALESCE로 처리되므로 부분 수정 가능.
+ *
+ * 수정 대상 밖:
+ *   · is_gm            — protect_is_gm_column 트리거가 차단
+ *   · mobil            — grantMobil() 사용
+ *   · 스탯 3종         — adjustUserStats() 사용
+ *   · 학생증 커스텀     — 본인 소관, GM 수정 대상 아님
+ */
+export async function updateGmUserProfile(
+  profileId: string,
+  patch:     GmProfilePatch
+): Promise<RpcResult> {
+  const { error } = await supabase.rpc("gm_update_user_profile", {
+    p_profile_id:  profileId,
+    p_family_name: patch.family_name ?? null,
+    p_given_name:  patch.given_name  ?? null,
+    p_age:         patch.age         ?? null,
+    p_gender:      patch.gender      ?? null,
+    p_school_name: patch.school_name ?? null,
+    p_grade:       patch.grade       ?? null,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[updateGmUserProfile] failed:", error.message);
+    return { ok: false, ...n };
+  }
+  return { ok: true, data: undefined };
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 스탯 조정 (증감)
+ * ─────────────────────────────────────────────────────────── */
+
+export type StatDeltas = {
+  rhythm?:     number;
+  physical?:   number;
+  expression?: number;
+};
+
+export type StatResult = {
+  rhythm_stat:     number;
+  physical_stat:   number;
+  expression_stat: number;
+};
+
+/**
+ * 스탯 증감. 결과값은 서버에서 0~100으로 클램프됨.
+ *
+ * 절대값 지정이 아니라 증감 방식인 이유:
+ *   · 동시 편집 시 덮어쓰기 사고 회피
+ *   · UI가 -10/-1/+1/+10 버튼이라 자연스러움
+ *
+ * 반환 data에 조정 후 최종 스탯 3종이 담김 → 낙관적 UI 없이 서버값으로 반영.
+ */
+export async function adjustGmUserStats(
+  profileId: string,
+  deltas:    StatDeltas
+): Promise<RpcResult<StatResult>> {
+  const { data, error } = await supabase.rpc("gm_adjust_user_stats", {
+    p_profile_id:       profileId,
+    p_rhythm_delta:     deltas.rhythm     ?? 0,
+    p_physical_delta:   deltas.physical   ?? 0,
+    p_expression_delta: deltas.expression ?? 0,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[adjustGmUserStats] failed:", error.message);
+    return { ok: false, ...n };
+  }
+
+  // RETURNS TABLE 이라 배열로 옴
+  const rows = (data as StatResult[] | null) ?? [];
+  const row  = rows[0];
+  if (!row) {
+    return {
+      ok:      false,
+      reason:  "unknown",
+      message: "조정 결과를 확인하지 못하였습니다.",
+    };
+  }
+  return { ok: true, data: row };
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * mobil 지급 / 차감
+ * ─────────────────────────────────────────────────────────── */
+
+/**
+ * mobil 증감 + mobil_grants 이력 자동 기록.
+ *
+ * @param amount  0이 아닌 정수. 음수면 차감.
+ * @param note    지급 사유 메모 (선택)
+ *
+ * 서버 처리:
+ *   · FOR UPDATE 행 잠금 → 동시 지급 경합 차단
+ *   · 차감 결과가 음수면 거부 (insufficient_mobil)
+ *   · grant_type='gm_grant', granted_by=auth.uid() 자동 기록
+ *
+ * 반환 data는 조정 후 최종 잔액.
+ */
+export async function grantGmMobil(
+  profileId: string,
+  amount:    number,
+  note?:     string
+): Promise<RpcResult<number>> {
+  if (!Number.isInteger(amount) || amount === 0) {
+    return {
+      ok:      false,
+      reason:  "invalid_amount",
+      message: RPC_ERROR_MESSAGES.invalid_amount,
+    };
+  }
+
+  const { data, error } = await supabase.rpc("gm_grant_mobil", {
+    p_profile_id: profileId,
+    p_amount:     amount,
+    p_note:       note?.trim() ? note.trim() : null,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[grantGmMobil] failed:", error.message);
+    return { ok: false, ...n };
+  }
+
+  return { ok: true, data: (data as number) ?? 0 };
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 비활성화 / 복구 (보수적 삭제)
+ * ─────────────────────────────────────────────────────────── */
+
+/**
+ * 유저 비활성화. 데이터는 전부 보존되며 노출에서만 제외.
+ * 되돌리기 가능(reactivateGmUser).
+ * GM 계정은 비활성화 불가.
+ */
+export async function deactivateGmUser(
+  profileId: string
+): Promise<RpcResult> {
+  const { error } = await supabase.rpc("gm_deactivate_user", {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[deactivateGmUser] failed:", error.message);
+    return { ok: false, ...n };
+  }
+  return { ok: true, data: undefined };
+}
+
+/** 비활성화된 유저 복구. */
+export async function reactivateGmUser(
+  profileId: string
+): Promise<RpcResult> {
+  const { error } = await supabase.rpc("gm_reactivate_user", {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[reactivateGmUser] failed:", error.message);
+    return { ok: false, ...n };
+  }
+  return { ok: true, data: undefined };
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 완전 삭제 (Edge Function: gm-delete-user)
+ * ─────────────────────────────────────────────────────────── */
+
+/** dry_run 응답: 삭제 시 영향 범위. */
+export type DeletePreview = {
+  dry_run: true;
+  target: {
+    profile_id:    string;
+    user_id:       string | null;
+    display_name:  string;
+    is_registered: boolean;
+  };
+  will_delete:    Record<string, number>;
+  will_anonymize: Record<string, number>;
+};
+
+/** 실삭제 응답. */
+export type DeleteResult = {
+  dry_run: false;
+  success: true;
+  target: {
+    profile_id:    string;
+    user_id:       string | null;
+    display_name:  string;
+    is_registered: boolean;
+  };
+  deleted:    Record<string, number>;
+  anonymized: Record<string, number>;
+};
+
+/**
+ * 완전 삭제 미리보기.
+ * 실제로 지우지 않고 영향 범위만 집계해 반환.
+ *
+ * UI 흐름 권장: 미리보기 → 사용자 확인 → 실삭제
+ */
+export async function previewGmUserDeletion(
+  profileId: string
+): Promise<RpcResult<DeletePreview>> {
+  const res = await callEdgeFunction<DeletePreview>("gm-delete-user", {
+    target_profile_id: profileId,
+    dry_run:           true,
+  });
+
+  if (!res.ok) {
+    return {
+      ok:      false,
+      reason:  `http_${res.status}`,
+      message: res.error,
+    };
+  }
+  return { ok: true, data: res.data };
+}
+
+/**
+ * 완전 삭제 실행.
+ *
+ * 되돌릴 수 없음. 호출 전 반드시 previewGmUserDeletion 결과를 사용자에게 보여줄 것.
+ *
+ * 처리 내용:
+ *   · 가입 유저  → auth 계정 삭제 → profiles CASCADE 연쇄
+ *   · shell 유저 → profiles 직접 삭제 → CASCADE 연쇄
+ *
+ * 함께 사라지는 것: 초대코드·인벤토리·뱃지·미니게임 기록·스티커·상점 구매 이력·
+ *                  mobil 지급 이력·GM 채팅방 전체(메시지 포함)
+ */
+export async function deleteGmUserPermanently(
+  profileId: string
+): Promise<RpcResult<DeleteResult>> {
+  const res = await callEdgeFunction<DeleteResult>("gm-delete-user", {
+    target_profile_id: profileId,
+    dry_run:           false,
+  });
+
+  if (!res.ok) {
+    return {
+      ok:      false,
+      reason:  `http_${res.status}`,
+      message: res.error,
+    };
+  }
+  return { ok: true, data: res.data };
+}

@@ -1,16 +1,22 @@
 /* components/admin-chat/AdminChatOverlay.module.css
  *
- * v4 위치 변경:
- *   - 관리자호출 버튼이 헤더 → NoticeBoard 좌하단(left:24, bottom:26)으로 이동함에 따라
- *     채팅 오버레이도 좌하단 앵커로 이동.
- *   - transform-origin: top right → bottom left (좌하단 앵커에서 뽀잉 등장·사라짐)
+ * v5 (실기능화):
+ *   - 본문·말풍선·입력바 스타일은 ChatRoomBody.module.css로 이관됨
+ *     (.body / .rowMe / .rowAdmin / .bubbleMe / .bubbleAdmin / .inputBar /
+ *      .input / .sendButton / .dateChip 전부 이 파일에서 제거)
+ *   - GM 모드 폭 확장 모디파이어 .overlayWide 추가 (334px → 560px)
+ *   - .statusDot 제거 ("운영진 온라인" 표시 폐기)
+ *   - 로딩·미로그인 안내용 .stateNotice 추가
  *
- * open/close 애니메이션 (v3):
- *   .overlay          → overlayEnter 재생 (뽀잉 등장)
- *   .overlay.closing  → overlayExit 재생 (뽀잉 사라짐)
+ * 위치 (v4부터 유지):
+ *   관리자호출 버튼이 NoticeBoard 좌하단(left:24, bottom:26)이라 오버레이도 좌하단 앵커.
+ *   transform-origin: bottom left → 버튼 위치에서 뽀잉 등장·사라짐.
  *
- * animation-name이 바뀌어야 브라우저가 재시작하므로 keyframes 두 개로 분리.
- * (v2에서 reverse 방식은 브라우저가 재시작 안 하는 케이스 있음)
+ * open/close 애니메이션:
+ *   .overlay          → overlayEnter 재생
+ *   .overlay.closing  → overlayExit 재생
+ *   animation-name이 바뀌어야 브라우저가 재시작하므로 keyframes 두 개로 분리
+ *   (reverse 방식은 브라우저가 재시작 안 하는 케이스 있음 — 핸드오프 v3 §2-4)
  *
  * duration은 tsx의 ANIM_MS(400ms)와 반드시 일치.
  */
@@ -32,6 +38,11 @@
   overflow: hidden;
 
   animation: overlayEnter 0.4s cubic-bezier(0.2, 0.85, 0.25, 1.1) both;
+}
+
+/* GM 모드: 좌측 방 목록(168px) + 우측 방 = 2단 레이아웃이라 폭 확장 */
+.overlayWide {
+  width: 560px;
 }
 
 /* 닫기 상태: enter 애니메이션을 덮어씀 */
@@ -81,6 +92,7 @@
   padding: 10px 14px;
   background: var(--color-primary);
   color: #fff;
+  flex-shrink: 0;
 }
 
 .avatar {
@@ -92,11 +104,13 @@
   align-items: center;
   justify-content: center;
   font-size: 17px;
+  flex-shrink: 0;
 }
 
 .titleWrap {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .title {
@@ -107,17 +121,6 @@
 .subtitle {
   font-size: 11px;
   opacity: 0.9;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.statusDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #7cfc66;
-  display: inline-block;
 }
 
 .closeButton {
@@ -131,94 +134,22 @@
   cursor: pointer;
   font-size: 13px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 
-/* ── 본문 ── */
+/* ── 상태 안내 (로딩 · 미로그인) ── */
 
-.body {
+.stateNotice {
   flex: 1;
-  overflow: auto;
-  padding: 14px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
   background: var(--color-bg-page-top);
-}
-
-.dateChip {
-  align-self: center;
-  font-size: 11px;
   color: var(--color-text-dim);
-  background: #fff;
-  border-radius: var(--radius-round);
-  padding: 3px 12px;
-}
-
-.rowMe {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.rowAdmin {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.bubbleMe {
-  max-width: 80%;
-  background: var(--color-primary);
-  color: #fff;
-  border: 1.5px solid var(--color-primary);
-  border-radius: 14px 14px 4px 14px;
-  padding: 8px 12px;
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.bubbleAdmin {
-  max-width: 80%;
-  background: #fff;
-  color: var(--color-text-mid);
-  border: 1.5px solid var(--color-primary-border);
-  border-radius: 14px 14px 14px 4px;
-  padding: 8px 12px;
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-
-/* ── 입력 바 ── */
-
-.inputBar {
-  display: flex;
-  gap: 8px;
-  padding: 10px;
-  border-top: 2px solid var(--color-primary-border-soft);
-  background: #fff;
-}
-
-.input {
-  flex: 1;
-  height: 38px;
-  border: 2px solid var(--color-primary-border);
-  border-radius: var(--radius-round);
-  padding: 0 14px;
   font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--color-text-mid);
-  outline: none;
-  background: var(--color-bg-input);
-}
-
-.sendButton {
-  height: 38px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: var(--radius-round);
-  background: var(--color-primary);
-  color: #fff;
-  font-family: var(--font-heading);
-  font-size: 14px;
-  cursor: pointer;
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.6;
 }

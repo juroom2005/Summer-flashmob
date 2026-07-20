@@ -1,0 +1,119 @@
+/* components/admin-chat/GmChatView.module.css
+ *
+ * GM 관점 2단 레이아웃 (좌: 방 목록 / 우: 선택된 방).
+ *
+ * 주의:
+ *   오버레이 자체의 폭 확장은 AdminChatOverlay.module.css의 GM 모디파이어에서 처리.
+ *   이 파일은 오버레이 내부 분할만 담당.
+ */
+
+.split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* ── 좌측 · 방 목록 ── */
+
+.listPane {
+  width: 168px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 2px solid var(--color-primary-border-soft);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.listNotice {
+  padding: 18px 12px;
+  color: var(--color-text-dim);
+  font-family: var(--font-body);
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--color-primary-border-soft);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+}
+
+.listItem:hover {
+  background: var(--color-bg-page-top);
+}
+
+.listItemActive {
+  background: var(--color-bg-input);
+}
+
+.listItemActive:hover {
+  background: var(--color-bg-input);
+}
+
+.itemName {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--color-text-mid);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemMeta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.itemTime {
+  font-size: 10px;
+  color: var(--color-text-dim);
+}
+
+.itemBadge {
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-round);
+  background: #e5484d;
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 10px;
+  line-height: 17px;
+  text-align: center;
+}
+
+/* ── 우측 · 선택된 방 ── */
+
+.roomPane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.roomNotice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--color-bg-page-top);
+  color: var(--color-text-dim);
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.6;
+}

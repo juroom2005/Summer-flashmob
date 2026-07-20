@@ -1,0 +1,138 @@
+/* components/admin-chat/ChatRoomBody.module.css
+ *
+ * 본문·말풍선·입력바·완료버튼 공통 스타일.
+ * 기존 AdminChatOverlay.module.css의 body/row/bubble/inputBar 파트에서 이관 + 정리.
+ *
+ * 리네이밍:
+ *   rowAdmin/bubbleAdmin → rowOther/bubbleOther
+ *   (유저·GM 양쪽이 재사용하므로 관점 중립적 이름)
+ *
+ * v2 수정:
+ *   · .input:disabled → .inputSending 으로 교체
+ *     (입력창이 disabled 대신 readOnly를 쓰게 되어 :disabled 셀렉터가 안 걸림)
+ *
+ * 오버레이 자체(width/height/애니메이션 등)는 AdminChatOverlay.module.css 소관.
+ */
+
+.body {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--color-bg-page-top);
+}
+
+.emptyHint {
+  align-self: center;
+  color: var(--color-text-dim);
+  font-size: 12px;
+  padding: 20px 0;
+  font-family: var(--font-body);
+}
+
+.rowMe {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rowOther {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.bubbleMe {
+  max-width: 80%;
+  background: var(--color-primary);
+  color: #fff;
+  border: 1.5px solid var(--color-primary);
+  border-radius: 14px 14px 4px 14px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-body);
+}
+
+.bubbleOther {
+  max-width: 80%;
+  background: #fff;
+  color: var(--color-text-mid);
+  border: 1.5px solid var(--color-primary-border);
+  border-radius: 14px 14px 14px 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-body);
+}
+
+.inputBar {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 2px solid var(--color-primary-border-soft);
+  background: #fff;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  border: 2px solid var(--color-primary-border);
+  border-radius: var(--radius-round);
+  padding: 0 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-text-mid);
+  outline: none;
+  background: var(--color-bg-input);
+}
+
+/* 전송 중 상태. readOnly라 :disabled가 안 걸리므로 클래스로 처리. */
+.inputSending {
+  opacity: 0.65;
+}
+
+.sendButton {
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.resolveButton {
+  height: 38px;
+  padding: 0 12px;
+  border: 1.5px solid var(--color-primary-border);
+  border-radius: var(--radius-round);
+  background: #fff;
+  color: var(--color-primary);
+  font-family: var(--font-heading);
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.resolveButton:hover {
+  background: var(--color-bg-page-top);
+}
+
+.resolveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
