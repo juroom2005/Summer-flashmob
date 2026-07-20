@@ -41,6 +41,7 @@ export default function AuthModal({ open, initialTab, onClose }: Props) {
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mouseDownOnBackdropRef = useRef(false);
 
   // open 상태에서 initialTab 바뀌면 반영
   // (외부에서 명시적으로 login/register 지정하며 열 때)
@@ -76,15 +77,23 @@ export default function AuthModal({ open, initialTab, onClose }: Props) {
 
   if (!visible) return null;
 
-  return (
-    <div
-      className={`${styles.backdrop} ${closing ? styles.closing : ""}`}
-      onClick={onClose}
-    >
+    return (
       <div
-        className={`${styles.card} ${closing ? styles.closing : ""}`}
-        onClick={(e) => e.stopPropagation()}
+        className={`${styles.backdrop} ${closing ? styles.closing : ""}`}
+        onMouseDown={(e) => {
+          mouseDownOnBackdropRef.current = e.target === e.currentTarget;
+        }}
+        onMouseUp={(e) => {
+          if (mouseDownOnBackdropRef.current && e.target === e.currentTarget) {
+            onClose();
+          }
+          mouseDownOnBackdropRef.current = false;
+        }}
       >
+        <div
+          className={`${styles.card} ${closing ? styles.closing : ""}`}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
         <button
           onClick={onClose}
           className={styles.closeButton}

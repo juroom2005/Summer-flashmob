@@ -558,23 +558,13 @@ export default function NoticeBoard({
             </div>
           ) : null}
 
-          {/* ── 로그인·가입 모달 ── */}
-            <AuthModal
-              open={overlay === "login" || overlay === "register"}
-              initialTab={overlay === "register" ? "register" : "login"}
-              onClose={() => setOverlay(null)}
-            />
+          
           {/* ── 관리자 호출 채팅 ── */}
             <AdminChatOverlay
               open={overlay === "admin"}
               onClose={() => setOverlay(null)}
             />
 
-          {/* ── 마이 패널 (우측 서랍, 열려도 뒷화면 조작 가능) ── */}
-            <MyPanel
-              open={overlay === "mypanel"}
-              onClose={() => setOverlay(null)}
-            />
 
           {/* ── 토스트 ── */}
           {toast ? (
@@ -610,6 +600,18 @@ export default function NoticeBoard({
           ) : null}
         </div>
       </div>
+         {/* ── 마이 패널 (뷰포트 우측 서랍, 스테이지 밖) ── */}
+      <MyPanel
+        open={overlay === "mypanel"}
+        onClose={() => setOverlay(null)}
+      />
+
+      {/* ── 로그인·가입 모달 ── */}
+            <AuthModal
+              open={overlay === "login" || overlay === "register"}
+              initialTab={overlay === "register" ? "register" : "login"}
+              onClose={() => setOverlay(null)}
+            />
     </div>
   );
 }
