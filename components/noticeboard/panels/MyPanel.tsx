@@ -36,6 +36,7 @@ import {
   updateMySignature,
   type MyPanelProfileRow,
 } from "@/lib/auth-helpers";
+import AccountInfoCard from "./AccountInfoCard";
 import styles from "./MyPanel.module.css";
 
 /* ── 타입 ─────────────────────────────────────── */
@@ -540,6 +541,9 @@ export default function MyPanel({
                 </div>
               </div>
             </div>
+
+            {/* ── 계정 정보 (최하단) ── */}
+            <AccountInfoCard />
           </>
         )}
       </div>

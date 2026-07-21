@@ -18,3 +18,9 @@ verify_jwt = false
 
 [functions.preview-invite]
 verify_jwt = false
+
+[functions.gm-delete-user]
+verify_jwt = false
+
+[functions.gm-reset-user-password]
+verify_jwt = false

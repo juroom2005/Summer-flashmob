@@ -25,10 +25,11 @@ import type {
   GmUserRow,
   StatResult,
 } from "@/lib/gm-user-helpers";
-import UserEditForm    from "./UserEditForm";
-import StatAdjustPanel from "./StatAdjustPanel";
-import MobilGrantPanel from "./MobilGrantPanel";
-import UserDangerZone  from "./UserDangerZone";
+import UserEditForm       from "./UserEditForm";
+import StatAdjustPanel    from "./StatAdjustPanel";
+import MobilGrantPanel    from "./MobilGrantPanel";
+import PasswordResetPanel from "./PasswordResetPanel";
+import UserDangerZone     from "./UserDangerZone";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
@@ -143,6 +144,15 @@ export default function UserDetail({ user, onPatch, onRefresh }: Props) {
         mobil={user.mobil}
         onGranted={handleMobilGranted}
       />
+
+      {/* 비번 재설정: 가입 유저 + GM 아닌 대상에만 노출.
+          shell(미가입)은 auth 계정 자체가 없고, GM 은 정책상 이 화면에서 재설정 불가. */}
+      {user.is_registered && !user.is_gm ? (
+        <PasswordResetPanel
+          profileId={user.id}
+          displayName={displayName}
+        />
+      ) : null}
 
       <UserDangerZone
         profileId={user.id}
