@@ -413,8 +413,8 @@ export default function MyPanel({
             {/* ── 스탯 : 유리병 파도 ── */}
             <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={secTitle}>🫧 이번 여름 스탯</span>
-                <span style={secHint}>병에 마우스를 올리면 파도가 찰랑—</span>
+                <span style={secTitle}>🫧스탯</span>
+                <span style={secHint}></span>
               </div>
               <div style={{ display: "flex", gap: 14, justifyContent: "center", alignItems: "flex-end", marginTop: 12, background: "linear-gradient(180deg,#eaf6fe,#fff)", border: "2px solid #cdeeff", borderRadius: 14, padding: "16px 10px 12px" }}>
                 {stats.map((s) => {
