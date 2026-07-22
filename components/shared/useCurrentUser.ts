@@ -123,5 +123,44 @@ export function useCurrentUser(): CurrentUserState {
     };
   }, []);
 
+  // 상점 구매 등 profile 변경 이벤트 리슨 → 최소 재조회
+  // 다른 컴포넌트가 dispatchEvent("profile-changed")를 호출하면 자동으로 반영됨.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refetchOnEvent() {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid || cancelled) return;
+
+      const { data: p } = await supabase
+        .from("profiles")
+        .select("family_name, given_name, is_gm, mobil")
+        .eq("user_id", uid)
+        .maybeSingle();
+
+      if (cancelled || !p) return;
+
+      const fullName = p.family_name && p.given_name
+        ? `${p.family_name} ${p.given_name}`
+        : null;
+      setDisplayName(fullName);
+      setIsGm(p.is_gm === true);
+      setMobil(typeof p.mobil === "number" ? p.mobil : 0);
+    }
+
+    const handler = () => { void refetchOnEvent(); };
+    if (typeof window !== "undefined") {
+      window.addEventListener("profile-changed", handler);
+    }
+
+    return () => {
+      cancelled = true;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("profile-changed", handler);
+      }
+    };
+  }, []);
+
   return { user, displayName, isGm, mobil, loading };
 }

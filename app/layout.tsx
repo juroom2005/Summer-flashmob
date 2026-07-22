@@ -2,6 +2,9 @@
 import type { Metadata } from "next";
 import { Jua, Gaegu, Gowun_Dodum, Nanum_Pen_Script } from "next/font/google";
 import "./globals.css";
+import { PasswordResetProvider } from "@/components/password-reset/PasswordResetProvider";
+import GmPasswordResetGate from "@/components/password-reset/GmPasswordResetGate";
+import PasswordResetBanner from "@/components/password-reset/PasswordResetBanner";
 
 // Google Fonts는 next/font/google로 로드 — CSS 변수로 노출
 const jua = Jua({
@@ -35,7 +38,7 @@ const nanumPen = Nanum_Pen_Script({
 
 export const metadata: Metadata = {
   title: "Summer FlashMob",
-  description: "여름 정기 플래시몹 커뮤니티",
+  description: "춤추지 않으면 손해인 날도 있다.",
 };
 
 export default function RootLayout({
@@ -49,7 +52,13 @@ export default function RootLayout({
       translate="no"
       className={`${jua.variable} ${gaegu.variable} ${gowunDodum.variable} ${nanumPen.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <PasswordResetProvider>
+          <PasswordResetBanner />
+          {children}
+          <GmPasswordResetGate />
+        </PasswordResetProvider>
+      </body>
     </html>
   );
 }

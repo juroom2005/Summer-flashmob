@@ -21,6 +21,7 @@ import {
 } from "react";
 
 import AdminChatOverlay from "./admin-chat/AdminChatOverlay";
+import ShopPanel from "./noticeboard/panels/ShopPanel";
 import { useAdminChatBadge } from "./admin-chat/useAdminChatBadge";
 import AuthModal from "./auth/AuthModal";
 import { useCurrentUser } from "./shared/useCurrentUser";
@@ -44,14 +45,6 @@ const MIN_SUPPORTED_VIEWPORT_W = 640;
 type Overlay = null | "login" | "register" | "admin" | "mypanel";
 
 type Mission = { t: string; r: number; done: boolean };
-type ShopItem = {
-  key: string;
-  emoji: string;
-  name: string;
-  price: number;
-  border: string;
-  rot: string;
-};
 type Member = {
   name: string;
   emoji: string;
@@ -62,12 +55,6 @@ type Member = {
 };
 
 // ── 정적 데이터 ────────────────────────────────────────────
-
-const SHOP: ShopItem[] = [
-  { key: "pen", emoji: "🖊️", name: "사인펜", price: 12, border: "#cdeeff", rot: "-1.5deg" },
-  { key: "hl",  emoji: "🖍️", name: "형광펜", price: 8,  border: "#c9f2e6", rot: "1deg" },
-  { key: "st",  emoji: "✨", name: "스티커", price: 15, border: "#d8e5fc", rot: "-1deg" },
-];
 
 const MEMBERS: Member[] = [
   { name: "하루", emoji: "🌻", role: "안무 리더", rc: "#2ea3dd", border: "#cdeeff", back: "파도 위를 달리는 리더 유령 🌊" },
@@ -109,7 +96,6 @@ export default function NoticeBoard({
 
   // 시안 상태 — 미션·상점은 실 재화 연동 전까지 시각적 인터랙션만 유지.
   const [missions, setMissions] = useState<Mission[]>(INITIAL_MISSIONS);
-  const [owned, setOwned] = useState<Record<string, boolean>>({});
   const [flipped, setFlipped] = useState<string | null>(null);
   const [playing, setPlaying] = useState(true);
 
@@ -211,14 +197,6 @@ export default function NoticeBoard({
   const toggleMission = (i: number) => {
     // 시안: 체크 상태만 토글, 실 재화 변경 없음
     setMissions((prev) => prev.map((m, j) => (j === i ? { ...m, done: !m.done } : m)));
-  };
-
-  const buy = (key: string) => {
-    const item = SHOP.find((x) => x.key === key);
-    if (!item || owned[key]) return;
-    // 시안: 잔액 체크 없이 항상 구매 성공 (실 상점 연동 시 재구현)
-    setOwned((o) => ({ ...o, [key]: true }));
-    showToast(`${item.emoji} ${item.name} 구매 완료!`);
   };
 
   const attend = () => {
@@ -588,7 +566,7 @@ export default function NoticeBoard({
                   />
                 ) : null}
                 {tab === "shop" ? (
-                  <ShopPanel owned={owned} onBuy={buy} />
+                  <ShopPanel />
                 ) : null}
               </div>
             </div>
@@ -1075,66 +1053,6 @@ function DailyPanel({
           ⛱️ 오늘 미션 올클리어!
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function ShopPanel({
-  owned,
-  onBuy,
-}: {
-  owned: Record<string, boolean>;
-  onBuy: (key: string) => void;
-}) {
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
-        <span style={{ fontFamily: JUA, fontSize: 24, color: "#0d6fa8" }}>🛒 상점</span>
-        <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#2ea3dd" }}>
-          시안 — 구매는 시각적 표시만 (실 재화 연동 예정)
-        </span>
-      </div>
-      <div style={{ display: "flex", gap: 16 }}>
-        {SHOP.map((it) => {
-          const isOwned = !!owned[it.key];
-          return (
-            <div
-              key={it.key}
-              style={{
-                width: 150,
-                background: "#fff",
-                border: `2px solid ${it.border}`,
-                borderRadius: 16,
-                padding: "16px 14px",
-                textAlign: "center",
-                transform: `rotate(${it.rot})`,
-                transition: "transform .18s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.transform = "rotate(0deg) scale(1.04)")}
-              onMouseLeave={(e) => (e.currentTarget.style.transform = `rotate(${it.rot})`)}
-            >
-              <div style={{ fontSize: 34 }}>{it.emoji}</div>
-              <div style={{ fontFamily: JUA, color: "#1656b8", margin: "6px 0 10px" }}>{it.name}</div>
-              <button
-                onClick={() => onBuy(it.key)}
-                style={{
-                  width: "100%",
-                  height: 36,
-                  border: 0,
-                  borderRadius: 999,
-                  background: isOwned ? "#c9f2e6" : "#1a9edb",
-                  color: isOwned ? "#1e7d6a" : "#fff",
-                  fontFamily: JUA,
-                  fontSize: 14,
-                  cursor: isOwned ? "default" : "pointer",
-                }}
-              >
-                {isOwned ? "보유중 ✓" : `${it.price}🪙 구매`}
-              </button>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

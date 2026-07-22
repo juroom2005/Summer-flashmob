@@ -20,6 +20,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { JUA, GAEGU, BODY } from "../../auth/fonts";
 import { getCurrentUser } from "@/lib/auth-helpers";
+import { usePasswordResetContext } from "@/components/password-reset/PasswordResetProvider";
 import PasswordChangePopup from "./PasswordChangePopup";
 
 const NAVY = "#14406f";
@@ -31,6 +32,9 @@ export default function AccountInfoCard() {
   const [email,     setEmail]     = useState<string | null>(null);
   const [loading,   setLoading]   = useState(true);
   const [showPopup, setShowPopup] = useState(false);
+
+  // 자발 팝업 성공 시 전역 플래그 재조회 → 배너·강제 팝업 자연 소멸
+  const { refresh } = usePasswordResetContext();
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +79,7 @@ export default function AccountInfoCard() {
         </div>
 
         <div style={helperNoteStyle}>
-          비밀번호를 분실하셨을 경우 마스토돈 총괄계정 DM을 통해 문의 부탁드립니다.
+          보안을 위해 현재 비밀번호는 표시할 수 없습니다. 잊으셨다면 GM에게 문의해주십시오.
         </div>
       </div>
 
@@ -83,6 +87,7 @@ export default function AccountInfoCard() {
         <PasswordChangePopup
           forced={false}
           onClose={() => setShowPopup(false)}
+          onSuccess={() => void refresh()}
         />
       ) : null}
     </div>

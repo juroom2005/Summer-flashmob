@@ -37,6 +37,7 @@ import {
   type MyPanelProfileRow,
 } from "@/lib/auth-helpers";
 import AccountInfoCard from "./AccountInfoCard";
+import InventorySection from "./InventorySection";
 import styles from "./MyPanel.module.css";
 
 /* ── 타입 ─────────────────────────────────────── */
@@ -51,13 +52,11 @@ type MyPanelDisplayProfile = {
   cardImageUrl?: string;
 };
 export type MyPanelStat = { label: string; value: number; color: string };
-export type MyPanelItem = { name: string; icon: string; qty: number; effect: string };
 export type MyPanelEvent = { day: number; title: string; icon: string };
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  items?: MyPanelItem[];
   events?: MyPanelEvent[];
 };
 
@@ -67,19 +66,10 @@ type ColorTarget = "bg" | "text";
 const NAVY = "#14406f";
 const DEFAULT_CARD_COLOR = "#a5dbf7";
 const DEFAULT_TEXT_COLOR = NAVY;
-const TAPE = ["rgba(205,238,255,.88)", "rgba(201,242,230,.88)", "rgba(255,243,166,.92)", "rgba(255,215,201,.88)"];
+
 const GENDER_LABEL: Record<"male" | "female" | "other", string> = { male: "남", female: "여", other: "기타" };
 const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
-// TODO(인벤토리): items 테이블 설계 후 실데이터 교체
-const DEFAULT_ITEMS: MyPanelItem[] = [
-  { name: "밀짚모자", icon: "👒", qty: 1, effect: "착용하면 한여름 더위를 잊어요" },
-  { name: "응원봉", icon: "🪄", qty: 3, effect: "플래시몹 응원 효과 +10" },
-  { name: "모래 유리병", icon: "🫙", qty: 2, effect: "학생증 배경 1회 변경권" },
-  { name: "조개 피크", icon: "🐚", qty: 1, effect: "연주 리듬감 +5" },
-  { name: "여름 필름", icon: "🎞️", qty: 5, effect: "추억 사진 1장 현상 가능" },
-  { name: "시원한 사이다", icon: "🥤", qty: 2, effect: "체력 +20 즉시 회복" },
-];
 // TODO(공용 일정): community_events 테이블 + GM 관리 UI 붙이면 실데이터 교체
 const DEFAULT_EVENTS: MyPanelEvent[] = [
   { day: 4, title: "파트 모집 시작", icon: "📣" },
@@ -151,7 +141,7 @@ function purgeLegacyLocalStorage(profileId: string) {
  * ═══════════════════════════════════════════════ */
 export default function MyPanel({
   open, onClose,
-  items = DEFAULT_ITEMS, events = DEFAULT_EVENTS,
+  events = DEFAULT_EVENTS,
 }: Props) {
   /* ── profile 로드 ────────────────────────────── */
   const [profileRow, setProfileRow] = useState<MyPanelProfileRow | null>(null);
@@ -180,7 +170,6 @@ export default function MyPanel({
   // 저장 실패 시 사용자 안내용 (null이면 배너 없음)
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [hovItem, setHovItem] = useState(-1);
   const today = useMemo(() => new Date(), []);
   const [selDay, setSelDay] = useState(today.getDate());
   // memos: 아직 DB 스키마 없음. 컴포넌트 생명주기 동안만 유지(§7-C 이관 예정).
@@ -465,30 +454,8 @@ export default function MyPanel({
               </div>
             </div>
 
-            {/* ── 인벤토리 : 코르크보드 ── */}
-            <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={secTitle}>🧺 인벤토리</span>
-                <span style={secHint}>메모지에 마우스를 올리면 효과가 보여요</span>
-              </div>
-              <div style={{ marginTop: 10, background: "#f2e0bd", border: "2.5px solid #d8bd8a", borderRadius: 14, padding: "18px 12px 16px", backgroundImage: "radial-gradient(circle,rgba(160,120,60,.16) 1.5px,transparent 2px)", backgroundSize: "9px 9px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "16px 10px" }}>
-                  {items.map((it, i) => (
-                    <div key={it.name} className={styles.memo}
-                      onMouseEnter={() => setHovItem(i)} onMouseLeave={() => setHovItem(-1)}
-                      style={{ position: "relative", background: "#fff", borderRadius: 3, boxShadow: "0 4px 9px rgba(90,60,20,.28)", padding: "14px 6px 9px", textAlign: "center", transform: `rotate(${(i % 2 ? 1 : -1) * (1 + (i % 3)) * 1.3}deg)`, cursor: "help" }}>
-                      <div style={{ position: "absolute", top: -7, left: "50%", width: 46, height: 15, marginLeft: -23, background: TAPE[i % 4], transform: "rotate(-3deg)", boxShadow: "0 1px 3px rgba(90,60,20,.25)" }} />
-                      <div style={{ fontSize: 26, lineHeight: 1 }}>{it.icon}</div>
-                      <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 14, color: "#2a5878", marginTop: 4 }}>{it.name}</div>
-                      <div style={{ position: "absolute", right: -6, bottom: -6, minWidth: 22, height: 22, borderRadius: "50%", background: "#ffef3e", border: "2px solid #e2d15a", fontFamily: JUA, fontSize: 11, color: "#7a6a12", display: "flex", alignItems: "center", justifyContent: "center" }}>x{it.qty}</div>
-                      {hovItem === i && (
-                        <div className={styles.tooltipPop} style={{ position: "absolute", left: "50%", bottom: -42, width: 154, marginLeft: -77, background: NAVY, color: "#fff", fontFamily: GAEGU, fontWeight: 700, fontSize: 14, lineHeight: 1.3, padding: "6px 9px", borderRadius: 9, zIndex: 30, boxShadow: "0 8px 18px rgba(8,50,90,.35)", pointerEvents: "none" }}>{it.effect}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* ── 인벤토리 (별도 컴포넌트) ── */}
+            <InventorySection />
 
             {/* ── 달력 ── */}
             <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
