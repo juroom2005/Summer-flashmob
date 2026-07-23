@@ -1,6 +1,12 @@
 // components/NoticeBoard.tsx
 // 폰트: Jua · Gowun Dodum · Gaegu (app/layout.tsx 에서 next/font 로 로드)
 //
+// 변경점 (v7 후속):
+//   - 출석 커맨드 실기능화 (AttendanceCard 분리, 하루 1회 500 모빌)
+//     · 카드 실기능은 AttendanceCard가 담당
+//     · 커맨드 카드의 닉네임 입력과 시안 attend 로직 제거
+//     · 참여명단 위젯은 시안 유지 (추후 다른 요소로 교체 예정)
+//
 // 변경점 (v5):
 //   - 뷰포트 딱 맞춤 레이아웃 (position: fixed; inset: 0)
 //   - 스케일 = min(뷰포트_w / 1366, 뷰포트_h / 768) — 가로/세로 둘 다 봐서 항상 뷰포트 안에 들어감
@@ -28,6 +34,8 @@ import { useCurrentUser } from "./shared/useCurrentUser";
 import Header from "./noticeboard/Header";
 import NavRail, { type Tab } from "./noticeboard/NavRail";
 import MyPanel from "./noticeboard/panels/MyPanel";
+import AttendanceCard from "./noticeboard/panels/AttendanceCard";
+import NoticeBoardList from "./noticeboard/panels/NoticeBoardList";
 
 // ── 폰트 상수 ──────────────────────────────────────────────
 const JUA = "'Jua', sans-serif";
@@ -40,6 +48,10 @@ const STAGE_H = 768;
 
 // 이 폭 미만은 모바일로 간주 → 안내 오버레이 (모바일 전용 UI 나오기 전 임시)
 const MIN_SUPPORTED_VIEWPORT_W = 640;
+
+// ── 통합문서 URL (구글 문서) ───────────────────────────────
+// TODO: 실제 URL 로 교체할 것. 하드코딩 방식이며 코드 배포로 갱신한다.
+const INTEGRATED_DOC_URL = "#";
 
 // ── 타입 ──────────────────────────────────────────────────
 type Overlay = null | "login" | "register" | "admin" | "mypanel";
@@ -99,8 +111,9 @@ export default function NoticeBoard({
   const [flipped, setFlipped] = useState<string | null>(null);
   const [playing, setPlaying] = useState(true);
 
-  const [attendees, setAttendees] = useState<string[]>(["새벽", "라임", "도토"]);
-  const [attendName, setAttendName] = useState("");
+  // 참여명단 위젯 시안 데이터. 이 위젯은 추후 다른 요소로 교체 예정이며,
+  // 그 전까지는 하드코딩된 표시만 유지한다.
+  const [attendees] = useState<string[]>(["새벽", "라임", "도토"]);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -198,15 +211,6 @@ export default function NoticeBoard({
     // 시안: 체크 상태만 토글, 실 재화 변경 없음
     setMissions((prev) => prev.map((m, j) => (j === i ? { ...m, done: !m.done } : m)));
   };
-
-  const attend = () => {
-    const n = attendName.trim();
-    if (!n) return;
-    setAttendees((a) => [...a, n]);
-    setAttendName("");
-    showToast(`☀️ ${n} 님 출석 완료! 참여 명단에 올라갔어요`);
-  };
-
 
   // ── 파생값 ───────────────────────────────────────────────
   const doneCount = missions.filter((m) => m.done).length;
@@ -548,9 +552,8 @@ export default function NoticeBoard({
               >
                 {tab === "notice" ? (
                   <NoticePanel
-                    attendName={attendName}
-                    onAttendNameChange={(v) => setAttendName(v)}
-                    onAttend={attend}
+                    onOpenLogin={() => setOverlay("login")}
+                    onToast={showToast}
                   />
                 ) : null}
                 {tab === "member" ? (
@@ -678,13 +681,11 @@ const chip = (bg: string, color: string): CSSProperties => ({
 });
 
 function NoticePanel({
-  attendName,
-  onAttendNameChange,
-  onAttend,
+  onOpenLogin,
+  onToast,
 }: {
-  attendName: string;
-  onAttendNameChange: (v: string) => void;
-  onAttend: () => void;
+  onOpenLogin: () => void;
+  onToast: (msg: string) => void;
 }) {
   return (
     <div>
@@ -699,99 +700,13 @@ function NoticePanel({
           marginBottom: 16,
         }}
       >
-        <span style={{ fontFamily: JUA, fontSize: 26, color: "#0d6fa8" }}>📌 공지사항</span>
-        <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 21, color: "#2ea3dd" }}>
-          — 총공지 · 세계관 · 캐릭터 가이드 한번에!
-        </span>
-        <span
-          style={{
-            marginLeft: 52,
-            fontFamily: JUA,
-            fontSize: 13,
-            background: "#cdeeff",
-            color: "#0d6fa8",
-            borderRadius: 999,
-            padding: "4px 12px",
-          }}
-        >
-          📌 상단고정
-        </span>
+        <span style={{ fontFamily: JUA, fontSize: 26, color: "#0d6fa8" }}>📌 보드</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 288px", gap: 18, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ background: "#fff", border: "2px solid #cdeeff", borderRadius: 16, padding: "16px 18px" }}>
-            <div style={{ fontFamily: JUA, fontSize: 21, color: "#1656b8", marginBottom: 3 }}>
-              SUMMER Flash Mob! 여름 정기 플래시몹 안내
-            </div>
-            <div style={{ fontSize: 13, color: "#a4b6cc", marginBottom: 12 }}>2026.07.02 · 운영진</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-                <span style={chip("#cdeeff", "#0d6fa8")}>일정</span>
-                <span style={{ fontSize: 15, lineHeight: 1.5 }}>
-                  8/03(일) 오후 9시 · 디스코드 <b>〈연습실〉</b> 채널에서 모여요.
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-                <span style={chip("#c9f2e6", "#1e7d6a")}>세계관</span>
-                <span style={{ fontSize: 15, lineHeight: 1.5 }}>
-                   🌊 캐릭터 시트 · 세계관 문서는 #가이드 채널에서.
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-                <span style={chip("#fff3a6", "#8a7410")}>파트</span>
-                <span style={{ fontSize: 15, lineHeight: 1.5 }}>
-                  A조 안무 / B조 보컬 / C조 영상 — 지원 폼 마감 <b>7/28(금)</b>.
-                </span>
-              </div>
-            </div>
-          </div>
+          <NoticeBoardList />
 
-          <div style={{ background: "#e8f7ff", border: "2px solid #a8dcf5", borderRadius: 14, padding: "13px 16px" }}>
-            <div style={{ fontFamily: JUA, fontSize: 15, color: "#0d6fa8", marginBottom: 9 }}>
-              ⌨️ 커맨드 체험 — 닉네임 쓰고{" "}
-              <code style={{ background: "#fff2a8", padding: "1px 6px", borderRadius: 4 }}>!출석</code> 을 눌러보세요
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                value={attendName}
-                onChange={(e) => onAttendNameChange(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") onAttend(); }}
-                placeholder="닉네임"
-                style={{
-                  flex: 1,
-                  height: 40,
-                  border: "2px solid #bfe4f7",
-                  borderRadius: 10,
-                  padding: "0 13px",
-                  fontFamily: BODY,
-                  fontSize: 15,
-                  color: "#1e4b6e",
-                  outline: "none",
-                  background: "#fff",
-                }}
-              />
-              <button
-                onClick={onAttend}
-                style={{
-                  height: 40,
-                  padding: "0 18px",
-                  border: 0,
-                  borderRadius: 10,
-                  background: "#1a9edb",
-                  color: "#fff",
-                  fontFamily: JUA,
-                  fontSize: 15,
-                  cursor: "pointer",
-                  boxShadow: "0 3px 0 #0d6fa8",
-                }}
-              >
-                !출석
-              </button>
-            </div>
-            <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#2ea3dd", marginTop: 8 }}>
-              → 왼쪽 아래 〈참여 명단〉 위젯에 바로 올라가요!
-            </div>
-          </div>
+          <AttendanceCard onOpenLogin={onOpenLogin} onToast={onToast} />
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -864,21 +779,44 @@ function NoticePanel({
             </div>
           </div>
 
-          <div
+          <a
+            href={INTEGRATED_DOC_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
+              display: "block",
               background: "#c9f2e6",
               border: "2px solid #8fdcc7",
               borderRadius: "4px 4px 14px 14px",
-              padding: "12px 14px",
-              fontFamily: GAEGU,
-              fontWeight: 700,
-              fontSize: 18,
+              padding: "14px 16px",
+              textAlign: "center",
+              textDecoration: "none",
               color: "#1e7d6a",
               transform: "rotate(1deg)",
+              boxShadow: "0 3px 0 rgba(79,167,140,.35)",
             }}
           >
-            🎧 아무거나
-          </div>
+            <div
+              style={{
+                fontFamily: GAEGU,
+                fontWeight: 700,
+                fontSize: 17,
+                lineHeight: 1.3,
+              }}
+            >
+              통합문서 확인하기 ↗
+            </div>
+            <div
+              style={{
+                fontFamily: BODY,
+                fontSize: 11,
+                color: "#4e9c85",
+                marginTop: 4,
+              }}
+            >
+              공지 · 세계관 · 시스템
+            </div>
+          </a>
         </div>
       </div>
     </div>

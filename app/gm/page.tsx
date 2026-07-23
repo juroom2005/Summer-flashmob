@@ -1,12 +1,10 @@
 // app/gm/page.tsx
 //
-// GM 관리 페이지 컨테이너 (v5 — 문의 탭 실제 리스트 붙임).
+// GM 관리 페이지 컨테이너 (v7 후속 — 공지 탭 추가).
 //
-// 변경점 (v4 → v5):
-//   - 문의 탭 진입 시 자동 read 마킹 로직 제거
-//     (스키마에서 read_at 폐기됨. 미완료 문의는 GM이 명시적으로 완료 처리해야 사라짐)
-//   - 안내 카드 placeholder 제거 → ReportList 실제 리스트 렌더
-//   - 미완료 카운트는 탭 전환 시마다 재조회 (뱃지 동기화)
+// 변경점 (v5 → v7 후속):
+//   - 공지 탭 신규 추가 (GmNoticesTab). CRUD 는 RLS 로 GM 만 허용.
+//   - 탭 순서: 초대 · 유저 · 공지 · 문의
 
 "use client";
 
@@ -15,17 +13,19 @@ import InviteGenerateForm from "@/components/gm/InviteGenerateForm";
 import InviteCodeList     from "@/components/gm/InviteCodeList";
 import ReportList         from "@/components/gm/reports/ReportList";
 import UserList           from "@/components/gm/users/UserList";
+import GmNoticesTab       from "@/components/gm/notices/GmNoticesTab";
 import { getPendingReportCount } from "@/lib/auth-helpers";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
 const BODY  = "'Gowun Dodum', sans-serif";
 
-type TabKey = "invite" | "users" | "reports";
+type TabKey = "invite" | "users" | "notices" | "reports";
 
 const TABS: { key: TabKey; label: string; emoji: string }[] = [
   { key: "invite",  label: "초대", emoji: "📮" },
   { key: "users",   label: "유저", emoji: "👥" },
+  { key: "notices", label: "공지", emoji: "📢" },
   { key: "reports", label: "문의", emoji: "🙋" },
 ];
 
@@ -97,6 +97,8 @@ export default function GmPage() {
         )}
 
         {tab === "users" && <UserList />}
+
+        {tab === "notices" && <GmNoticesTab />}
 
         {tab === "reports" && <ReportList />}
       </main>
