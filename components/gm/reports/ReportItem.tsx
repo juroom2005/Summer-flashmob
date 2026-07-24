@@ -92,9 +92,9 @@ export default function ReportItem({ report, onResolve, resolving }: Props) {
               <SnapshotItem label="성별"   value={s.gender ? GENDER_LABEL[s.gender] : "-"} />
               <SnapshotItem label="학년"   value={s.grade != null ? `${s.grade}학년` : "-"} />
               <SnapshotItem label="학교"   value={s.school_name ?? "-"} />
-              <SnapshotItem label="리듬감" value={String(s.rhythm_stat)} />
-              <SnapshotItem label="체력"   value={String(s.physical_stat)} />
-              <SnapshotItem label="표현력" value={String(s.expression_stat)} />
+              <SnapshotItem label="리듬감" value={formatStatValue(s.rhythm_exp,     s.rhythm_level,     s.rhythm_stat)} />
+              <SnapshotItem label="체력"   value={formatStatValue(s.physical_exp,   s.physical_level,   s.physical_stat)} />
+              <SnapshotItem label="표현력" value={formatStatValue(s.expression_exp, s.expression_level, s.expression_stat)} />
             </div>
           </div>
 
@@ -131,6 +131,20 @@ function SnapshotItem({ label, value }: { label: string; value: string }) {
 }
 
 /* ── 유틸 ── */
+
+function formatStatValue(
+  exp:    number | undefined,
+  level:  number | undefined,
+  stat:   number | undefined,
+): string {
+  if (typeof exp === "number" && typeof level === "number") {
+    return `Lv${level} (exp ${exp})`;
+  }
+  if (typeof stat === "number") {
+    return `${stat}/100 (구 형식)`;
+  }
+  return "-";
+}
 
 function formatDateTime(iso: string): string {
   if (!iso) return "-";

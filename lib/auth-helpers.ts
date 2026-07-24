@@ -269,15 +269,15 @@ export type MismatchSnapshot = {
   gender:          "male" | "female" | "other" | null;
   school_name:     string | null;
   grade:           number | null;
-
-  // 스탯 : 저장 시점에 따라 옛 형식(_stat) 또는 신규 형식(_exp) 중 하나가 존재.
-  // 표시 컴포넌트에서 어느 형식인지 분기 렌더링.
-  rhythm_stat?:     number;
-  physical_stat?:   number;
-  expression_stat?: number;
-  rhythm_exp?:      number;
-  physical_exp?:    number;
-  expression_exp?:  number;
+  rhythm_stat?:      number;
+  physical_stat?:    number;
+  expression_stat?:  number;
+  rhythm_exp?:       number;
+  rhythm_level?:     number;
+  physical_exp?:     number;
+  physical_level?:   number;
+  expression_exp?:   number;
+  expression_level?: number;
 };
 
 export type MismatchReportRow = {
