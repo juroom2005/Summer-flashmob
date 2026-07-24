@@ -7,6 +7,14 @@
 //   · RPC 7개 (assert_caller_is_gm 포함)
 // Edge Function: gm-delete-user (완전 삭제 전용, service_role 필요)
 //
+// 스탯 개편 반영 (v8 §2-4, §4-1):
+//   · profiles.*_stat (0~100) → *_exp (0~450) + *_level (0~5, DB GENERATED)
+//   · gm_list_users / gm_adjust_user_stats RPC 시그니처 재정의됨
+//     → sql/applied/2026-07-24_stat_level_gm_rpcs.sql
+//   · RPC 파라미터명은 유지 (p_rhythm_delta 등). "스탯 종류" 를 가리키므로
+//     이름 변경 불필요.
+//   · StatDeltas.rhythm 등도 동일한 이유로 필드명 유지.
+//
 // 방침:
 //   · profiles UPDATE RLS는 확대하지 않음 → 모든 수정은 RPC 경유
 //   · RPC는 예외를 던지므로, 여기서 잡아서 { ok, reason } 형태로 정규화
@@ -25,25 +33,32 @@ import { callEdgeFunction } from "./ef-client";
  * ─────────────────────────────────────────────────────────── */
 
 export type GmUserRow = {
-  id:              string;
-  user_id:         string | null;
-  email:           string | null;
-  family_name:     string | null;
-  given_name:      string | null;
-  age:             number | null;
-  gender:          "male" | "female" | "other" | null;
-  school_name:     string | null;
-  grade:           number | null;
-  rhythm_stat:     number;
-  physical_stat:   number;
-  expression_stat: number;
-  mobil:           number;
-  is_gm:           boolean;
+  id:               string;
+  user_id:          string | null;
+  email:            string | null;
+  family_name:      string | null;
+  given_name:       string | null;
+  age:              number | null;
+  gender:           "male" | "female" | "other" | null;
+  school_name:      string | null;
+  grade:            number | null;
+
+  // 스탯 : exp (누적 경험치) + level (DB GENERATED)
+  // 전부 NOT NULL. level 은 GENERATED STORED 라 exp 와 항상 정합.
+  rhythm_exp:       number;
+  rhythm_level:     number;
+  physical_exp:     number;
+  physical_level:   number;
+  expression_exp:   number;
+  expression_level: number;
+
+  mobil:            number;
+  is_gm:            boolean;
   /** user_id가 있으면 가입 완료, 없으면 shell(초대만 발급된 상태) */
-  is_registered:   boolean;
+  is_registered:    boolean;
   /** NULL이면 활성, 값이 있으면 비활성 시각 */
-  deactivated_at:  string | null;
-  created_at:      string;
+  deactivated_at:   string | null;
+  created_at:       string;
 };
 
 /** RPC 호출 결과 정규화 형태. */
@@ -137,7 +152,7 @@ export type GmProfilePatch = {
  * 수정 대상 밖:
  *   · is_gm            — protect_is_gm_column 트리거가 차단
  *   · mobil            — grantMobil() 사용
- *   · 스탯 3종         — adjustUserStats() 사용
+ *   · 스탯 3종         — adjustGmUserStats() 사용
  *   · 학생증 커스텀     — 본인 소관, GM 수정 대상 아님
  */
 export async function updateGmUserProfile(
@@ -167,26 +182,38 @@ export async function updateGmUserProfile(
  * 스탯 조정 (증감)
  * ─────────────────────────────────────────────────────────── */
 
+/**
+ * 스탯 증감 델타.
+ * 필드명은 "스탯 종류" 를 가리키므로 유지. 실제 값은 exp 델타이다.
+ */
 export type StatDeltas = {
   rhythm?:     number;
   physical?:   number;
   expression?: number;
 };
 
+/**
+ * 스탯 조정 결과.
+ * DB 가 UPDATE 후 반환한 최종 exp + level. level 은 DB GENERATED 라 정합 보장.
+ */
 export type StatResult = {
-  rhythm_stat:     number;
-  physical_stat:   number;
-  expression_stat: number;
+  rhythm_exp:       number;
+  rhythm_level:     number;
+  physical_exp:     number;
+  physical_level:   number;
+  expression_exp:   number;
+  expression_level: number;
 };
 
 /**
- * 스탯 증감. 결과값은 서버에서 0~100으로 클램프됨.
+ * 스탯 증감. 결과값은 서버에서 0~450으로 클램프됨.
  *
  * 절대값 지정이 아니라 증감 방식인 이유:
  *   · 동시 편집 시 덮어쓰기 사고 회피
- *   · UI가 -10/-1/+1/+10 버튼이라 자연스러움
+ *   · UI가 델타 버튼(-100/-10/+10/+100 등) 이라 자연스러움
  *
- * 반환 data에 조정 후 최종 스탯 3종이 담김 → 낙관적 UI 없이 서버값으로 반영.
+ * 반환 data에 조정 후 최종 스탯 6개 필드(exp + level 쌍 × 3)가 담김
+ * → 낙관적 UI 없이 서버값으로 반영. level 재계산 불필요.
  */
 export async function adjustGmUserStats(
   profileId: string,
