@@ -1,31 +1,32 @@
 // components/gm/InviteGenerateForm.tsx
 //
-// 초대코드 발급 폼 (v4 — 초기 스탯 입력 추가).
+// 초대코드 발급 폼 (v5 — 스탯 레벨제 개편 반영).
 //
-// 변경점 (v3 → v4):
-//   - 초기 스탯 3칸 추가: 리듬감 / 체력 / 표현력 (선택 입력, 비우면 0)
-//   - 각 스탯 0~100 정수 검증 (빈칸은 통과 → 0으로 발급)
-//   - EF 요청 body에 rhythm_stat / physical_stat / expression_stat 추가
-//   - 발급 완료 배너에 스탯 요약(리 00 · 체 00 · 표 00) 표시
-//   - (v3까지) 이름 스키마 분리(성/이름)는 그대로 유지
+// 변경점 (v4 → v5):
+//   - 초기 스탯 입력 방식 변경 :
+//       0~100 정수 3개 → 레벨 0~5 정수 3개 (합계 5 이하)
+//   - 검증에 lib/stat-helpers 의 validateInitialLevelDistribution 사용
+//   - EF 요청 body : rhythm_stat → rhythm_level (등)
+//   - 발급 완료 배너 : "리 00" → "리듬 Lv0" 표기
+//   - 스탯 입력란 위에 남은 포인트 표시 (5 포인트 배분 가이드)
 //
-// 폼 배치 (2열 grid):
-//   1행: 성 * | 이름 *
-//   2행: 나이 * | 성별 *
-//   3행: 학교명 * (span 2)
-//   4행: 학년 * | 유효기간
-//   5행: [스탯] 리듬감 | 체력
-//   6행: [스탯] 표현력 | (빈칸)
-//   7행: 메모 (span 2)
+// 폼 배치는 유지 (2열 grid). 시각적 UX 리뉴얼은 프론트 개편 시로 미룸.
 //
-// 스탯 정책:
-//   - 시스템상 유저가 자기 초기 스탯을 아는 상태. GM이 발급 시 값 입력.
-//   - 비우면 0으로 발급. 나중에 GM이 stat 편집 UI로 조정(별도 세션).
+// 스탯 정책 (v8 §2-4):
+//   - 세 스탯 초기 레벨 합은 5 이하. 서버(EF) 최종 검증. UI 즉시 피드백.
+//   - 비우면 0으로 발급.
+//   - 발급 시점 exp = 해당 레벨의 최소값 (Lv3 → 160). EF 가 환산.
 
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { callEdgeFunction } from "@/lib/ef-client";
+import {
+  INITIAL_LEVEL_BUDGET,
+  LEVEL_MAX,
+  STAT_META,
+  validateInitialLevelDistribution,
+} from "@/lib/stat-helpers";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
@@ -44,11 +45,11 @@ type Props = {
 };
 
 type LastIssued = GenerateInviteResponse & {
-  family_name:     string;
-  given_name:      string;
-  rhythm_stat:     number;
-  physical_stat:   number;
-  expression_stat: number;
+  family_name:      string;
+  given_name:       string;
+  rhythm_level:     number;
+  physical_level:   number;
+  expression_level: number;
 };
 
 export default function InviteGenerateForm({ onGenerated }: Props) {
@@ -62,10 +63,10 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
   const [expiresInDays,  setExpiresInDays]  = useState<string>("7");
   const [inviteeNote,    setInviteeNote]    = useState("");
 
-  // ── 초기 스탯 상태 (선택 입력, 빈칸 = 0) ──
-  const [rhythmStat,     setRhythmStat]     = useState<string>("");
-  const [physicalStat,   setPhysicalStat]   = useState<string>("");
-  const [expressionStat, setExpressionStat] = useState<string>("");
+  // ── 초기 레벨 상태 (선택 입력, 빈칸 = 0) ──
+  const [rhythmLevel,     setRhythmLevel]     = useState<string>("");
+  const [physicalLevel,   setPhysicalLevel]   = useState<string>("");
+  const [expressionLevel, setExpressionLevel] = useState<string>("");
 
   // ── 실행 상태 ──
   const [loading, setLoading] = useState(false);
@@ -84,28 +85,44 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
     setGrade("");
     // expiresInDays는 유지 (대부분 같은 값으로 연속 발급)
     setInviteeNote("");
-    // 스탯도 리셋 (사람마다 다르므로)
-    setRhythmStat("");
-    setPhysicalStat("");
-    setExpressionStat("");
+    // 레벨도 리셋 (사람마다 다르므로)
+    setRhythmLevel("");
+    setPhysicalLevel("");
+    setExpressionLevel("");
     setError(null);
   }
 
-  // 빈칸이면 0, 값이 있으면 0~100 정수인지 확인.
+  // 빈칸이면 0, 값이 있으면 0~LEVEL_MAX 정수인지 확인.
   // 반환: { value } (검증 통과) | { err } (검증 실패)
-  function parseStat(raw: string, label: string): { value: number } | { err: string } {
+  function parseLevel(raw: string, label: string): { value: number } | { err: string } {
     const t = raw.trim();
     if (t === "") return { value: 0 };
     const n = Number(t);
-    if (!Number.isInteger(n) || n < 0 || n > 100) {
-      return { err: `${label}은(는) 0~100 사이의 정수여야 합니다.` };
+    if (!Number.isInteger(n) || n < 0 || n > LEVEL_MAX) {
+      return { err: `${label} 레벨은 0~${LEVEL_MAX} 사이의 정수여야 합니다.` };
     }
     return { value: n };
   }
 
+  // 남은 포인트 계산 (실시간 표시용).
+  // 파싱 실패 시엔 그 필드를 0 으로 간주해 계산 (안내는 submit 시 표시).
+  const remaining = useMemo(() => {
+    const parseOrZero = (raw: string) => {
+      const t = raw.trim();
+      if (t === "") return 0;
+      const n = Number(t);
+      if (!Number.isInteger(n) || n < 0 || n > LEVEL_MAX) return 0;
+      return n;
+    };
+    const sum = parseOrZero(rhythmLevel)
+              + parseOrZero(physicalLevel)
+              + parseOrZero(expressionLevel);
+    return INITIAL_LEVEL_BUDGET - sum;
+  }, [rhythmLevel, physicalLevel, expressionLevel]);
+
   function validate(): string | null {
-    if (!familyName.trim()) return "성을 입력하세요.";
-    if (!givenName.trim())  return "이름을 입력하세요.";
+    if (!familyName.trim()) return "성을 입력해주십시오.";
+    if (!givenName.trim())  return "이름을 입력해주십시오.";
 
     const ageNum = parseInt(age, 10);
     if (!Number.isInteger(ageNum) || ageNum < 1 || ageNum > 150) {
@@ -113,10 +130,10 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
     }
 
     if (gender !== "male" && gender !== "female" && gender !== "other") {
-      return "성별을 선택하세요.";
+      return "성별을 선택해주십시오.";
     }
 
-    if (!schoolName.trim()) return "학교명을 입력하세요.";
+    if (!schoolName.trim()) return "학교명을 입력해주십시오.";
 
     const gradeNum = parseInt(grade, 10);
     if (!Number.isInteger(gradeNum) || gradeNum < 1 || gradeNum > 3) {
@@ -128,13 +145,21 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       return "유효기간은 7~30일 사이여야 합니다.";
     }
 
-    // 스탯 검증 (빈칸 허용)
-    const r = parseStat(rhythmStat, "리듬감");
+    // 레벨 개별 검증 (빈칸 허용 → 0)
+    const r = parseLevel(rhythmLevel,     STAT_META.rhythm.label);
     if ("err" in r) return r.err;
-    const p = parseStat(physicalStat, "체력");
+    const p = parseLevel(physicalLevel,   STAT_META.physical.label);
     if ("err" in p) return p.err;
-    const e = parseStat(expressionStat, "표현력");
+    const e = parseLevel(expressionLevel, STAT_META.expression.label);
     if ("err" in e) return e.err;
+
+    // 합계 검증 (5 포인트 배분)
+    const dist = validateInitialLevelDistribution({
+      rhythm:     r.value,
+      physical:   p.value,
+      expression: e.value,
+    });
+    if (!dist.ok) return dist.reason;
 
     return null;
   }
@@ -149,10 +174,10 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       return;
     }
 
-    // 스탯 값 확정 (validate 통과했으므로 안전)
-    const rhythmVal     = (parseStat(rhythmStat, "리듬감") as { value: number }).value;
-    const physicalVal   = (parseStat(physicalStat, "체력") as { value: number }).value;
-    const expressionVal = (parseStat(expressionStat, "표현력") as { value: number }).value;
+    // 레벨 값 확정 (validate 통과했으므로 안전)
+    const rhythmVal     = (parseLevel(rhythmLevel,     STAT_META.rhythm.label)     as { value: number }).value;
+    const physicalVal   = (parseLevel(physicalLevel,   STAT_META.physical.label)   as { value: number }).value;
+    const expressionVal = (parseLevel(expressionLevel, STAT_META.expression.label) as { value: number }).value;
 
     // 리셋 전 스냅샷 확보 (배너 표시용)
     const familySnap = familyName.trim();
@@ -163,23 +188,23 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       const result = await callEdgeFunction<GenerateInviteResponse>(
         "generate-invite",
         {
-          family_name:      familySnap,
-          given_name:       givenSnap,
-          age:              parseInt(age, 10),
+          family_name:       familySnap,
+          given_name:        givenSnap,
+          age:               parseInt(age, 10),
           gender,
-          school_name:      schoolName.trim(),
-          grade:            parseInt(grade, 10),
-          expires_in_days:  parseInt(expiresInDays, 10),
-          invitee_note:     inviteeNote.trim() || null,
-          rhythm_stat:      rhythmVal,
-          physical_stat:    physicalVal,
-          expression_stat:  expressionVal,
-        }
+          school_name:       schoolName.trim(),
+          grade:             parseInt(grade, 10),
+          expires_in_days:   parseInt(expiresInDays, 10),
+          invitee_note:      inviteeNote.trim() || null,
+          rhythm_level:      rhythmVal,
+          physical_level:    physicalVal,
+          expression_level:  expressionVal,
+        },
       );
 
       if (!result.ok) {
         setError(
-          `발급 실패: ${result.error}${result.detail ? ` (${result.detail})` : ""}`
+          `발급 실패: ${result.error}${result.detail ? ` (${result.detail})` : ""}`,
         );
         setLoading(false);
         return;
@@ -187,11 +212,11 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
 
       setLastIssued({
         ...result.data,
-        family_name:     familySnap,
-        given_name:      givenSnap,
-        rhythm_stat:     rhythmVal,
-        physical_stat:   physicalVal,
-        expression_stat: expressionVal,
+        family_name:      familySnap,
+        given_name:       givenSnap,
+        rhythm_level:     rhythmVal,
+        physical_level:   physicalVal,
+        expression_level: expressionVal,
       });
       setCopied(false);
       resetFormFields();
@@ -211,9 +236,21 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
       console.error("[InviteGenerateForm] clipboard write failed:", e);
-      window.prompt("코드를 복사하세요:", lastIssued.code);
+      window.prompt("코드를 복사해주십시오:", lastIssued.code);
     }
   }
+
+  // 남은 포인트 표시 스타일 (음수면 경고색)
+  const remainingStyle: CSSProperties = {
+    fontFamily:   BODY,
+    fontSize:     12,
+    fontWeight:   700,
+    padding:      "2px 10px",
+    borderRadius: 999,
+    background:   remaining < 0 ? "rgba(192, 57, 43, 0.12)" : "rgba(77,182,160,.15)",
+    color:        remaining < 0 ? "#c0392b" : "#1e7d6a",
+    border:       `1.5px solid ${remaining < 0 ? "rgba(192, 57, 43, 0.3)" : "rgba(77,182,160,.4)"}`,
+  };
 
   return (
     <div style={containerStyle}>
@@ -226,7 +263,7 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
               {lastIssued.family_name} {lastIssued.given_name}
             </span>
             <span style={bannerStatStyle}>
-              리 {lastIssued.rhythm_stat} · 체 {lastIssued.physical_stat} · 표 {lastIssued.expression_stat}
+              리 Lv{lastIssued.rhythm_level} · 체 Lv{lastIssued.physical_level} · 표 Lv{lastIssued.expression_level}
             </span>
           </div>
           <div style={bannerCodeStyle}>{lastIssued.code}</div>
@@ -252,7 +289,7 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
       {/* ── 폼 카드 ── */}
       <form onSubmit={handleSubmit} style={formCardStyle}>
         <div style={formTitleStyle}>📮 초대코드 발급</div>
-        <div style={formSubtitleStyle}>초대할 캐릭터 정보를 입력하세요.</div>
+        <div style={formSubtitleStyle}>초대할 캐릭터 정보를 입력해주십시오.</div>
 
         <div style={fieldGridStyle}>
           <Field label="성 *">
@@ -297,7 +334,7 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
               disabled={loading}
               style={inputStyle}
             >
-              <option value="">선택하세요</option>
+              <option value="">선택해주십시오</option>
               <option value="male">남</option>
               <option value="female">여</option>
               <option value="other">기타</option>
@@ -341,45 +378,50 @@ export default function InviteGenerateForm({ onGenerated }: Props) {
             />
           </Field>
 
-          {/* ── 초기 스탯 구분선 ── */}
+          {/* ── 초기 레벨 구분선 ── */}
           <div style={statDividerStyle}>
-            <span style={statDividerLabelStyle}>🫧 초기 스탯 (비우면 0)</span>
+            <span style={statDividerLabelStyle}>
+              🫧 초기 레벨 (합계 {INITIAL_LEVEL_BUDGET} 포인트 이하)
+            </span>
+            <span style={remainingStyle}>
+              남은 포인트 {remaining}
+            </span>
           </div>
 
-          <Field label="리듬감 (0~100)">
+          <Field label={`${STAT_META.rhythm.label} (Lv 0~${LEVEL_MAX})`}>
             <input
               type="number"
-              value={rhythmStat}
-              onChange={(e) => setRhythmStat(e.target.value)}
+              value={rhythmLevel}
+              onChange={(e) => setRhythmLevel(e.target.value)}
               disabled={loading}
               min={0}
-              max={100}
+              max={LEVEL_MAX}
               placeholder="0"
               style={inputStyle}
             />
           </Field>
 
-          <Field label="체력 (0~100)">
+          <Field label={`${STAT_META.physical.label} (Lv 0~${LEVEL_MAX})`}>
             <input
               type="number"
-              value={physicalStat}
-              onChange={(e) => setPhysicalStat(e.target.value)}
+              value={physicalLevel}
+              onChange={(e) => setPhysicalLevel(e.target.value)}
               disabled={loading}
               min={0}
-              max={100}
+              max={LEVEL_MAX}
               placeholder="0"
               style={inputStyle}
             />
           </Field>
 
-          <Field label="표현력 (0~100)">
+          <Field label={`${STAT_META.expression.label} (Lv 0~${LEVEL_MAX})`}>
             <input
               type="number"
-              value={expressionStat}
-              onChange={(e) => setExpressionStat(e.target.value)}
+              value={expressionLevel}
+              onChange={(e) => setExpressionLevel(e.target.value)}
               disabled={loading}
               min={0}
-              max={100}
+              max={LEVEL_MAX}
               placeholder="0"
               style={inputStyle}
             />
@@ -499,11 +541,12 @@ const inputStyle: CSSProperties = {
   width:        "100%",
 };
 
-// 스탯 구분선 (grid 2열 전체 차지)
+// 초기 레벨 구분선 (grid 2열 전체 차지)
 const statDividerStyle: CSSProperties = {
   gridColumn:    "span 2",
   display:       "flex",
   alignItems:    "center",
+  justifyContent: "space-between",
   gap:           10,
   marginTop:     4,
   paddingTop:    12,

@@ -38,6 +38,14 @@ import {
 } from "@/lib/auth-helpers";
 import AccountInfoCard from "./AccountInfoCard";
 import InventorySection from "./InventorySection";
+import StatBottle from "./StatBottle";
+import {
+  STAT_KEYS,
+  performanceTotal,
+  staminaFactor,
+  effectiveStat,
+  type StatKey,
+} from "@/lib/stat-helpers";
 import styles from "./MyPanel.module.css";
 
 /* ── 타입 ─────────────────────────────────────── */
@@ -51,7 +59,7 @@ type MyPanelDisplayProfile = {
   avatarUrl?:    string;
   cardImageUrl?: string;
 };
-export type MyPanelStat = { label: string; value: number; color: string };
+export type MyPanelStat = { key: StatKey; exp: number; level: number };
 export type MyPanelEvent = { day: number; title: string; icon: string };
 
 type Props = {
@@ -208,11 +216,23 @@ export default function MyPanel({
   const characterName =
     [displayProfile.familyName, displayProfile.givenName].filter(Boolean).join(" ") || "이름 미등록";
 
+  // 스탯 3종을 STAT_KEYS 순서(리듬 → 체력 → 표현)대로 정렬.
+  // level 은 DB GENERATED 컬럼 값을 그대로 사용 (재계산 없음).
   const stats: MyPanelStat[] = profileRow ? [
-    { label: "리듬감", value: profileRow.rhythm_stat,     color: "#1a9edb" },
-    { label: "체력",   value: profileRow.physical_stat,   color: "#e0a500" },
-    { label: "표현력", value: profileRow.expression_stat, color: "#ef8f6a" },
+    { key: "rhythm",     exp: profileRow.rhythm_exp,     level: profileRow.rhythm_level     },
+    { key: "physical",   exp: profileRow.physical_exp,   level: profileRow.physical_level   },
+    { key: "expression", exp: profileRow.expression_exp, level: profileRow.expression_level },
   ] : [];
+
+  // 종합 퍼포먼스 파생값 (v8 §2-4 계산식)
+  //   실질 스탯 = 대상레벨 × 체력계수
+  //   종합      = (리듬레벨 + 표현레벨) × 체력계수 × 10  (0~100)
+  const perf = profileRow ? {
+    total:      performanceTotal(profileRow.rhythm_level, profileRow.expression_level, profileRow.physical_level),
+    factor:     staminaFactor(profileRow.physical_level),
+    effRhythm:  effectiveStat(profileRow.rhythm_level,     profileRow.physical_level),
+    effExpress: effectiveStat(profileRow.expression_level, profileRow.physical_level),
+  } : null;
 
   /* ── 색상 저장 (팝업 저장 시 DB UPDATE) ──────────
    * 낙관적 반영: state는 이미 라이브 프리뷰로 바뀐 상태.
@@ -410,48 +430,81 @@ export default function MyPanel({
               </div>
             </div>
 
-            {/* ── 스탯 : 유리병 파도 ── */}
+            {/* ── 스탯 : 유리병 (레벨제) + 종합 퍼포먼스 ── */}
             <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={secTitle}>🫧스탯</span>
-                <span style={secHint}></span>
+                <span style={secTitle}>🫧 스탯</span>
+                <span style={secHint}>마우스를 올려 상세 정보를 확인해주십시오</span>
               </div>
-              <div style={{ display: "flex", gap: 14, justifyContent: "center", alignItems: "flex-end", marginTop: 12, background: "linear-gradient(180deg,#eaf6fe,#fff)", border: "2px solid #cdeeff", borderRadius: 14, padding: "16px 10px 12px" }}>
-                {stats.map((s) => {
-                  const isEmpty = s.value <= 0;
-                  const isFull = s.value >= 100;
-                  const bottleClass = [styles.bottle, isFull ? styles.fullBottle : ""].filter(Boolean).join(" ");
-                  return (
-                    <div key={s.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <div style={{ width: 20, height: 12, background: "#d9a05b", borderRadius: "4px 4px 0 0", boxShadow: "inset 0 -2px 0 rgba(0,0,0,.15)" }} />
-                      <div className={bottleClass} style={{ position: "relative", width: 54, height: 108, marginTop: -4, background: "rgba(255,255,255,.6)", border: "2px solid rgba(46,163,221,.5)", borderRadius: "11px 11px 16px 16px", overflow: "hidden" }}>
-                        {!isEmpty && (
-                          <div
-                            className={isFull ? styles.rainbowFill : undefined}
-                            style={{
-                              position: "absolute", left: 0, right: 0, bottom: 0,
-                              height: `${Math.min(s.value, 100)}%`,
-                              backgroundColor: isFull ? undefined : s.color,
-                              opacity: .78,
-                            }}
-                          >
-                            <div style={{ position: "absolute", top: -1, left: 0, right: 0, height: 6, backgroundImage: "radial-gradient(circle at 5px 0px,rgba(255,255,255,.95) 4px,transparent 4.5px)", backgroundSize: "10px 6px" }} />
-                            <div className={styles.bubbleBlink1} style={{ position: "absolute", left: 10, bottom: 12, width: 5, height: 5, borderRadius: "50%", background: "rgba(255,255,255,.8)" }} />
-                            <div className={styles.bubbleBlink2} style={{ position: "absolute", right: 12, bottom: 28, width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,.7)" }} />
-                          </div>
-                        )}
-                        <span style={{
-                          position: "absolute", left: 0, right: 0, bottom: 7, textAlign: "center",
-                          fontFamily: JUA, fontSize: 14,
-                          color: isEmpty ? "#c8dae8" : "#fff",
-                          textShadow: isEmpty ? "none" : "0 1px 2px rgba(8,50,90,.5)",
-                        }}>{s.value}</span>
-                      </div>
-                      <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#2a5878" }}>{s.label}</span>
-                    </div>
-                  );
-                })}
+
+              {/* 유리병 3개 */}
+              <div style={{
+                display: "flex", gap: 14, justifyContent: "center", alignItems: "flex-end",
+                marginTop: 12,
+                background: "linear-gradient(180deg,#eaf6fe,#fff)",
+                border: "2px solid #cdeeff", borderRadius: 14,
+                padding: "24px 10px 12px",  // 상단 패딩 여유 (툴팁 공간)
+              }}>
+                {stats.map((s) => (
+                  <StatBottle
+                    key={s.key}
+                    statKey={s.key}
+                    exp={s.exp}
+                    level={s.level}
+                  />
+                ))}
               </div>
+
+              {/* 종합 퍼포먼스 */}
+              {perf ? (
+                <div style={{
+                  marginTop: 12,
+                  background: "#fff",
+                  border: "2px solid #cdeeff",
+                  borderRadius: 14,
+                  padding: "12px 14px",
+                }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontFamily: JUA, fontSize: 15, color: "#0d6fa8" }}>종합 퍼포먼스</span>
+                    <span style={{ fontFamily: JUA, fontSize: 16, color: "#14406f" }}>
+                      {perf.total} <span style={{ fontSize: 12, color: "#7fb3d4" }}>/ 100</span>
+                    </span>
+                  </div>
+
+                  {/* 프로그레스 바 */}
+                  <div style={{
+                    height: 10,
+                    borderRadius: 999,
+                    background: "#eaf6fe",
+                    border: "1.5px solid #cdeeff",
+                    overflow: "hidden",
+                  }}>
+                    <div style={{
+                      width: `${perf.total}%`,
+                      height: "100%",
+                      background: "linear-gradient(90deg, #4db6a0, #4a7fe0)",
+                      transition: "width .45s cubic-bezier(.3,.8,.3,1)",
+                    }} />
+                  </div>
+
+                  {/* 하단 상세 */}
+                  <div style={{
+                    marginTop: 8,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "4px 12px",
+                    fontFamily: BODY,
+                    fontSize: 12,
+                    color: "#2a5878",
+                  }}>
+                    <span>실질 리듬 <strong style={{ color: "#14406f" }}>{perf.effRhythm}</strong></span>
+                    <span style={{ color: "#a8dcf5" }}>·</span>
+                    <span>실질 표현 <strong style={{ color: "#14406f" }}>{perf.effExpress}</strong></span>
+                    <span style={{ color: "#a8dcf5" }}>·</span>
+                    <span>체력 계수 <strong style={{ color: "#14406f" }}>×{perf.factor.toFixed(1)}</strong></span>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {/* ── 인벤토리 (별도 컴포넌트) ── */}

@@ -5,16 +5,18 @@
 // 회원가입 전에 코드로 저장된 캐릭터 정보를 유저에게 보여줘서
 // "이 사람 맞아요?" 확인 절차 위한 조회 API.
 //
-// 변경점:
-//   - shell profile 조회 select에 rhythm_stat / physical_stat / expression_stat 추가
-//   - 응답에 초기 스탯 3개 포함 (유저가 자기 초기 스탯 확인 → GM에 이상 여부 통보)
-//   - 스탯은 컬럼상 NOT NULL DEFAULT 0 이라 항상 숫자
+// 변경점 (v2 → v3 · 스탯 레벨제 개편):
+//   - shell profile 조회 select : rhythm_stat → rhythm_level (등)
+//     · exp 대신 level 만 조회. exp 는 발급 시점의 각 레벨 최소값이라
+//       유저에게 굳이 노출할 이유 없음.
+//     · level 은 DB GENERATED STORED 라 정합 보장.
+//   - 응답 필드 : rhythm_stat → rhythm_level (등)
 //
 // 흐름:
 //   1) body 파싱: { invite_code: string }
 //   2) 코드 검증 (존재·미사용·유효)
 //   3) 대응 shell profile 조회
-//   4) 캐릭터 정보 반환 (스탯 포함)
+//   4) 캐릭터 정보 반환 (레벨 포함)
 //
 // 인증 없음 (--no-verify-jwt로 배포). RLS 우회하려 service_role만 사용.
 // 봇 시도 우려는 지금 규모(25명)에선 무시. XXXX-XXXX-XXXX 검색공간도 큼.
@@ -81,13 +83,18 @@ serve(async (req) => {
       return json({ error: "이미 사용된 초대코드입니다." }, 400);
     }
     if (new Date(invite.expires_at).getTime() <= Date.now()) {
-      return json({ error: "만료된 초대코드입니다. GM에게 문의해주세요." }, 400);
+      return json({ error: "만료된 초대코드입니다. GM에게 문의해주십시오." }, 400);
     }
 
-    // 3) shell profile 조회 (스탯 포함)
+    // 3) shell profile 조회 (레벨 포함)
+    //    exp 는 조회 대상 아님 — 유저에게 보여줄 정보가 아니고,
+    //    발급 시점 exp 는 각 레벨의 최소값이라 새로운 정보가 없다.
     const { data: profile, error: profileErr } = await adminClient
       .from("profiles")
-      .select("family_name, given_name, age, gender, school_name, grade, rhythm_stat, physical_stat, expression_stat")
+      .select(
+        "family_name, given_name, age, gender, school_name, grade, " +
+        "rhythm_level, physical_level, expression_level"
+      )
       .eq("id", invite.profile_id)
       .maybeSingle();
 
@@ -96,20 +103,20 @@ serve(async (req) => {
     }
     if (!profile) {
       // 매우 드문 케이스 — shell이 사라졌는데 code가 남은 데이터 불일치
-      return json({ error: "캐릭터 정보를 찾을 수 없습니다. GM에게 문의해주세요." }, 500);
+      return json({ error: "캐릭터 정보를 찾을 수 없습니다. GM에게 문의해주십시오." }, 500);
     }
 
-    // 4) 캐릭터 정보 반환 (id 등 내부 식별자 노출 안 함, 스탯 포함)
+    // 4) 캐릭터 정보 반환 (id 등 내부 식별자 노출 안 함, 레벨 포함)
     return json({
-      family_name:     profile.family_name,
-      given_name:      profile.given_name,
-      age:             profile.age,
-      gender:          profile.gender,
-      school_name:     profile.school_name,
-      grade:           profile.grade,
-      rhythm_stat:     profile.rhythm_stat,
-      physical_stat:   profile.physical_stat,
-      expression_stat: profile.expression_stat,
+      family_name:      profile.family_name,
+      given_name:       profile.given_name,
+      age:              profile.age,
+      gender:           profile.gender,
+      school_name:      profile.school_name,
+      grade:            profile.grade,
+      rhythm_level:     profile.rhythm_level,
+      physical_level:   profile.physical_level,
+      expression_level: profile.expression_level,
     });
   } catch (e) {
     return json({ error: String(e) }, 500);

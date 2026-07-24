@@ -1,22 +1,34 @@
 // supabase/functions/generate-invite/index.ts
 //
-// GM이 초대코드 발급하는 EF (v3 — 초기 스탯 입력 반영).
+// GM이 초대코드 발급하는 EF (v4 — 스탯 레벨제 개편 반영).
 //
-// 변경점 (v2 → v3):
-//   - body에 rhythm_stat / physical_stat / expression_stat 추가 (선택, 미지정 시 0)
-//   - 각 스탯 0~100 정수 검증. 미지정/null/빈값은 0으로 정규화.
-//   - RPC 호출에 p_rhythm_stat / p_physical_stat / p_expression_stat 전달
-//   - (v2까지) 이름 스키마 분리, 동명이인 허용은 그대로 유지
+// 변경점 (v3 → v4):
+//   - body 필드명 변경 :
+//       rhythm_stat / physical_stat / expression_stat  (0~100)
+//       → rhythm_level / physical_level / expression_level  (0~5)
+//   - 검증 :
+//       · 각 레벨 0~5 정수
+//       · 세 레벨 합 5 이하 (INITIAL_LEVEL_BUDGET)
+//   - 저장 :
+//       · 레벨 → 해당 레벨 최소 exp 로 환산 후 RPC 전달
+//       · Lv3 → exp = 160 (LEVEL_THRESHOLDS[3])
+//   - RPC 파라미터명 변경 : p_rhythm_stat → p_rhythm_exp (등)
+//   - 검증 로직은 공유 모듈(_shared/stat.ts) 사용
 //
 // 흐름:
 //   1) Authorization 헤더에서 JWT → auth.getUser()로 user_id 확보
 //   2) GM 검증 + issued_by에 쓸 profile.id 확보 (service_role)
-//   3) body 파싱 및 검증 (스탯 포함)
+//   3) body 파싱 및 검증 (레벨 포함)
 //   4) 코드 생성 (XXXX-XXXX-XXXX)
 //   5) RPC generate_invite_with_shell 호출 (원자적 shell + invite 생성)
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  levelToMinExp,
+  validateInitialLevelDistribution,
+  LEVEL_MAX,
+} from "../_shared/stat.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,21 +44,23 @@ function json(body: unknown, status = 200) {
 }
 
 /**
- * 스탯 값 정규화 + 검증.
+ * 레벨 값 정규화.
  * - undefined / null / "" → 0 (미입력은 0으로)
- * - 숫자(또는 숫자 문자열)면 0~100 정수인지 확인
- * 반환: { ok: true, value } | { ok: false, error }
+ * - 숫자(또는 숫자 문자열)면 0~LEVEL_MAX 정수인지 확인
+ *
+ * 총합 검증은 별도(validateInitialLevelDistribution) 로 수행하므로
+ * 여기서는 개별 필드 형식만 확인한다.
  */
-function normalizeStat(
+function normalizeLevel(
   raw: unknown,
-  label: string
+  label: string,
 ): { ok: true; value: number } | { ok: false; error: string } {
   if (raw === undefined || raw === null || raw === "") {
     return { ok: true, value: 0 };
   }
   const n = typeof raw === "string" ? Number(raw) : raw;
-  if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > 100) {
-    return { ok: false, error: `${label}은(는) 0~100 정수여야 합니다.` };
+  if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > LEVEL_MAX) {
+    return { ok: false, error: `${label} 레벨은 0~${LEVEL_MAX} 정수여야 합니다.` };
   }
   return { ok: true, value: n };
 }
@@ -114,19 +128,19 @@ serve(async (req) => {
       grade,
       expires_in_days = 7,
       invitee_note,
-      rhythm_stat,
-      physical_stat,
-      expression_stat,
+      rhythm_level,
+      physical_level,
+      expression_level,
     } = body as Record<string, unknown>;
 
     // 5) 이름 필드 검증 (성·이름 각각)
     if (typeof family_name !== "string" || !family_name.trim()) {
-      return json({ error: "성을 입력하세요." }, 400);
+      return json({ error: "성을 입력해주십시오." }, 400);
     }
     const familyTrim = family_name.trim();
 
     if (typeof given_name !== "string" || !given_name.trim()) {
-      return json({ error: "이름을 입력하세요." }, 400);
+      return json({ error: "이름을 입력해주십시오." }, 400);
     }
     const givenTrim = given_name.trim();
 
@@ -140,7 +154,7 @@ serve(async (req) => {
     }
 
     if (typeof school_name !== "string" || !school_name.trim()) {
-      return json({ error: "학교명을 입력하세요." }, 400);
+      return json({ error: "학교명을 입력해주십시오." }, 400);
     }
     const schoolTrim = school_name.trim();
 
@@ -148,13 +162,27 @@ serve(async (req) => {
       return json({ error: "학년은 1~3 정수여야 합니다." }, 400);
     }
 
-    // 7) 초기 스탯 검증 (미지정 시 0, 지정 시 0~100 정수)
-    const rhythmRes     = normalizeStat(rhythm_stat,     "리듬감");
+    // 7) 초기 레벨 검증 (미지정 시 0, 지정 시 0~5 정수 · 합 5 이하)
+    const rhythmRes     = normalizeLevel(rhythm_level,     "리듬감");
     if (!rhythmRes.ok)     return json({ error: rhythmRes.error }, 400);
-    const physicalRes   = normalizeStat(physical_stat,   "체력");
+    const physicalRes   = normalizeLevel(physical_level,   "체력");
     if (!physicalRes.ok)   return json({ error: physicalRes.error }, 400);
-    const expressionRes = normalizeStat(expression_stat, "표현력");
+    const expressionRes = normalizeLevel(expression_level, "표현력");
     if (!expressionRes.ok) return json({ error: expressionRes.error }, 400);
+
+    const distCheck = validateInitialLevelDistribution({
+      rhythm:     rhythmRes.value,
+      physical:   physicalRes.value,
+      expression: expressionRes.value,
+    });
+    if (!distCheck.ok) {
+      return json({ error: distCheck.reason }, 400);
+    }
+
+    // 레벨 → 해당 레벨의 최소 exp 로 환산
+    const rhythmExp     = levelToMinExp(rhythmRes.value);
+    const physicalExp   = levelToMinExp(physicalRes.value);
+    const expressionExp = levelToMinExp(expressionRes.value);
 
     // 8) expires_in_days 검증 (7~30)
     if (
@@ -183,25 +211,25 @@ serve(async (req) => {
 
     // 11) 만료 시각 계산 (setDate 함정 회피: ms 단위 덧셈)
     const expiresAt = new Date(
-      Date.now() + expires_in_days * 24 * 60 * 60 * 1000
+      Date.now() + expires_in_days * 24 * 60 * 60 * 1000,
     );
 
     // 12) RPC 호출 (원자적 shell + invite_codes 생성)
     const { data: rpcData, error: rpcErr } = await adminClient
       .rpc("generate_invite_with_shell", {
-        p_code:            code,
-        p_gm_profile_id:   gmProfileId,
-        p_expires_at:      expiresAt.toISOString(),
-        p_invitee_note:    noteVal,
-        p_family_name:     familyTrim,
-        p_given_name:      givenTrim,
-        p_age:             age,
-        p_gender:          gender,
-        p_school_name:     schoolTrim,
-        p_grade:           grade,
-        p_rhythm_stat:     rhythmRes.value,
-        p_physical_stat:   physicalRes.value,
-        p_expression_stat: expressionRes.value,
+        p_code:           code,
+        p_gm_profile_id:  gmProfileId,
+        p_expires_at:     expiresAt.toISOString(),
+        p_invitee_note:   noteVal,
+        p_family_name:    familyTrim,
+        p_given_name:     givenTrim,
+        p_age:            age,
+        p_gender:         gender,
+        p_school_name:    schoolTrim,
+        p_grade:          grade,
+        p_rhythm_exp:     rhythmExp,
+        p_physical_exp:   physicalExp,
+        p_expression_exp: expressionExp,
       });
 
     if (rpcErr) {
@@ -211,18 +239,18 @@ serve(async (req) => {
       if (rpcErr.code === "23505") {
         if (msg.includes("invite_codes_code_key")) {
           return json(
-            { error: "코드 생성 충돌. 다시 시도해주세요." },
-            500
+            { error: "코드 생성 충돌. 다시 시도해주십시오." },
+            500,
           );
         }
         return json({ error: "중복된 값이 있습니다.", detail: msg }, 409);
       }
 
-      // CHECK 위반 (스탯 0~100 등)
+      // CHECK 위반 (exp 0~450 범위 등)
       if (rpcErr.code === "23514") {
         return json(
           { error: "입력값이 제약 조건을 벗어났습니다.", detail: msg },
-          400
+          400,
         );
       }
 

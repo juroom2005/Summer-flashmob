@@ -64,9 +64,12 @@ export default function UserDetail({ user, onPatch, onRefresh }: Props) {
 
   function handleStatsAdjusted(next: StatResult) {
     onPatch(user.id, {
-      rhythm_stat:     next.rhythm_stat,
-      physical_stat:   next.physical_stat,
-      expression_stat: next.expression_stat,
+      rhythm_exp:       next.rhythm_exp,
+      rhythm_level:     next.rhythm_level,
+      physical_exp:     next.physical_exp,
+      physical_level:   next.physical_level,
+      expression_exp:   next.expression_exp,
+      expression_level: next.expression_level,
     });
   }
 
@@ -119,9 +122,9 @@ export default function UserDetail({ user, onPatch, onRefresh }: Props) {
         </div>
 
         <div style={metricRowStyle}>
-          <span style={statChipStyle}>🎵 리듬 {user.rhythm_stat}</span>
-          <span style={statChipStyle}>💪 체력 {user.physical_stat}</span>
-          <span style={statChipStyle}>✨ 표현력 {user.expression_stat}</span>
+          <span style={statChipStyle}>🎵 리듬 Lv{user.rhythm_level}</span>
+          <span style={statChipStyle}>💪 체력 Lv{user.physical_level}</span>
+          <span style={statChipStyle}>✨ 표현력 Lv{user.expression_level}</span>
           <span style={mobilChipStyle}>
             💰 {user.mobil.toLocaleString()}
           </span>
@@ -133,9 +136,12 @@ export default function UserDetail({ user, onPatch, onRefresh }: Props) {
 
       <StatAdjustPanel
         profileId={user.id}
-        rhythm={user.rhythm_stat}
-        physical={user.physical_stat}
-        expression={user.expression_stat}
+        rhythmExp={user.rhythm_exp}
+        rhythmLevel={user.rhythm_level}
+        physicalExp={user.physical_exp}
+        physicalLevel={user.physical_level}
+        expressionExp={user.expression_exp}
+        expressionLevel={user.expression_level}
         onAdjusted={handleStatsAdjusted}
       />
 

@@ -1,6 +1,11 @@
 // components/auth/RegisterPanel.tsx
 //
-// 초대코드 가입 흐름 (v4 — mismatch 문의 폼 접수).
+// 초대코드 가입 흐름 (v5 — 스탯 레벨제 개편 반영).
+//
+// 변경점 (v4 → v5):
+//   - preview-invite EF 응답 : *_stat (0~100) → *_level (0~5)
+//   - Step 2 캐릭터 카드 : 숫자값 → "Lv.N" 표기
+//   - 스탯별 색상 구분 제거 → 통일된 색상 사용 (카드 안에서 시각적 균등)
 //
 // 변경점 (v3 → v4):
 //   - Step 3(mismatch) 를 "GM에게 연락 안내" 정적 카드에서
@@ -11,8 +16,8 @@
 // 흐름:
 //   Step 1: 초대코드만 입력 → preview-invite EF 호출 → 캐릭터 정보 확보
 //   Step 2: 캐릭터 정보 카드 표시 + 이메일·비번 입력 → auth.signUp + register-user EF
-//     · "네, 저 맞아요" 버튼: 가입 진행
-//     · "정보가 달라요" 버튼: mismatch 화면으로 전환
+//     · "정보 일치" 버튼: 가입 진행
+//     · "정보가 다릅니다" 버튼: mismatch 화면으로 전환
 //   Step 3 (mismatch):
 //     · form 상태: 텍스트박스 + "문의 접수" 버튼 → EF 호출
 //     · submitted 상태: "접수 완료 + 2h 안내" + "다시 확인" 버튼
@@ -48,10 +53,10 @@ type PreviewData = {
   gender:      Gender;
   school_name: string;
   grade:       number;
-  // 초기 스탯 (preview-invite EF v2부터 반환)
-  rhythm_stat:     number;
-  physical_stat:   number;
-  expression_stat: number;
+  // 초기 스탯 레벨 (preview-invite EF v3부터. 0~5 정수. DB GENERATED 컬럼 기반)
+  rhythm_level:     number;
+  physical_level:   number;
+  expression_level: number;
 };
 
 const GENDER_LABEL: Record<Gender, string> = {
@@ -60,11 +65,16 @@ const GENDER_LABEL: Record<Gender, string> = {
   other:  "기타",
 };
 
-// 스탯 표시 정의 (MyPanel 유리병 색상과 동일 매핑)
-const STAT_ITEMS: { key: keyof Pick<PreviewData, "rhythm_stat" | "physical_stat" | "expression_stat">; label: string; color: string }[] = [
-  { key: "rhythm_stat",     label: "리듬감", color: "#1a9edb" },
-  { key: "physical_stat",   label: "체력",   color: "#e0a500" },
-  { key: "expression_stat", label: "표현력", color: "#ef8f6a" },
+// 스탯 표시 정의 (레벨 카드용)
+// 색상 구분 없이 라벨만 나열. 프리뷰 카드는 진행도가 아니라 확인용이라
+// 스탯별 색상 구분을 두지 않는다.
+const STAT_ITEMS: {
+  key:   "rhythm_level" | "physical_level" | "expression_level";
+  label: string;
+}[] = [
+  { key: "rhythm_level",     label: "리듬감" },
+  { key: "physical_level",   label: "체력"   },
+  { key: "expression_level", label: "표현력" },
 ];
 
 export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
@@ -93,7 +103,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
 
     const codeTrim = inviteCode.trim();
     if (!codeTrim) {
-      setError("초대코드를 입력하세요.");
+      setError("초대코드를 입력해주십시오.");
       return;
     }
 
@@ -101,7 +111,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
     try {
       const result = await callEdgeFunction<PreviewData>(
         "preview-invite",
-        { invite_code: codeTrim }
+        { invite_code: codeTrim },
       );
 
       if (!result.ok) {
@@ -126,11 +136,11 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
 
     const emailTrim = email.trim();
     if (!emailTrim) {
-      setError("이메일을 입력하세요.");
+      setError("이메일을 입력해주십시오.");
       return;
     }
     if (!password) {
-      setError("비밀번호를 입력하세요.");
+      setError("비밀번호를 입력해주십시오.");
       return;
     }
     if (password.length < 6) {
@@ -159,7 +169,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
       // 2) register-user EF (shell profile에 user_id 연결)
       const result = await callEdgeFunction<{ success: boolean }>(
         "register-user",
-        { invite_code: inviteCode.trim().toUpperCase() }
+        { invite_code: inviteCode.trim().toUpperCase() },
       );
 
       if (!result.ok) {
@@ -168,7 +178,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
         setError(
           `가입 완료 처리에 실패했습니다: ${result.error}${
             result.detail ? ` (${result.detail})` : ""
-          }`
+          }`,
         );
         setLoading(false);
         return;
@@ -200,11 +210,11 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
 
     const msg = mismatchMessage.trim();
     if (!msg) {
-      setError("어떤 정보가 다른지 기입해주세요.");
+      setError("어떤 정보가 다른지 기입해주십시오.");
       return;
     }
     if (msg.length > MISMATCH_MSG_MAX) {
-      setError(`메시지는 ${MISMATCH_MSG_MAX}자 이하로 입력해주세요.`);
+      setError(`메시지는 ${MISMATCH_MSG_MAX}자 이하로 입력해주십시오.`);
       return;
     }
 
@@ -215,7 +225,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
         {
           invite_code: inviteCode.trim().toUpperCase(),
           message:     msg,
-        }
+        },
       );
 
       if (!result.ok) {
@@ -238,7 +248,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
       {step === "code" ? (
         <>
           <div style={titleStyle}>📮 초대코드로 가입</div>
-          <div style={subtitleStyle}>메일로 수신받은 초대코드를 입력해주세요.</div>
+          <div style={subtitleStyle}>메일로 수신받은 초대코드를 입력해주십시오.</div>
 
           <form onSubmit={handleCheckCode} style={formStyle}>
             <input
@@ -259,7 +269,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
           </form>
 
           <div style={switchWrapStyle}>
-            이미 가입하셨나요?{" "}
+            이미 가입한 계정이 있으신 경우{" "}
             <button
               type="button"
               onClick={onSwitchToLogin}
@@ -302,13 +312,13 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
               </div>
             </div>
 
-            {/* ── 초기 스탯 ── */}
+            {/* ── 초기 레벨 ── */}
             <div style={statSectionStyle}>
-              <div style={statSectionLabelStyle}>🫧 초기 스탯</div>
+              <div style={statSectionLabelStyle}>🫧 초기 레벨</div>
               <div style={statRowStyle}>
                 {STAT_ITEMS.map((s) => (
                   <div key={s.key} style={statItemStyle}>
-                    <span style={statValueStyle(s.color)}>{preview[s.key] ?? 0}</span>
+                    <span style={statValueStyle}>Lv.{preview[s.key] ?? 0}</span>
                     <span style={statLabelStyle}>{s.label}</span>
                   </div>
                 ))}
@@ -376,7 +386,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
             <textarea
               value={mismatchMessage}
               onChange={(e) => setMismatchMessage(e.target.value)}
-              placeholder="예: 학년이 2학년이 아니라 3학년임/스탯이 다름."
+              placeholder="예: 학년이 2학년이 아니라 3학년입니다. 초기 레벨이 다릅니다."
               disabled={loading}
               rows={5}
               maxLength={MISMATCH_MSG_MAX}
@@ -404,7 +414,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
           </form>
 
           <div style={switchWrapStyle}>
-            이미 가입하셨나요?{" "}
+            이미 가입한 계정이 있으신 경우{" "}
             <button
               type="button"
               onClick={onSwitchToLogin}
@@ -424,12 +434,12 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
 
           <div style={submittedCardStyle}>
             <div style={submittedTextStyle}>
-              문의 접수 되었습니다.
+              문의가 접수되었습니다.
               <br />
               신청서 발신하신 이메일로 연락드릴 예정입니다.
               <br /><br />
               <strong>2시간 이상 회신이 없다면</strong> SNS DM으로
-              문의해주세요. (새벽, 아침시간 제외)
+              문의해주십시오. (새벽, 아침시간 제외)
             </div>
           </div>
 
@@ -444,7 +454,7 @@ export default function RegisterPanel({ onSuccess, onSwitchToLogin }: Props) {
           </div>
 
           <div style={switchWrapStyle}>
-            이미 가입하셨나요?{" "}
+            이미 가입한 계정이 있으신 경우{" "}
             <button
               type="button"
               onClick={onSwitchToLogin}
@@ -557,13 +567,13 @@ const previewCardStyle: CSSProperties = {
 };
 
 const previewNameStyle: CSSProperties = {
-  fontFamily:   JUA,
-  fontSize:     22,
-  color:        "#0d6fa8",
-  textAlign:    "center",
-  marginBottom: 12,
+  fontFamily:    JUA,
+  fontSize:      22,
+  color:         "#0d6fa8",
+  textAlign:     "center",
+  marginBottom:  12,
   paddingBottom: 10,
-  borderBottom: "1.5px dashed #a8dcf5",
+  borderBottom:  "1.5px dashed #a8dcf5",
 };
 
 const previewMetaGridStyle: CSSProperties = {
@@ -590,7 +600,7 @@ const previewMetaValueStyle: CSSProperties = {
   fontWeight: 700,
 };
 
-/* ── preview 카드: 초기 스탯 ── */
+/* ── preview 카드: 초기 레벨 ── */
 
 const statSectionStyle: CSSProperties = {
   marginTop:  12,
@@ -624,12 +634,12 @@ const statItemStyle: CSSProperties = {
   borderRadius:   10,
 };
 
-const statValueStyle = (color: string): CSSProperties => ({
+const statValueStyle: CSSProperties = {
   fontFamily: JUA,
   fontSize:   20,
   lineHeight: 1.1,
-  color,
-});
+  color:      "#14406f",
+};
 
 const statLabelStyle: CSSProperties = {
   fontFamily: BODY,

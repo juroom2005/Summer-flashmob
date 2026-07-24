@@ -6,6 +6,14 @@
 //   유저가 preview-invite로 캐릭터 정보를 봤는데 자기랑 다를 때,
 //   가입 전 상태에서 GM에게 문의를 남기는 창구.
 //
+// 변경점 (v2 → v3 · 스탯 레벨제 개편):
+//   - shell profile 조회 select : *_stat → *_exp + *_level 모두
+//   - snapshot 저장 : exp + level 둘 다 담음
+//     · snapshot 은 발급 시점 원본 데이터 보존 목적. 정보 손실 없이 저장.
+//     · GM 이 미스매치 판정할 때 exp 자체가 근거가 될 수 있음.
+//     · 과거 저장된 snapshot 은 *_stat 형식 그대로 보존 (건드리지 않음).
+//   - 표시 컴포넌트(ReportItem) 에서 어느 형식인지 분기해 렌더링.
+//
 // 흐름:
 //   1) body 파싱: { invite_code: string, message: string }
 //   2) 코드 재검증 (존재·미사용·유효) — preview-invite와 동일 로직
@@ -76,11 +84,11 @@ serve(async (req) => {
 
     const rawMessage = (body as Record<string, unknown>).message;
     if (typeof rawMessage !== "string") {
-      return json({ error: "메시지를 입력하세요." }, 400);
+      return json({ error: "메시지를 입력해주십시오." }, 400);
     }
     const message = rawMessage.trim();
     if (message.length === 0) {
-      return json({ error: "메시지를 입력하세요." }, 400);
+      return json({ error: "메시지를 입력해주십시오." }, 400);
     }
     if (message.length > MESSAGE_MAX_LEN) {
       return json({ error: `메시지는 ${MESSAGE_MAX_LEN}자 이하여야 합니다.` }, 400);
@@ -121,16 +129,22 @@ serve(async (req) => {
     } else if ((recentCount ?? 0) >= RATE_LIMIT_PER_CODE_24H) {
       return json(
         {
-          error: "잠시 후 다시 시도해주세요. 문의가 이미 접수되어 있습니다.",
+          error: "잠시 후 다시 시도해주십시오. 문의가 이미 접수되어 있습니다.",
         },
-        429
+        429,
       );
     }
 
     // 4) shell profile 조회 → snapshot
+    //    exp + level 둘 다 담아 원본 데이터 보존.
     const { data: profile, error: profileErr } = await adminClient
       .from("profiles")
-      .select("family_name, given_name, age, gender, school_name, grade, rhythm_stat, physical_stat, expression_stat")
+      .select(
+        "family_name, given_name, age, gender, school_name, grade, " +
+        "rhythm_exp, rhythm_level, " +
+        "physical_exp, physical_level, " +
+        "expression_exp, expression_level"
+      )
       .eq("id", invite.profile_id)
       .maybeSingle();
 
@@ -138,19 +152,22 @@ serve(async (req) => {
       return json({ error: "캐릭터 정보 조회 실패", detail: profileErr.message }, 500);
     }
     if (!profile) {
-      return json({ error: "캐릭터 정보를 찾을 수 없습니다. GM에게 문의해주세요." }, 500);
+      return json({ error: "캐릭터 정보를 찾을 수 없습니다. GM에게 문의해주십시오." }, 500);
     }
 
     const snapshot = {
-      family_name:     profile.family_name,
-      given_name:      profile.given_name,
-      age:             profile.age,
-      gender:          profile.gender,
-      school_name:     profile.school_name,
-      grade:           profile.grade,
-      rhythm_stat:     profile.rhythm_stat,
-      physical_stat:   profile.physical_stat,
-      expression_stat: profile.expression_stat,
+      family_name:      profile.family_name,
+      given_name:       profile.given_name,
+      age:              profile.age,
+      gender:           profile.gender,
+      school_name:      profile.school_name,
+      grade:            profile.grade,
+      rhythm_exp:       profile.rhythm_exp,
+      rhythm_level:     profile.rhythm_level,
+      physical_exp:     profile.physical_exp,
+      physical_level:   profile.physical_level,
+      expression_exp:   profile.expression_exp,
+      expression_level: profile.expression_level,
     };
 
     // 5) INSERT
