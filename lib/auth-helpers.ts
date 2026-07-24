@@ -64,23 +64,42 @@ export async function signOut() {
 
 /* ═══════════════════════════════════════════════════════════
  * MyPanel 전용 확장 조회
+ *
+ * 스탯 개편 반영 (v8 §2-4, §4-1):
+ *   - 옛 rhythm_stat / physical_stat / expression_stat (0~100) 컬럼 삭제됨
+ *   - 신규 스키마 :
+ *       *_exp   (0~450, 일반 컬럼)
+ *       *_level (0~5, DB GENERATED STORED 컬럼)
+ *   - level 은 DB 가 exp 로부터 파생시켜 저장하므로 신뢰 가능한 정답.
+ *     앱에서 재계산하지 않고 그대로 사용한다 (실수 방지).
+ *   - lib/stat-helpers.ts 의 expToLevel() 은 이 값과 동일한 결과를 내는
+ *     보조 함수. exp 만 있고 level 이 없는 상황(예: mismatch snapshot)
+ *     에서 사용.
  * ─────────────────────────────────────────────────────────── */
 
 export type MyPanelProfileRow = {
-  id:              string;
-  family_name:     string | null;
-  given_name:      string | null;
-  school_name:     string | null;
-  grade:           number | null;
-  gender:          "male" | "female" | "other" | null;
-  rhythm_stat:     number;   // NOT NULL DEFAULT 0
-  physical_stat:   number;   // NOT NULL DEFAULT 0
-  expression_stat: number;   // NOT NULL DEFAULT 0
-  mobil:           number;   // NOT NULL DEFAULT 0 (재화)
+  id:               string;
+  family_name:      string | null;
+  given_name:       string | null;
+  school_name:      string | null;
+  grade:            number | null;
+  gender:           "male" | "female" | "other" | null;
+
+  // 스탯 : exp (누적 경험치) + level (DB GENERATED)
+  // 전부 NOT NULL. level 은 GENERATED 라 default 없이 항상 계산되어 채워짐.
+  rhythm_exp:       number;
+  rhythm_level:     number;
+  physical_exp:     number;
+  physical_level:   number;
+  expression_exp:   number;
+  expression_level: number;
+
+  mobil:            number;   // NOT NULL DEFAULT 0 (재화)
+
   // 학생증 커스터마이제이션 (DB 이관, nullable — 미설정 시 null)
-  card_bg_color:   string | null;   // '#RRGGBB' (DB CHECK: 6자리 HEX만)
-  card_text_color: string | null;   // '#RRGGBB' (DB CHECK: 6자리 HEX만)
-  signature_data:  string | null;   // 서명 PNG dataURL
+  card_bg_color:    string | null;   // '#RRGGBB' (DB CHECK: 6자리 HEX만)
+  card_text_color:  string | null;   // '#RRGGBB' (DB CHECK: 6자리 HEX만)
+  signature_data:   string | null;   // 서명 PNG dataURL
 };
 
 /**
@@ -100,7 +119,8 @@ export type MyPanelProfileRow = {
  *     프로필·스탯·재화는 어차피 멤버란에 공개될 정보라 정책상 문제 없음.
  *   - family_name / given_name / school_name / grade / gender 는 등록 완료 전엔
  *     null 일 수 있음. 사용처에서 방어 처리 필요.
- *   - rhythm/physical/expression_stat, mobil 은 컬럼상 NOT NULL DEFAULT 0 이라 항상 숫자.
+ *   - *_exp / *_level / mobil 은 컬럼상 NOT NULL 이라 항상 숫자.
+ *     level 은 DB GENERATED 라 exp 와 항상 정합.
  *   - card_bg_color / card_text_color / signature_data 는 미설정 시 null.
  */
 export async function getMyPanelProfile(): Promise<MyPanelProfileRow | null> {
@@ -111,7 +131,10 @@ export async function getMyPanelProfile(): Promise<MyPanelProfileRow | null> {
     .from("profiles")
     .select(
       "id, family_name, given_name, school_name, grade, gender, " +
-      "rhythm_stat, physical_stat, expression_stat, mobil, " +
+      "rhythm_exp, rhythm_level, " +
+      "physical_exp, physical_level, " +
+      "expression_exp, expression_level, " +
+      "mobil, " +
       "card_bg_color, card_text_color, signature_data"
     )
     .eq("user_id", user.id)
@@ -204,6 +227,14 @@ export async function updateMySignature(
  * 스키마 v2 기준:
  *   - resolved_at IS NULL = 미완료 문의 (뱃지 카운트 대상)
  *   - 완료 처리는 GM이 명시적으로 눌러야만 발생 (탭 방문만으로는 안 됨)
+ *
+ * snapshot 필드 방침 (v8 스탯 개편 이후):
+ *   - snapshot 은 발급 시점의 원본 데이터를 보존하는 목적이라 스키마 개편
+ *     이후에도 과거 저장 데이터를 변형하지 않는다.
+ *   - 과거 mismatch : rhythm_stat / physical_stat / expression_stat (0~100)
+ *     신규 mismatch : rhythm_exp   / physical_exp   / expression_exp   (0~450)
+ *   - 두 형식이 공존할 수 있으므로 표시 컴포넌트(ReportItem)에서 어느 형식인지
+ *     분기해 렌더링. 여기서는 두 형식을 모두 optional 로 노출한다.
  * ─────────────────────────────────────────────────────────── */
 
 /**
@@ -231,20 +262,28 @@ export async function getPendingReportCount(): Promise<number> {
  * 반환: created_at DESC 정렬. 각 행에 snapshot(jsonb) 포함.
  * 실패 시 빈 배열 반환.
  */
+export type MismatchSnapshot = {
+  family_name:     string | null;
+  given_name:      string | null;
+  age:             number | null;
+  gender:          "male" | "female" | "other" | null;
+  school_name:     string | null;
+  grade:           number | null;
+
+  // 스탯 : 저장 시점에 따라 옛 형식(_stat) 또는 신규 형식(_exp) 중 하나가 존재.
+  // 표시 컴포넌트에서 어느 형식인지 분기 렌더링.
+  rhythm_stat?:     number;
+  physical_stat?:   number;
+  expression_stat?: number;
+  rhythm_exp?:      number;
+  physical_exp?:    number;
+  expression_exp?:  number;
+};
+
 export type MismatchReportRow = {
   id:             string;
   invite_code:    string;
-  snapshot:       {
-    family_name:     string | null;
-    given_name:      string | null;
-    age:             number | null;
-    gender:          "male" | "female" | "other" | null;
-    school_name:     string | null;
-    grade:           number | null;
-    rhythm_stat:     number;
-    physical_stat:   number;
-    expression_stat: number;
-  };
+  snapshot:       MismatchSnapshot;
   message:        string;
   resolved_at:    string | null;
   resolved_by:    string | null;
