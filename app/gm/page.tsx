@@ -1,10 +1,10 @@
 // app/gm/page.tsx
 //
-// GM 관리 페이지 컨테이너 (v7 후속 — 공지 탭 추가).
+// GM 관리 페이지 컨테이너 (세션 I — 상점 탭 추가).
 //
-// 변경점 (v5 → v7 후속):
-//   - 공지 탭 신규 추가 (GmNoticesTab). CRUD 는 RLS 로 GM 만 허용.
-//   - 탭 순서: 초대 · 유저 · 공지 · 문의
+// 변경점:
+//   - 상점 탭 신규 추가 (GmShopTab). CRUD 는 RLS 로 GM 만 허용.
+//   - 탭 순서: 초대 · 유저 · 공지 · 상점 · 문의
 
 "use client";
 
@@ -14,18 +14,20 @@ import InviteCodeList     from "@/components/gm/InviteCodeList";
 import ReportList         from "@/components/gm/reports/ReportList";
 import UserList           from "@/components/gm/users/UserList";
 import GmNoticesTab       from "@/components/gm/notices/GmNoticesTab";
+import GmShopTab          from "@/components/gm/shop/GmShopTab";
 import { getPendingReportCount } from "@/lib/auth-helpers";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
 const BODY  = "'Gowun Dodum', sans-serif";
 
-type TabKey = "invite" | "users" | "notices" | "reports";
+type TabKey = "invite" | "users" | "notices" | "shop" | "reports";
 
 const TABS: { key: TabKey; label: string; emoji: string }[] = [
   { key: "invite",  label: "초대", emoji: "📮" },
   { key: "users",   label: "유저", emoji: "👥" },
   { key: "notices", label: "공지", emoji: "📢" },
+  { key: "shop",    label: "매점", emoji: "🛒" },
   { key: "reports", label: "문의", emoji: "🙋" },
 ];
 
@@ -99,6 +101,8 @@ export default function GmPage() {
         {tab === "users" && <UserList />}
 
         {tab === "notices" && <GmNoticesTab />}
+
+        {tab === "shop" && <GmShopTab />}
 
         {tab === "reports" && <ReportList />}
       </main>
