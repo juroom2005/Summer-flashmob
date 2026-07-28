@@ -3,6 +3,8 @@
 // 상점 카탈로그 조회 · 구매 · 인벤토리 상태 조회 헬퍼.
 //
 // 스키마: sql/2026-07-20_shop_init.sql
+// RPC 확장: sql/applied/2026-07-27_shop_other_type_purchase.sql
+//   · purchase_shop_item 이 item_type = 'other' (이벤트성 아이템) 지원 추가
 //
 // 방침:
 //   · 구매 성공 시 window.dispatchEvent("profile-changed") 로 알림
@@ -87,13 +89,17 @@ export type PurchaseResult =
   | { ok: false; reason: string; message: string };
 
 const PURCHASE_ERROR_MESSAGES: Record<string, string> = {
-  auth_required:         "로그인이 필요합니다.",
-  profile_not_found:     "프로필 정보를 확인할 수 없습니다.",
-  item_not_found:        "상품을 찾을 수 없습니다.",
-  item_inactive:         "판매하지 않는 상품입니다.",
-  insufficient_mobil:    "잔액이 부족합니다.",
-  duplicate_sticker:     "이미 소지한 스티커입니다.",
-  unsupported_item_type: "구매할 수 없는 상품 유형입니다.",
+  auth_required:            "로그인이 필요합니다.",
+  profile_not_found:        "프로필 정보를 확인할 수 없습니다.",
+  item_not_found:           "상품을 찾을 수 없습니다.",
+  item_inactive:            "판매하지 않는 상품입니다.",
+  insufficient_mobil:       "잔액이 부족합니다.",
+  duplicate_sticker:        "이미 소지한 스티커입니다.",
+  unsupported_item_type:    "구매할 수 없는 상품 유형입니다.",
+  // 세션 I 추가 : purchase_shop_item RPC 의 other 분기가 item_ref 를 요구.
+  // shop_items.item_ref 는 NOT NULL 이지만 이중 방어 차원의 예외이므로
+  // 유저에게는 상품 설정 오류로 안내한다.
+  other_item_missing_ref:   "상품 설정이 올바르지 않습니다. 운영진에게 문의해 주십시오.",
 };
 
 function normalizePurchaseError(message: string | undefined): {
@@ -123,6 +129,7 @@ function normalizePurchaseError(message: string | undefined): {
  *   · profiles FOR UPDATE 로 잔액 잠금 (동시 구매 이중 차감 방지)
  *   · marker: inventory_items 새 행 + durability 초기값
  *   · sticker: 중복 시 duplicate_sticker 예외
+ *   · other  : 같은 item_ref 있으면 quantity 누적, 없으면 새 행 (세션 I 확장)
  *   · shop_purchases 이력 자동 기록
  */
 export async function purchaseShopItem(

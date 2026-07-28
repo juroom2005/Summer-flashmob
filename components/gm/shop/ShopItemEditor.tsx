@@ -143,7 +143,7 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
     const nextActive = !item.isActive;
     const confirmMsg = nextActive
       ? `"${item.name}" 을(를) 다시 판매하시겠습니까?`
-      : `"${item.name}" 을(를) 상점에서 내리시겠습니까?\n\n이미 소지한 유저의 인벤토리는 유지됩니다.`;
+      : `"${item.name}" 을(를) 매점에서 내리시겠습니까?\n\n이미 소지한 유저의 인벤토리는 유지됩니다.`;
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -160,7 +160,7 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
     }
 
     onPatch(result.item);
-    showNotice(nextActive ? "다시 판매 상태로 전환되었습니다." : "상점에서 내렸습니다.");
+    showNotice(nextActive ? "다시 판매 상태로 전환되었습니다." : "매점에서 내렸습니다.");
   }, [busy, saving, item.id, item.isActive, item.name, onPatch, showNotice]);
 
   /* ── 삭제 (2 단계 confirm) ── */
@@ -172,7 +172,7 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
       `"${item.name}" 을(를) 완전히 삭제하시겠습니까?\n\n` +
       `이 작업은 되돌릴 수 없습니다.\n` +
       `구매 이력은 유지되나 아이템 참조가 끊깁니다.\n\n` +
-      `단순히 판매를 중단하려면 [삭제] 대신 [상점에서 내리기] 를 사용해 주십시오.`,
+      `단순히 판매를 중단하려면 [삭제] 대신 [매점에서 내리기] 를 사용해 주십시오.`,
     );
     if (!first) return;
 
@@ -377,12 +377,12 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
         <div style={dangerRowStyle}>
           <div>
             <div style={dangerLabelStyle}>
-              {item.isActive ? "상점에서 내리기" : "다시 판매"}
+              {item.isActive ? "매점에서 내리기" : "다시 판매"}
             </div>
             <div style={dangerHintStyle}>
               {item.isActive
                 ? "유저의 인벤토리는 유지됩니다. 언제든 다시 판매할 수 있습니다."
-                : "다시 상점 목록에 노출됩니다."}
+                : "다시 매점 목록에 노출됩니다."}
             </div>
           </div>
           <button

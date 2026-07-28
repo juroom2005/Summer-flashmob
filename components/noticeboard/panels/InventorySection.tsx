@@ -1,14 +1,23 @@
 // components/noticeboard/panels/InventorySection.tsx
 //
-// 마이패널 내 인벤토리 섹션 (실 데이터 연동).
+// 마이패널 내 인벤토리 섹션 (실 데이터 연동, v3).
 //
-// v1 → v2 변경:
-//   · MyPanel 안 인라인 DEFAULT_ITEMS 하드코딩 → inventory_items 실 조회
-//   · shop-helpers 의 profile-changed 이벤트 리슨하여 구매 직후 자동 갱신
+// v2 → v3 변경 (세션 I):
+//   · marker 이모지 우선순위 확장 : metadata.emoji > MARKER_EMOJI[item_ref] > 🖊️
+//   · other 타입 렌더 신설 (이벤트성 아이템, quantity 누적 표시)
+//   · 안내문·주석 "상점" → "매점"
 //
 // 아이템별 표현:
-//   · marker : 이모지(색상별) + 남은 획 (durability/initial_durability)
+//   · marker : 이모지(우선순위) + 남은 획 (durability/initial_durability)
 //   · sticker: 이모지(item_ref) + "무제한 사용"
+//   · other  : 이모지(metadata.emoji 또는 기본 🎁) + "×N" (quantity)
+//
+// 라벨 정책:
+//   · marker  : MARKER_LABEL 하드코딩 매핑 (없으면 "사인펜")
+//   · sticker : "스티커" 고정
+//   · other   : item_ref 를 표시용으로 변환 (언더스코어 → 공백).
+//     - 인벤토리에는 shop_items.name 이 저장되지 않으므로 v10 에서
+//       구매 시점 이름 스냅샷 (metadata.name) 도입 후 여기 로직 개선 예정.
 //
 // 코르크보드 스타일은 기존 톤 유지 (프론트 리뉴얼 예정, 최소 침습).
 // 향후 hover 툴팁에 실제 사용법이 붙을 예정 (사인펜 클릭 → 일지 진입 등).
@@ -53,9 +62,25 @@ type Displayable = {
   key:     string;   // React key
   emoji:   string;
   label:   string;
-  badge:   string;   // 우하단 노란 원 안 문구 (예: "×1", "78")
+  badge:   string;   // 우하단 노란 원 안 문구 (예: "×1", "78/100", "∞")
   tooltip: string;
 };
+
+/** metadata 에서 emoji 를 안전 추출. */
+function readEmoji(metadata: Record<string, unknown> | null | undefined): string | null {
+  if (!metadata) return null;
+  const v = metadata.emoji;
+  if (typeof v !== "string") return null;
+  const trimmed = v.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/** item_ref (영문 슬러그) 를 사람이 읽기 쉬운 라벨로 변환.
+ *  예: "soda_ice_cream" → "soda ice cream" */
+function prettyRef(ref: string): string {
+  const s = ref.replace(/_/g, " ").trim();
+  return s.length > 0 ? s : "이벤트 아이템";
+}
 
 /**
  * inventory row 를 UI 표시용 형태로 변환.
@@ -63,7 +88,8 @@ type Displayable = {
  */
 function toDisplayable(row: InventoryItemRow): Displayable | null {
   if (row.item_type === "marker" && row.item_ref) {
-    const emoji = MARKER_EMOJI[row.item_ref] ?? "🖊️";
+    // 이모지 우선순위 : metadata.emoji > MARKER_EMOJI[item_ref] > 🖊️
+    const emoji = readEmoji(row.metadata) ?? MARKER_EMOJI[row.item_ref] ?? "🖊️";
     const label = MARKER_LABEL[row.item_ref] ?? "사인펜";
     const cur   = row.durability ?? 0;
     const maxRaw = row.metadata?.["initial_durability"];
@@ -87,7 +113,20 @@ function toDisplayable(row: InventoryItemRow): Displayable | null {
     };
   }
 
-  // wallpaper / other 는 이번 세션 범위 밖. 나중에 여기 추가.
+  if (row.item_type === "other" && row.item_ref) {
+    const emoji = readEmoji(row.metadata) ?? "🎁";
+    const label = prettyRef(row.item_ref);
+    const qty   = row.quantity ?? 1;
+    return {
+      key:     row.id,
+      emoji,
+      label,
+      badge:   `×${qty}`,
+      tooltip: `이벤트 아이템 · 소지 ${qty}개`,
+    };
+  }
+
+  // wallpaper 는 아직 범위 밖.
   return null;
 }
 
@@ -107,7 +146,7 @@ export default function InventorySection() {
 
   useEffect(() => {
     void refresh();
-    // 상점 구매 등 profile 변경 이벤트 → 인벤토리도 재조회
+    // 매점 구매 등 profile 변경 이벤트 → 인벤토리도 재조회
     const handler = () => { void refresh(); };
     if (typeof window !== "undefined") {
       window.addEventListener("profile-changed", handler);
@@ -133,7 +172,7 @@ export default function InventorySection() {
           <div style={noticeStyle}>
             아직 소지한 아이템이 없습니다.
             <br />
-            상점에서 사인펜이나 스티커를 구매해보세요.
+            매점에서 사인펜이나 스티커를 구매해보세요.
           </div>
         ) : (
           <div style={gridStyle}>

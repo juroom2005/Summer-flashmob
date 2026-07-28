@@ -1,6 +1,10 @@
 // components/gm/shop/ShopItemList.tsx
 //
-// 좌측 목록 pane. 검색 · 타입 필터 · 활성 필터 · 리스트 · 카운트 요약.
+// 좌측 목록 pane. 새 아이템 버튼 · 검색 · 타입 필터 · 활성 필터 · 리스트 · 카운트 요약.
+//
+// 세션 I 확장:
+//   · 상단에 "+ 새 아이템" 버튼 신설 (onCreate 콜백)
+//   · 추가 모드 중일 때 (isCreating=true) 는 버튼이 강조 상태로 유지
 //
 // 필터 정책:
 //   · typeFilter   : "all" 또는 shop_items.item_type 값 하나
@@ -8,7 +12,7 @@
 //   · 검색어       : name · description · code · 타입 라벨 매칭 (소문자화)
 //
 // 스크롤:
-//   · 헤더(검색·필터·카운트) 고정
+//   · 헤더(추가 버튼·검색·필터·카운트) 고정
 //   · 리스트 영역만 세로 스크롤
 
 "use client";
@@ -52,6 +56,10 @@ type Props = {
   onSelect:              (id: string) => void;
   counts:                { total: number; active: number; inactive: number };
   onRefresh:             () => void;
+  /** 새 아이템 등록 시작 콜백 */
+  onCreate:              () => void;
+  /** 우측이 추가 모드인지 (버튼 강조용) */
+  isCreating:            boolean;
 };
 
 export default function ShopItemList({
@@ -59,9 +67,24 @@ export default function ShopItemList({
   typeFilter, onTypeFilterChange,
   activeFilter, onActiveFilterChange,
   selectedId, onSelect, counts, onRefresh,
+  onCreate, isCreating,
 }: Props) {
   return (
     <div style={listPaneStyle}>
+      {/* + 새 아이템 버튼 */}
+      <button
+        type="button"
+        onClick={onCreate}
+        style={{
+          ...createButtonStyle,
+          background:  isCreating ? "#0d6fa8" : "#1a9edb",
+          boxShadow:   isCreating ? "0 1px 0 #0a5788 inset" : "0 3px 0 #0d6fa8",
+          transform:   isCreating ? "translateY(2px)" : "none",
+        }}
+      >
+        + 새 아이템
+      </button>
+
       {/* 검색 */}
       <input
         value={query}
@@ -178,6 +201,19 @@ const listPaneStyle: CSSProperties = {
   gap:           8,
   height:        PANE_HEIGHT,
   minHeight:     PANE_MIN_HEIGHT,
+};
+
+const createButtonStyle: CSSProperties = {
+  height:       36,
+  padding:      "0 16px",
+  border:       "2px solid #0d6fa8",
+  borderRadius: 999,
+  color:        "#fff",
+  fontFamily:   JUA,
+  fontSize:     13,
+  cursor:       "pointer",
+  flexShrink:   0,
+  transition:   "background .12s, transform .06s, box-shadow .12s",
 };
 
 const searchInputStyle: CSSProperties = {

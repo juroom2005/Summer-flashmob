@@ -9,6 +9,8 @@
 // RLS       : sql/applied/2026-07-27_shop_gm_policies.sql
 //             · SELECT · INSERT · UPDATE · DELETE 각 정책이
 //               profiles.is_gm = true 인 계정만 허용
+// RPC       : sql/applied/2026-07-27_shop_other_type_purchase.sql
+//             · purchase_shop_item 이 item_type = 'other' 를 지원 (quantity 누적)
 //
 // 방침 (v9 · 세션 G notices 패턴 준용):
 //   · RLS 로만 GM 판정. 프론트에서 is_gm 검사 실패해도 서버가 거부한다.
@@ -21,13 +23,25 @@
 // 편집 가능 필드 (세션 I ③ 결정):
 //   · name         (1 ~ 100 자)
 //   · description  (0 ~ 500 자, null 허용)
-//   · price        (정수, 0 이상 1_000_000 이하)
+//   · price        (정수, 0 이상 10,000,000 이하)
 //   · image_url    (0 ~ 500 자, null 허용)
 //   · is_active    (boolean 토글 = 내리기 · 올리기)
 //
-// 편집 잠금 필드 (본 세션 범위 밖):
+// 편집 잠금 필드:
 //   · code · item_type · item_ref · metadata
-//     → 아이템 추가 UI 를 만들 때 함께 다룬다.
+//     → 기존 아이템의 이 필드들은 여전히 잠금 유지 (안전).
+//       신규 생성 시에는 createShopItem 으로 모두 지정 가능.
+//
+// 아이템 생성 (세션 I 확장):
+//   · createShopItem() — code · name · description · itemType · itemRef ·
+//     imageUrl · price · isActive · metadata 를 모두 지정하여 신설.
+//   · 지원 타입 : marker · sticker · other 세 종류.
+//     - marker  : 사인펜. item_ref = 색상 코드 (예: black). metadata 로
+//                 initial_durability · emoji · color_hex 등 지정 가능.
+//     - sticker : 스티커. item_ref = 이모지 자체 (예: "⭐").
+//     - other   : 이벤트성 아이템. item_ref = 임의 식별자. 구매 시 인벤토리에
+//                 quantity 누적 (기능 없음, 소장용).
+//   · wallpaper · refill_ink 는 UI 미지원 (RPC 도 unsupported_item_type 예외).
 // ═══════════════════════════════════════════════════════════════════
 
 import { supabase } from "./supabase";
@@ -43,6 +57,10 @@ export type ShopItemType =
   | "wallpaper"
   | "refill_ink"
   | "other";
+
+/** GM UI 에서 신규 생성 가능한 타입 (RPC 지원 기준) */
+export const SHOP_CREATABLE_TYPES = ["marker", "sticker", "other"] as const;
+export type ShopCreatableType = typeof SHOP_CREATABLE_TYPES[number];
 
 /**
  * GM 화면에서 다루는 아이템 전체 형상.
@@ -86,13 +104,26 @@ export type ShopItemPatch = {
   imageUrl?:    string | null;
 };
 
+/** 신규 생성 페이로드. 모든 필드 명시적으로 지정. */
+export type CreateShopItemInput = {
+  code:        string;
+  name:        string;
+  description: string | null;
+  itemType:    ShopCreatableType;
+  itemRef:     string;
+  imageUrl:    string | null;
+  price:       number;
+  isActive:    boolean;
+  metadata:    Record<string, unknown>;
+};
+
 // ────────────────────────────────────────────────────────────────────
 // 응답 타입
 // ────────────────────────────────────────────────────────────────────
 
 export type ShopItemMutationResult =
   | { ok: true;  item: GmShopItem }
-  | { ok: false; reason: "validation" | "unauthorized" | "not_found" | "unknown"; message: string };
+  | { ok: false; reason: "validation" | "unauthorized" | "not_found" | "duplicate_code" | "unknown"; message: string };
 
 export type ShopItemDeleteResult =
   | { ok: true }
@@ -108,13 +139,26 @@ export const SHOP_IMAGE_URL_MAX    = 500;
 export const SHOP_PRICE_MIN        = 0;
 export const SHOP_PRICE_MAX        = 10_000_000;
 
+export const SHOP_CODE_MIN_LEN     = 3;
+export const SHOP_CODE_MAX_LEN     = 40;
+/** code 는 URL 안전한 소문자 슬러그. UI 에도 안내 표기. */
+export const SHOP_CODE_REGEX       = /^[a-z0-9_]+$/;
+
+export const SHOP_ITEM_REF_MIN_LEN = 1;
+export const SHOP_ITEM_REF_MAX_LEN = 100;
+
+/** marker durability 초기값의 안전 범위 */
+export const MARKER_DURABILITY_MIN     = 1;
+export const MARKER_DURABILITY_MAX     = 100_000;
+export const MARKER_DURABILITY_DEFAULT = 100;
+
 /** GM UI 에서 item_type 필터 · 라벨로 재사용 */
 export const SHOP_ITEM_TYPE_LABEL: Record<ShopItemType, string> = {
   marker:     "사인펜",
   sticker:    "스티커",
   wallpaper:  "배경지",
   refill_ink: "잉크 리필",
-  other:      "기타",
+  other:      "이벤트",
 };
 
 // ────────────────────────────────────────────────────────────────────
@@ -152,6 +196,10 @@ function isRlsError(err: { code?: string; message?: string }): boolean {
   const code = err?.code ?? "";
   const msg  = (err?.message ?? "").toLowerCase();
   return code === "42501" || msg.includes("row-level security") || msg.includes("policy");
+}
+
+function isUniqueViolation(err: { code?: string }): boolean {
+  return err?.code === "23505";
 }
 
 function isNotFoundError(err: { code?: string }): boolean {
@@ -193,6 +241,66 @@ function validatePatch(patch: ShopItemPatch): string | null {
   return null;
 }
 
+function validateCreateInput(input: CreateShopItemInput): string | null {
+  // code
+  const code = input.code.trim();
+  if (code.length < SHOP_CODE_MIN_LEN)       return `코드는 ${SHOP_CODE_MIN_LEN}자 이상이어야 합니다.`;
+  if (code.length > SHOP_CODE_MAX_LEN)       return `코드는 ${SHOP_CODE_MAX_LEN}자 이하여야 합니다.`;
+  if (!SHOP_CODE_REGEX.test(code))           return "코드는 영문 소문자 · 숫자 · 언더스코어만 사용할 수 있습니다.";
+
+  // name
+  const name = input.name.trim();
+  if (name.length < 1)                       return "이름을 입력해 주십시오.";
+  if (name.length > SHOP_NAME_MAX_LEN)       return `이름은 ${SHOP_NAME_MAX_LEN}자 이하로 입력해 주십시오.`;
+
+  // description
+  if (input.description !== null) {
+    if (input.description.length > SHOP_DESC_MAX_LEN) {
+      return `설명은 ${SHOP_DESC_MAX_LEN}자 이하로 입력해 주십시오.`;
+    }
+  }
+
+  // itemType
+  if (!(SHOP_CREATABLE_TYPES as readonly string[]).includes(input.itemType)) {
+    return "지원하지 않는 아이템 타입입니다.";
+  }
+
+  // itemRef
+  const itemRef = input.itemRef.trim();
+  if (itemRef.length < SHOP_ITEM_REF_MIN_LEN) return "아이템 참조 값을 입력해 주십시오.";
+  if (itemRef.length > SHOP_ITEM_REF_MAX_LEN) return `아이템 참조 값은 ${SHOP_ITEM_REF_MAX_LEN}자 이하여야 합니다.`;
+
+  // price
+  if (!Number.isFinite(input.price) || !Number.isInteger(input.price)) {
+    return "가격은 정수여야 합니다.";
+  }
+  if (input.price < SHOP_PRICE_MIN)          return "가격은 0 이상이어야 합니다.";
+  if (input.price > SHOP_PRICE_MAX)          return `가격은 ${SHOP_PRICE_MAX.toLocaleString()} 이하로 입력해 주십시오.`;
+
+  // imageUrl
+  if (input.imageUrl !== null) {
+    if (input.imageUrl.length > SHOP_IMAGE_URL_MAX) {
+      return `이미지 URL은 ${SHOP_IMAGE_URL_MAX}자 이하로 입력해 주십시오.`;
+    }
+  }
+
+  // marker 전용 : metadata.initial_durability 있으면 범위 검사
+  if (input.itemType === "marker") {
+    const raw = input.metadata?.initial_durability;
+    if (raw !== undefined && raw !== null) {
+      const n = Number(raw);
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        return "사인펜 초기 내구도는 정수여야 합니다.";
+      }
+      if (n < MARKER_DURABILITY_MIN || n > MARKER_DURABILITY_MAX) {
+        return `사인펜 초기 내구도는 ${MARKER_DURABILITY_MIN} 이상 ${MARKER_DURABILITY_MAX.toLocaleString()} 이하여야 합니다.`;
+      }
+    }
+  }
+
+  return null;
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 조회 (GM 전용 · 활성/비활성 전체)
 // ────────────────────────────────────────────────────────────────────
@@ -228,6 +336,71 @@ export async function listAllShopItems(): Promise<GmShopItem[]> {
     if (it) result.push(it);
   }
   return result;
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 생성 (신규)
+// ────────────────────────────────────────────────────────────────────
+
+/**
+ * shop_items 에 신규 아이템 등록.
+ *
+ * 스키마 방어:
+ *   · code UNIQUE 위반 시 duplicate_code 로 정규화
+ *   · item_type CHECK 는 앱단 화이트리스트 (SHOP_CREATABLE_TYPES) 로 선방어
+ *   · RLS 위반 시 unauthorized
+ *
+ * metadata 는 호출부에서 타입별로 구성 :
+ *   · marker  : { initial_durability?: number, emoji?: string, color_hex?: string }
+ *   · sticker : {}  (item_ref 이모지만으로 충분)
+ *   · other   : {}  (자유. 예: { flavor: "soda" })
+ */
+export async function createShopItem(
+  input: CreateShopItemInput,
+): Promise<ShopItemMutationResult> {
+  const err = validateCreateInput(input);
+  if (err) return { ok: false, reason: "validation", message: err };
+
+  const payload = {
+    code:        input.code.trim(),
+    name:        input.name.trim(),
+    description: input.description === null ? null : input.description.trim(),
+    item_type:   input.itemType,
+    item_ref:    input.itemRef.trim(),
+    image_url:   input.imageUrl === null ? null : (input.imageUrl.trim() || null),
+    price:       input.price,
+    is_active:   input.isActive,
+    metadata:    input.metadata ?? {},
+  };
+
+  const { data, error } = await supabase
+    .from("shop_items")
+    .insert(payload)
+    .select(
+      "id, code, name, description, item_type, item_ref, image_url, price, is_active, metadata, created_at, updated_at",
+    )
+    .single();
+
+  if (error) {
+    console.warn("[gm-shop] create failed:", error);
+    if (isUniqueViolation(error)) {
+      return {
+        ok: false,
+        reason:  "duplicate_code",
+        message: "이미 사용 중인 코드입니다. 다른 코드를 지정해 주십시오.",
+      };
+    }
+    if (isRlsError(error)) return { ok: false, reason: "unauthorized", message: "권한이 없습니다." };
+    return { ok: false, reason: "unknown", message: "아이템 등록에 실패했습니다. 잠시 후 다시 시도해 주십시오." };
+  }
+
+  const item = toGmShopItem(data as GmShopItemRow);
+  if (!item) {
+    return { ok: false, reason: "unknown", message: "등록은 완료되었으나 응답이 유효하지 않습니다." };
+  }
+
+  broadcastChange();
+  return { ok: true, item };
 }
 
 // ────────────────────────────────────────────────────────────────────

@@ -10,6 +10,8 @@
 // Props:
 //   - activeTab:  현재 열린 탭 (닫혀있으면 null → 어느 탭도 하이라이트 안 됨)
 //   - onTabClick: 탭 클릭 시 부모가 open/tab state + flip 애니메이션 처리
+//
+// 세션 I : "🛒 상점" → "🛒 매점" 명칭 통일.
 
 "use client";
 
@@ -32,7 +34,7 @@ const NAV: NavItem[] = [
   { key: "notice", label: "📌 보드",     border: "#2ea3dd", hi: "#cdeeff", color: "#0d6fa8", radius: "18px 18px 18px 6px",  rot: "-2deg"   },
   { key: "member", label: "👥 멤버",     border: "#4db6a0", hi: "#c9f2e6", color: "#1e7d6a", radius: "6px 18px 18px 18px",  rot: "1.5deg"  },
   { key: "daily",  label: "✅ 일일",     border: "#d9b62a", hi: "#fff3a6", color: "#8a7410", radius: "18px 6px 18px 18px",  rot: "-1deg"   },
-  { key: "shop",   label: "🛒 상점",     border: "#4a7fe0", hi: "#d8e5fc", color: "#2a55b8", radius: "18px 18px 6px 18px",  rot: "2deg"    },
+  { key: "shop",   label: "🛒 매점",     border: "#4a7fe0", hi: "#d8e5fc", color: "#2a55b8", radius: "18px 18px 6px 18px",  rot: "2deg"    },
 ];
 
 type Props = {
