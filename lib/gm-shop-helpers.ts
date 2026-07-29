@@ -505,17 +505,7 @@ export async function setShopItemActive(
 // 삭제
 // ────────────────────────────────────────────────────────────────────
 
-/**
- * 아이템 완전 삭제.
- *
- * shop_purchases.shop_item_id 는 ON DELETE SET NULL 이므로 :
- *   · 구매 이력은 그대로 유지되며 shop_item_id 만 null 처리
- *   · item_code · item_name · item_type · price_paid 는 이력 컬럼으로 남아있어
- *     사후 조회 가능
- *
- * 그러나 되돌릴 수 없으므로 UI 에서 별도 확인 절차 필수.
- * 되돌릴 여지가 필요하면 setShopItemActive(id, false) 로 "내리기" 를 권장.
- */
+
 export async function deleteShopItem(id: string): Promise<ShopItemDeleteResult> {
   if (!id) {
     return { ok: false, reason: "unknown", message: "잘못된 아이템입니다." };

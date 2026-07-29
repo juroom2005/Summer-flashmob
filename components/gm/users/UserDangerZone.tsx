@@ -36,7 +36,7 @@ const DELETE_LABELS: Record<string, string> = {
   badge_awards:     "뱃지",
   minigame_plays:   "미니게임 기록",
   user_stickers:    "스티커",
-  shop_purchases:   "상점 구매 이력",
+  shop_purchases:   "매점 구매 이력",
   mobil_grants:     "재화 지급 이력",
   gm_conversations: "GM 채팅방(메시지 포함)",
 };
