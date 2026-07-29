@@ -36,6 +36,7 @@ import NavRail, { type Tab } from "./noticeboard/NavRail";
 import MyPanel from "./noticeboard/panels/MyPanel";
 import AttendanceCard from "./noticeboard/panels/AttendanceCard";
 import NoticeBoardList from "./noticeboard/panels/NoticeBoardList";
+import DailyPanel from "./noticeboard/panels/DailyPanel";
 
 // ── 폰트 상수 ──────────────────────────────────────────────
 const JUA = "'Jua', sans-serif";
@@ -56,7 +57,6 @@ const INTEGRATED_DOC_URL = "#";
 // ── 타입 ──────────────────────────────────────────────────
 type Overlay = null | "login" | "register" | "admin" | "mypanel";
 
-type Mission = { t: string; r: number; done: boolean };
 type Member = {
   name: string;
   emoji: string;
@@ -75,12 +75,6 @@ const MEMBERS: Member[] = [
   { name: "유나", emoji: "🎤", role: "보컬",     rc: "#4a7fe0", border: "#d8e5fc", back: "등대 위 하이노트 담당" },
   { name: "물결", emoji: "🌊", role: "보컬",     rc: "#4a90d9", border: "#cfe6ff", back: "6월에 합류한 신입 파도" },
   { name: "케이", emoji: "📼", role: "영상",     rc: "#2ea3dd", border: "#cdeeff", back: "해변의 순간을 필름에 담는 중" },
-];
-
-const INITIAL_MISSIONS: Mission[] = [
-  { t: "연습실 출석하기",           r: 5,  done: true  },
-  { t: "안무 클립 1개 인증",        r: 10, done: false },
-  { t: "마스토돈에 오늘 연습 후기", r: 5,  done: false },
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -106,8 +100,7 @@ export default function NoticeBoard({
   const [panelClosing, setPanelClosing] = useState(false);
   const panelExitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 시안 상태 — 미션·상점은 실 재화 연동 전까지 시각적 인터랙션만 유지.
-  const [missions, setMissions] = useState<Mission[]>(INITIAL_MISSIONS);
+  // 시안 상태 — 상점은 실 재화 연동 전까지 시각적 인터랙션만 유지.
   const [flipped, setFlipped] = useState<string | null>(null);
   const [playing, setPlaying] = useState(true);
 
@@ -206,16 +199,6 @@ export default function NoticeBoard({
       requestAnimationFrame(() => requestAnimationFrame(doFlip));
     }
   };
-
-  const toggleMission = (i: number) => {
-    // 시안: 체크 상태만 토글, 실 재화 변경 없음
-    setMissions((prev) => prev.map((m, j) => (j === i ? { ...m, done: !m.done } : m)));
-  };
-
-  // ── 파생값 ───────────────────────────────────────────────
-  const doneCount = missions.filter((m) => m.done).length;
-  const progressPct = Math.round((doneCount / missions.length) * 100);
-  const allDone = missions.every((m) => m.done);
 
   // ── 스테이지 실제 렌더 크기 (스케일 적용 후) ───────────
   const stageRenderedW = STAGE_W * scale;
@@ -561,11 +544,8 @@ export default function NoticeBoard({
                 ) : null}
                 {tab === "daily" ? (
                   <DailyPanel
-                    missions={missions}
-                    onToggle={toggleMission}
-                    doneCount={doneCount}
-                    progressPct={progressPct}
-                    allDone={allDone}
+                    isLoggedIn={!!currentUser}
+                    onOpenLogin={() => setOverlay("login")}
                   />
                 ) : null}
                 {tab === "shop" ? (
@@ -903,94 +883,6 @@ function MemberPanel({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function DailyPanel({
-  missions,
-  onToggle,
-  doneCount,
-  progressPct,
-  allDone,
-}: {
-  missions: Mission[];
-  onToggle: (i: number) => void;
-  doneCount: number;
-  progressPct: number;
-  allDone: boolean;
-}) {
-  const borders = ["#cdeeff", "#c9f2e6", "#fff3a6"];
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
-        <span style={{ fontFamily: JUA, fontSize: 24, color: "#0d6fa8" }}>✅ 일일 미션</span>
-        <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#2ea3dd" }}>
-          체크는 시각적 표시만 (실 재화 연동 예정)
-        </span>
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 540 }}>
-        {missions.map((m, i) => (
-          <div
-            key={i}
-            onClick={() => onToggle(i)}
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "center",
-              background: "#fff",
-              border: `2px solid ${borders[i % 3]}`,
-              borderRadius: 12,
-              padding: "12px 16px",
-              fontSize: 15,
-              cursor: "pointer",
-              opacity: m.done ? 0.6 : 1,
-              transition: "opacity .25s, transform .15s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = "translateX(4px)")}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = "translateX(0)")}
-          >
-            <span style={{ fontSize: 16 }}>{m.done ? "✅" : "⬜"}</span>
-            <span style={{ textDecoration: m.done ? "line-through" : "none" }}>{m.t}</span>
-            <span style={{ marginLeft: "auto", fontFamily: JUA, color: "#e0a500" }}>+{m.r}🪙</span>
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop: 14, maxWidth: 540 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontFamily: JUA, fontSize: 14, color: "#0d6fa8", marginBottom: 5 }}>
-          <span>오늘의 달성률</span>
-          <span>{doneCount} / {missions.length}</span>
-        </div>
-        <div style={{ height: 12, borderRadius: 999, background: "#dff4ff", border: "1.5px solid #a8dcf5", overflow: "hidden" }}>
-          <div
-            style={{
-              width: `${progressPct}%`,
-              height: "100%",
-              background: "linear-gradient(90deg,#1a9edb,#7fd0f0)",
-              transition: "width .45s cubic-bezier(.3,.8,.3,1)",
-            }}
-          />
-        </div>
-      </div>
-      {allDone ? (
-        <div
-          style={{
-            marginTop: 18,
-            display: "inline-block",
-            background: "#ffef3e",
-            border: "2px solid #e2d15a",
-            borderRadius: 14,
-            padding: "10px 20px",
-            fontFamily: JUA,
-            fontSize: 19,
-            color: "#7a6a12",
-            transform: "rotate(-2deg)",
-            animation: "nb-pixelPop .45s both",
-          }}
-        >
-          ⛱️ 오늘 미션 올클리어!
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -1,0 +1,204 @@
+/* components/noticeboard/cafe/CafeMinigameOverlay.module.css
+ *
+ * 카페알바 미니게임 오버레이 스타일.
+ * NoticeBoard 스테이지 위에 뜨는 풀 오버레이 (반투명 backdrop + 카드).
+ * 지금은 J1 뼈대 : 카페 홈 (아이콘 3개) + 게임 placeholder.
+ */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 40, 70, 0.46);
+  backdrop-filter: blur(2px);
+  animation: cafeFadeIn 0.22s ease both;
+}
+
+@keyframes cafeFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.panel {
+  position: relative;
+  width: min(760px, 92%);
+  max-height: 88%;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #fffdf6 0%, #fff7e8 100%);
+  border: 3px solid #e6c98f;
+  border-radius: 22px;
+  box-shadow: 0 24px 60px rgba(60, 40, 10, 0.35);
+  padding: 26px 28px 30px;
+  animation: cafePop 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@keyframes cafePop {
+  from { transform: translateY(14px) scale(0.97); opacity: 0; }
+  to   { transform: translateY(0)    scale(1);    opacity: 1; }
+}
+
+/* ── 헤더 ────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.title {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 26px;
+  color: #8a5a12;
+}
+
+.remainBadge {
+  margin-left: auto;
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 15px;
+  color: #a5701c;
+  background: #fff2d4;
+  border: 1.5px solid #ecc987;
+  border-radius: 999px;
+  padding: 4px 13px;
+}
+
+.subtitle {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 14px;
+  color: #9a7c4a;
+  margin-bottom: 20px;
+}
+
+/* ── 닫기 버튼 ───────────────────────────────────── */
+.closeBtn {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid #e6c98f;
+  background: #fffdf6;
+  color: #a5701c;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, transform 0.15s;
+}
+.closeBtn:hover {
+  background: #fff2d4;
+  transform: rotate(90deg);
+}
+
+/* ── 아이콘 3개 (카페 홈) ────────────────────────── */
+.iconGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.iconCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 2.5px solid var(--card-border, #ecc987);
+  border-radius: 18px;
+  padding: 22px 14px 18px;
+  cursor: pointer;
+  transition: transform 0.16s, box-shadow 0.16s;
+  text-align: center;
+}
+.iconCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(120, 90, 30, 0.22);
+}
+.iconCard:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.iconCard:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.iconEmoji {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.iconName {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 18px;
+  color: #7a5518;
+}
+
+.iconDesc {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 12px;
+  color: #9a7c4a;
+  line-height: 1.45;
+}
+
+/* ── 소진 안내 (남은 횟수 0) ─────────────────────── */
+.exhausted {
+  margin-top: 18px;
+  text-align: center;
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 14px;
+  color: #b06a2a;
+  background: #fff2d4;
+  border: 1.5px dashed #ecc987;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+/* ── 게임 화면 placeholder (J2~J4 에서 실 게임으로 교체) ── */
+.gameStage {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #fff;
+  border: 2px dashed #ecc987;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+}
+
+.placeholderText {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 20px;
+  color: #8a5a12;
+}
+
+.placeholderSub {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 13px;
+  color: #9a7c4a;
+}
+
+.backBtn {
+  margin-top: 4px;
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 14px;
+  color: #7a5518;
+  background: #fff2d4;
+  border: 2px solid #ecc987;
+  border-radius: 999px;
+  padding: 8px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.backBtn:hover {
+  background: #ffe7b8;
+}

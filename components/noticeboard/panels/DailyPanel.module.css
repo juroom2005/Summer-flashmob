@@ -1,0 +1,124 @@
+/* components/noticeboard/panels/DailyPanel.module.css
+ *
+ * 일일 행동 패널 스타일.
+ * 지금(J1)은 카페알바 진입 카드 하나. 연습실알바·리듬게임은 후속에서 추가.
+ */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.title {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 24px;
+  color: #0d6fa8;
+}
+
+.subtitle {
+  font-family: "Gaegu", cursive;
+  font-weight: 700;
+  font-size: 15px;
+  color: #2ea3dd;
+}
+
+/* ── 점검 중 안내 ─────────────────────────────────── */
+.maintenance {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff6e0;
+  border: 2px solid #ecc987;
+  border-radius: 16px;
+  padding: 20px 22px;
+  max-width: 540px;
+}
+
+.maintenanceTitle {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 18px;
+  color: #a5701c;
+}
+
+.maintenanceBody {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 14px;
+  color: #9a7c4a;
+  line-height: 1.5;
+}
+
+/* ── 행동 카드 그리드 ─────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  max-width: 640px;
+}
+
+.actionCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fff;
+  border: 2.5px solid var(--card-border, #ecc987);
+  border-radius: 18px;
+  padding: 18px 18px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.16s, box-shadow 0.16s;
+}
+.actionCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(120, 90, 30, 0.2);
+}
+
+.actionEmoji {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.actionName {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 18px;
+  color: #7a5518;
+}
+
+.actionDesc {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 12.5px;
+  color: #9a7c4a;
+  line-height: 1.45;
+}
+
+.remainLine {
+  margin-top: 2px;
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 13px;
+  color: #b08028;
+}
+
+/* 준비 중 (연습실·리듬게임 자리표시) */
+.actionCardSoon {
+  cursor: default;
+  opacity: 0.6;
+}
+.actionCardSoon:hover {
+  transform: none;
+  box-shadow: none;
+}
+.soonTag {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 11px;
+  color: #9a7c4a;
+  background: #f2ead8;
+  border-radius: 999px;
+  padding: 2px 9px;
+}
