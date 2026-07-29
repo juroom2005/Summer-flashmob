@@ -1,6 +1,6 @@
 // components/gm/shop/GmShopTab.tsx
 //
-// GM 상점 관리 탭의 컨테이너 (좌 목록 / 우 편집 · 추가 2단).
+// GM 매점 관리 탭의 컨테이너 (좌 목록 / 우 편집 · 추가 2단).
 //
 // 책임:
 //   · gm-shop-helpers.listAllShopItems 로 목록 조회

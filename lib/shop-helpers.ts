@@ -1,6 +1,6 @@
 // lib/shop-helpers.ts
 //
-// 상점 카탈로그 조회 · 구매 · 인벤토리 상태 조회 헬퍼.
+// 매점 카탈로그 조회 · 구매 · 인벤토리 상태 조회 헬퍼.
 //
 // 스키마: sql/2026-07-20_shop_init.sql
 // RPC 확장: sql/applied/2026-07-27_shop_other_type_purchase.sql

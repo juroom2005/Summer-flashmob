@@ -123,7 +123,7 @@ export function useCurrentUser(): CurrentUserState {
     };
   }, []);
 
-  // 상점 구매 등 profile 변경 이벤트 리슨 → 최소 재조회
+  // 매점 구매 등 profile 변경 이벤트 리슨 → 최소 재조회
   // 다른 컴포넌트가 dispatchEvent("profile-changed")를 호출하면 자동으로 반영됨.
   useEffect(() => {
     let cancelled = false;

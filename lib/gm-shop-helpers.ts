@@ -1,6 +1,6 @@
 // lib/gm-shop-helpers.ts
 // ═══════════════════════════════════════════════════════════════════
-// GM 상점 관리 헬퍼
+// GM 매점 관리 헬퍼
 // ═══════════════════════════════════════════════════════════════════
 //
 // 대상 테이블: public.shop_items
@@ -18,7 +18,7 @@
 //   · 유저측 조회/구매는 lib/shop-helpers.ts 가 담당. 본 파일과 분리.
 //   · 예외는 catch 후 정규화된 결과 객체로 반환. try/catch 없이 분기 가능.
 //   · 변경 성공 시 window.dispatchEvent("shop-items-changed") 발행.
-//     유저측 상점 화면 등이 리슨해서 재조회 가능.
+//     유저측 매점 화면 등이 리슨해서 재조회 가능.
 //
 // 편집 가능 필드 (세션 I ③ 결정):
 //   · name         (1 ~ 100 자)
@@ -465,8 +465,8 @@ export async function updateShopItem(
 
 /**
  * is_active 명시적으로 지정.
- * · false → 상점에서 내림 (구매 이력 · 유저 인벤토리 그대로 유지)
- * · true  → 상점에 다시 노출
+ * · false → 매점에서 내림 (구매 이력 · 유저 인벤토리 그대로 유지)
+ * · true  → 매점에 다시 노출
  */
 export async function setShopItemActive(
   id: string,
