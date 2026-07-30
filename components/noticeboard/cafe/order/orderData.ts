@@ -285,13 +285,11 @@ export type OrderScoreResult = {
 };
 
 /**
- * 채점: 각 손님의 주문 시퀀스와 유저 입력 시퀀스를 위치별로 비교.
+ * 전체 채점: 각 손님별로 scoreOneCustomer 호출 후 합산.
  *
- * 위치별 비교 이유:
- *   · 입력 종료가 "옵션 개수만큼 누르면 자동"(C1=a)이라
- *     유저 입력 길이 = 주문 길이가 보장됨.
- *   · 순서와 값이 모두 맞아야 정답. (axis, valueKey) 둘 다 일치.
- *   · 오답이어도 계속 진행하므로 위치는 어긋나지 않음(항상 i번째끼리 비교).
+ * 다중집합 매칭 방식 (순서 무관):
+ *   · 주문 항목이 유저 입력에 있으면 정답 카운트.
+ *   · 한 번 매칭된 유저 입력은 소진.
  *
  * @param orders  손님별 주문
  * @param inputs  손님별 유저 입력 시퀀스
@@ -305,20 +303,10 @@ export function scoreOrders(
   const perCustomer: { correct: number; total: number }[] = [];
 
   orders.forEach((order, ci) => {
-    const seq = order.items;
-    const inp = inputs[ci] ?? [];
-    let cCorrect = 0;
-
-    seq.forEach((item, i) => {
-      totalOptions += 1;
-      const got = inp[i];
-      if (got && got.axis === item.axis && got.valueKey === item.value.key) {
-        correct += 1;
-        cCorrect += 1;
-      }
-    });
-
-    perCustomer.push({ correct: cCorrect, total: seq.length });
+    const r = scoreOneCustomer(order, inputs[ci] ?? []);
+    totalOptions += r.total;
+    correct += r.correct;
+    perCustomer.push({ correct: r.correct, total: r.total });
   });
 
   const miss = totalOptions - correct;
@@ -338,15 +326,41 @@ export function orderToText(order: CustomerOrder): string {
 }
 
 // 손님 한 명의 입력을 채점 (즉시 채점용).
-// 위치별로 (axis, valueKey) 일치 여부 비교.
+//
+// 채점 방식: 다중집합 매칭 (순서 무관).
+//   · 주문 각 항목에 대해 유저 입력에서 (axis, valueKey) 동일한 것을 찾음.
+//   · 한 번 매칭된 유저 입력은 소진되어 다른 주문 항목과 재매칭 안 됨.
+//   · 예: 주문 [라떼, 아이스, 2샷] · 입력 [2샷, 아이스, 라떼] → 3/3 정답.
+//   · 예: 주문 [라떼, 시럽없음] · 입력 [라떼, 시럽많이] → 1/2 정답
+//        (라떼는 매칭, 시럽없음은 매칭 실패. 시럽많이는 안 쓰인 입력).
+//
+// 반환:
+//   · itemHits     : 주문 각 항목이 유저 입력에 있었는지 (UI ✓/✗ 표시용)
+//   · unusedInputs : 유저가 눌렀지만 매칭 안 된 입력 (잘못 누른 것)
 export function scoreOneCustomer(
   order: CustomerOrder,
   input: InputEntry[]
-): { correct: number; total: number; itemHits: boolean[] } {
-  const itemHits = order.items.map((item, i) => {
-    const got = input[i];
-    return !!got && got.axis === item.axis && got.valueKey === item.value.key;
+): {
+  correct:      number;
+  total:        number;
+  itemHits:     boolean[];
+  unusedInputs: InputEntry[];
+} {
+  const usedInput = new Array(input.length).fill(false);
+
+  const itemHits = order.items.map((item) => {
+    for (let i = 0; i < input.length; i++) {
+      if (usedInput[i]) continue;
+      const got = input[i];
+      if (got.axis === item.axis && got.valueKey === item.value.key) {
+        usedInput[i] = true;
+        return true;
+      }
+    }
+    return false;
   });
+
   const correct = itemHits.filter(Boolean).length;
-  return { correct, total: order.items.length, itemHits };
+  const unusedInputs = input.filter((_, i) => !usedInput[i]);
+  return { correct, total: order.items.length, itemHits, unusedInputs };
 }

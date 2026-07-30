@@ -294,7 +294,7 @@ export default function CafeOrderGame({ onExit, onPlayed }: Props) {
           </div>
 
           {phase === "reviewing" ? (
-            /* 손님별 채점 결과 */
+            /* 손님별 채점 결과 (순서 무관 다중집합 매칭) */
             (() => {
               const s = scoreOneCustomer(order, curInput);
               const isLast = custIdx >= orders.length - 1;
@@ -305,18 +305,25 @@ export default function CafeOrderGame({ onExit, onPlayed }: Props) {
                   </span>
                   <span className={styles.scoreCardStat}>{s.correct} / {s.total} 정답</span>
                   <div className={styles.scoreReview}>
-                    {order.items.map((it, i) => {
-                      const got = curInput[i];
-                      const gotVal = got ? AXIS_VALUES[got.axis].find((v) => v.key === got.valueKey) : null;
-                      return (
-                        <div key={i} className={styles.reviewRow}>
-                          <span>{it.value.label}</span>
-                          <span className={s.itemHits[i] ? styles.reviewOk : styles.reviewBad}>
-                            {s.itemHits[i] ? "✓" : `✗ ${gotVal?.label ?? "-"}`}
-                          </span>
-                        </div>
-                      );
-                    })}
+                    {order.items.map((it, i) => (
+                      <div key={i} className={styles.reviewRow}>
+                        <span>{it.value.label}</span>
+                        <span className={s.itemHits[i] ? styles.reviewOk : styles.reviewBad}>
+                          {s.itemHits[i] ? "✓" : "✗"}
+                        </span>
+                      </div>
+                    ))}
+                    {s.unusedInputs.length > 0 ? (
+                      <div className={styles.reviewRow}>
+                        <span>잘못 누른 것</span>
+                        <span className={styles.reviewBad}>
+                          {s.unusedInputs
+                            .map((e) => AXIS_VALUES[e.axis].find((v) => v.key === e.valueKey)?.label)
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                   <button className={styles.nextBtn} onClick={goNext}>
                     {isLast ? "정산하기" : "다음 손님 →"}
