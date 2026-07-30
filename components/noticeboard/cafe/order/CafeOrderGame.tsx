@@ -48,8 +48,8 @@ import {
   type AxisKey,
 } from "./orderData";
 
-// 말풍선 제시 간격 (ms)
-const PRESENT_INTERVAL = 800;
+// 말풍선 제시 간격 (ms). 조절 지점.
+const PRESENT_INTERVAL = 500;
 
 type Phase = "intro" | "presenting" | "input" | "reviewing" | "submitting" | "done";
 
@@ -331,8 +331,9 @@ export default function CafeOrderGame({ onExit, onPlayed }: Props) {
                 {BUTTON_LAYOUT.map((axis) => {
                   const tempDisabled = axis === "temp" && !!fixedTemp;
                   const count = AXIS_VALUES[axis].length;
-                  // 값 5개 축은 두 열 전체 폭 사용, 그 외는 한 열 셀
-                  const wide = count >= 5;
+                  // 값 4개 이상 축은 두 열 전체 폭 사용 (반폭 셀에 넣으면 버튼이 좁아져 라벨 깨짐).
+                  // 좁은 셀에는 2·3개짜리(시럽·베이스·탄산·토핑)만 배치.
+                  const wide = count >= 4;
                   return (
                     <div
                       key={axis}

@@ -252,14 +252,18 @@ export function generateRound(count = 2): CustomerOrder[] {
 
 // 화면에 항상 노출되는 버튼 그룹 순서 (O2=a: 모든 버튼 상시 노출).
 // 유저는 이 버튼들 중에서 제시된 주문 순서대로 누른다.
+//
+// 배치 원칙: wide 축(값 4개 이상, 전체폭 사용) 을 앞에 모으고,
+// 좁은 축(값 2~3개, 반폭 사용) 을 뒤에 모아 2컬럼 그리드에 빈칸 없이 배치.
+// 이 순서는 UI 자판 순서일 뿐 게임 채점 로직(order.items 순서) 과는 무관.
 export const BUTTON_LAYOUT: AxisKey[] = [
   "drink",
   "temp",
   "ice",
   "shot",
   "whip",
-  "syrup",
   "fruit",
+  "syrup",
   "base",
   "soda",
   "topping",

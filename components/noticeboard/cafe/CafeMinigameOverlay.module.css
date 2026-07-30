@@ -1,9 +1,12 @@
 /* components/noticeboard/cafe/CafeMinigameOverlay.module.css
+ * ─────────────────────────────────────────────────────────────
+ * 시안 2b — 빈티지 카페 껍데기(오버레이 패널) 테마 【선택 적용】
  *
- * 카페알바 미니게임 오버레이 스타일.
- * NoticeBoard 스테이지 위에 뜨는 풀 오버레이 (반투명 backdrop + 카드).
- * 지금은 J1 뼈대 : 카페 홈 (아이콘 3개) + 게임 placeholder.
+ * 주문받기 게임(CafeOrderGame)만 바꿔도 되지만, 이 파일까지 교체하면
+ * 카페 홈·아이콘·팝업 껍데기까지 크래프트 톤으로 통일됩니다.
+ * 클래스 이름·구조는 원본과 동일 — 드롭인 교체.
  */
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gaegu:wght@400;700&display=swap');
 
 .backdrop {
   position: fixed;
@@ -12,156 +15,141 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 40, 70, 0.5);
-  backdrop-filter: blur(3px);
+  background: rgba(46, 30, 16, 0.55);
   animation: cafeFadeIn 0.22s ease both;
   padding: 20px;
 }
-
-@keyframes cafeFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
+@keyframes cafeFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .panel {
+  --ink:   #3E2C1C;
+  --pad:   #F1E4C6;
+  --brick: #B5482E;
+  --f-head: "Black Han Sans", var(--font-jua, "Jua"), sans-serif;
+  --f-note: "Gaegu", cursive;
+  --f-body: "Gowun Dodum", sans-serif;
+
   position: relative;
   width: min(1080px, 96vw);
   max-height: 92vh;
   overflow-y: auto;
-  background: linear-gradient(180deg, #fffdf6 0%, #fff7e8 100%);
-  border: 3px solid #e6c98f;
-  border-radius: 22px;
-  box-shadow: 0 24px 60px rgba(60, 40, 10, 0.35);
+  background-color: #EBD9B4;
+  background-image:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(62,44,28,0.10) 31px 32px);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  box-shadow: 10px 10px 0 rgba(62,44,28,0.22);
   padding: 24px 26px 26px;
   animation: cafePop 0.28s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
-
 @keyframes cafePop {
   from { transform: translateY(14px) scale(0.97); opacity: 0; }
   to   { transform: translateY(0)    scale(1);    opacity: 1; }
 }
 
-/* ── 헤더 ────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: baseline;
   gap: 12px;
   margin-bottom: 6px;
 }
-
 .title {
-  font-family: var(--font-jua, "Jua"), sans-serif;
-  font-size: 26px;
-  color: #8a5a12;
+  font-family: var(--f-head);
+  font-size: 28px;
+  color: var(--brick);
+  letter-spacing: 0.5px;
 }
-
 .remainBadge {
   margin-left: auto;
-  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-family: var(--f-note);
+  font-weight: 700;
   font-size: 15px;
-  color: #a5701c;
-  background: #fff2d4;
-  border: 1.5px solid #ecc987;
-  border-radius: 999px;
+  color: var(--brick);
+  background: var(--pad);
+  border: 2px solid var(--brick);
+  border-radius: 6px;
   padding: 4px 13px;
+  box-shadow: 2px 2px 0 var(--ink);
+  transform: rotate(-2deg);
 }
-
 .subtitle {
-  font-family: "Gowun Dodum", sans-serif;
+  font-family: var(--f-body);
   font-size: 14px;
-  color: #9a7c4a;
+  color: rgba(62,44,28,0.78);
   margin-bottom: 20px;
 }
 
-/* ── 닫기 버튼 ───────────────────────────────────── */
 .closeBtn {
   position: absolute;
   top: 16px;
   right: 18px;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  border: 2px solid #e6c98f;
-  background: #fffdf6;
-  color: #a5701c;
-  font-size: 18px;
+  border: 2.5px solid var(--ink);
+  background: var(--pad);
+  color: var(--ink);
+  font-size: 17px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s, transform 0.15s;
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: transform 0.15s, box-shadow 0.15s;
 }
-.closeBtn:hover {
-  background: #fff2d4;
-  transform: rotate(90deg);
-}
+.closeBtn:hover { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--ink); }
 
-/* ── 아이콘 3개 (카페 홈) ────────────────────────── */
 .iconGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   margin-top: 8px;
 }
-
 .iconCard {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  background: #fff;
-  border: 2.5px solid var(--card-border, #ecc987);
-  border-radius: 18px;
+  background: #FBF3DE;
+  border: 2.5px solid var(--ink);
+  border-radius: 10px;
   padding: 22px 14px 18px;
   cursor: pointer;
-  transition: transform 0.16s, box-shadow 0.16s;
+  box-shadow: 4px 4px 0 var(--card-border, var(--ink));
+  transition: transform 0.14s, box-shadow 0.14s;
   text-align: center;
 }
 .iconCard:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px rgba(120, 90, 30, 0.22);
+  transform: translate(-2px,-2px);
+  box-shadow: 6px 6px 0 var(--card-border, var(--ink));
 }
-.iconCard:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-.iconCard:disabled:hover {
-  transform: none;
-  box-shadow: none;
-}
-
-.iconEmoji {
-  font-size: 42px;
-  line-height: 1;
-}
-
+.iconCard:disabled { cursor: not-allowed; opacity: 0.5; }
+.iconCard:disabled:hover { transform: none; box-shadow: 4px 4px 0 var(--card-border, var(--ink)); }
+.iconEmoji { font-size: 42px; line-height: 1; }
 .iconName {
-  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-family: var(--f-head);
   font-size: 18px;
-  color: #7a5518;
+  color: var(--ink);
 }
-
 .iconDesc {
-  font-family: "Gowun Dodum", sans-serif;
+  font-family: var(--f-body);
   font-size: 12px;
-  color: #9a7c4a;
+  color: rgba(62,44,28,0.72);
   line-height: 1.45;
 }
 
-/* ── 소진 안내 (남은 횟수 0) ─────────────────────── */
 .exhausted {
   margin-top: 18px;
   text-align: center;
-  font-family: "Gowun Dodum", sans-serif;
+  font-family: var(--f-body);
   font-size: 14px;
-  color: #b06a2a;
-  background: #fff2d4;
-  border: 1.5px dashed #ecc987;
-  border-radius: 14px;
+  color: var(--brick);
+  background: var(--pad);
+  border: 2px dashed var(--ink);
+  border-radius: 8px;
   padding: 16px;
 }
 
-/* ── 게임 화면 placeholder (J2~J4 에서 실 게임으로 교체) ── */
 .gameStage {
   min-height: 260px;
   display: flex;
@@ -169,37 +157,35 @@
   align-items: center;
   justify-content: center;
   gap: 14px;
-  background: #fff;
-  border: 2px dashed #ecc987;
-  border-radius: 16px;
+  background: #FBF3DE;
+  border: 2.5px dashed var(--ink);
+  border-radius: 8px;
   padding: 28px;
   text-align: center;
 }
-
 .placeholderText {
-  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-family: var(--f-head);
   font-size: 20px;
-  color: #8a5a12;
+  color: var(--brick);
 }
-
 .placeholderSub {
-  font-family: "Gowun Dodum", sans-serif;
+  font-family: var(--f-body);
   font-size: 13px;
-  color: #9a7c4a;
+  color: rgba(62,44,28,0.72);
 }
-
 .backBtn {
   margin-top: 4px;
-  font-family: var(--font-jua, "Jua"), sans-serif;
-  font-size: 14px;
-  color: #7a5518;
-  background: #fff2d4;
-  border: 2px solid #ecc987;
-  border-radius: 999px;
+  font-family: var(--f-note);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--pad);
+  border: 2.5px solid var(--ink);
+  border-radius: 7px;
   padding: 8px 20px;
   cursor: pointer;
-  transition: background 0.15s;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 0.08s, box-shadow 0.08s;
 }
-.backBtn:hover {
-  background: #ffe7b8;
-}
+.backBtn:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+.backBtn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--ink); }

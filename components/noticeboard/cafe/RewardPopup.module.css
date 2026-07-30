@@ -6,11 +6,12 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: 9999;
+  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(20, 30, 50, 0.55);
+  background: rgba(20, 30, 50, 0.72);
   animation: rpFade 0.2s ease both;
   padding: 20px;
 }

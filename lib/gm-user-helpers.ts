@@ -71,6 +71,7 @@ const RPC_ERROR_MESSAGES: Record<string, string> = {
   auth_required:        "로그인이 필요합니다.",
   gm_only:              "GM 권한이 필요합니다.",
   profile_not_found:    "대상 유저를 찾을 수 없습니다.",
+  invalid_profile_id:   "유저 식별자가 올바르지 않습니다.",
   invalid_age:          "나이는 1에서 150 사이여야 합니다.",
   invalid_gender:       "성별 값이 올바르지 않습니다.",
   invalid_grade:        "학년은 1에서 3 사이여야 합니다.",
@@ -416,4 +417,117 @@ export async function deleteGmUserPermanently(
     };
   }
   return { ok: true, data: res.data };
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 미니게임 (GM 관리)
+ * ─────────────────────────────────────────────────────────── */
+
+export type GmMinigameHistoryRow = {
+  id:            string;
+  minigame_code: string;
+  minigame_name: string;
+  score:         number;
+  stat_gained:   number;
+  mobil_gained:  number;
+  target_stat:   "rhythm" | "physical" | "expression" | null;
+  played_at:     string;
+  result_detail: Record<string, unknown> | null;
+};
+
+export type GmMinigameTodayResult = {
+  playsToday:     number;
+  dailyLimit:     number;
+  playsRemaining: number;
+  playDate:       string;
+  history:        GmMinigameHistoryRow[];
+};
+
+/**
+ * 대상 유저의 오늘(KST) 미니게임 완주 이력 조회.
+ * GM 만 호출 가능.
+ *
+ * 실패 시 정규화된 RpcResult 반환.
+ */
+export async function getGmUserMinigameToday(
+  profileId: string
+): Promise<RpcResult<GmMinigameTodayResult>> {
+  const { data, error } = await supabase.rpc("gm_get_user_minigame_today", {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[getGmUserMinigameToday] failed:", error.message);
+    return { ok: false, ...n };
+  }
+
+  const rows = Array.isArray(data) ? data : (data ? [data] : []);
+  const row  = rows[0];
+  if (!row) {
+    return {
+      ok:      false,
+      reason:  "unknown",
+      message: "조회 결과를 확인하지 못하였습니다.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      playsToday:     Number(row.plays_today ?? 0),
+      dailyLimit:     Number(row.daily_limit ?? 3),
+      playsRemaining: Number(row.plays_remaining ?? 0),
+      playDate:       String(row.play_date ?? ""),
+      history:        (row.history as GmMinigameHistoryRow[] | null) ?? [],
+    },
+  };
+}
+
+export type GmMinigameResetResult = {
+  deletedCount: number;
+  playDate:     string;
+};
+
+/**
+ * 대상 유저의 오늘(KST) 미니게임 완주 이력 리셋 (전부 삭제).
+ * GM 만 호출 가능.
+ *
+ * 주의 :
+ *   · 이미 지급된 mobil/exp 는 되돌리지 않는다. 회수 필요 시 스탯/모빌
+ *     조정 패널로 별도 처리.
+ *   · 이 함수는 "오늘 카운트만 리셋" 하는 역할.
+ *
+ * 실패 시 정규화된 RpcResult 반환.
+ */
+export async function resetGmUserMinigameToday(
+  profileId: string
+): Promise<RpcResult<GmMinigameResetResult>> {
+  const { data, error } = await supabase.rpc("gm_reset_user_minigame_today", {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[resetGmUserMinigameToday] failed:", error.message);
+    return { ok: false, ...n };
+  }
+
+  const rows = Array.isArray(data) ? data : (data ? [data] : []);
+  const row  = rows[0];
+  if (!row) {
+    return {
+      ok:      false,
+      reason:  "unknown",
+      message: "리셋 결과를 확인하지 못하였습니다.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      deletedCount: Number(row.deleted_count ?? 0),
+      playDate:     String(row.play_date ?? ""),
+    },
+  };
 }

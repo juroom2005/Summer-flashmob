@@ -8,10 +8,12 @@
 //     · 이메일 (없으면 안내 문구)
 //     · 스탯·재화 요약 chip (조정 시 실시간 반영)
 //   본문 (세로 배치):
-//     1) UserEditForm    — 기본 정보 6종
-//     2) StatAdjustPanel — 스탯 3종 증감
-//     3) MobilGrantPanel — 재화 지급·차감
-//     4) UserDangerZone  — 비활성화 / 완전 삭제
+//     1) UserEditForm       — 기본 정보 6종
+//     2) StatAdjustPanel    — 스탯 3종 증감
+//     3) MobilGrantPanel    — 재화 지급·차감
+//     4) MinigameResetPanel — 오늘 미니게임 카운트 확인·리셋 (가입 유저만)
+//     5) PasswordResetPanel — 비밀번호 재설정 (가입 유저·GM 제외)
+//     6) UserDangerZone     — 비활성화 / 완전 삭제
 //
 // 갱신 전략:
 //   기본 정보·스탯·재화는 onPatch로 부분 갱신 → 선택 상태·스크롤 유지
@@ -29,6 +31,7 @@ import UserEditForm       from "./UserEditForm";
 import StatAdjustPanel    from "./StatAdjustPanel";
 import MobilGrantPanel    from "./MobilGrantPanel";
 import PasswordResetPanel from "./PasswordResetPanel";
+import MinigameResetPanel from "./MinigameResetPanel";
 import UserDangerZone     from "./UserDangerZone";
 
 const JUA   = "'Jua', sans-serif";
@@ -150,6 +153,14 @@ export default function UserDetail({ user, onPatch, onRefresh }: Props) {
         mobil={user.mobil}
         onGranted={handleMobilGranted}
       />
+
+      {/* 미니게임 오늘 카운트 관리 : 가입 유저만 (shell 은 미니게임 불가). */}
+      {user.is_registered ? (
+        <MinigameResetPanel
+          profileId={user.id}
+          displayName={displayName}
+        />
+      ) : null}
 
       {/* 비번 재설정: 가입 유저 + GM 아닌 대상에만 노출.
           shell(미가입)은 auth 계정 자체가 없고, GM 은 정책상 이 화면에서 재설정 불가. */}
