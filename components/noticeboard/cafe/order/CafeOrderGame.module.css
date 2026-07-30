@@ -421,7 +421,11 @@
   border-radius: 12px;
   padding: 14px 16px;
   text-align: center;
-  animation: bubblePop 0.2s ease both;
+  animation: scoreCardIn 0.22s ease both;
+}
+@keyframes scoreCardIn {
+  from { transform: scale(0.94); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
 }
 .scoreCardTitle {
   font-family: var(--font-jua, "Jua"), sans-serif;

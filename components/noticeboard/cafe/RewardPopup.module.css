@@ -342,3 +342,10 @@
 @keyframes actionsIn {
   to { opacity: 1; }
 }
+
+/* 프린터 + 액션을 세로 스택으로 감쌈 (backdrop 이 flex center 라 필요) */
+.receiptStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
