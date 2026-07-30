@@ -28,7 +28,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import styles from "./CafeMinigameOverlay.module.css";
+import CafeOrderGame from "./order/CafeOrderGame";
 import {
   getTodayMinigameStatus,
   type CafeMinigameCode,
@@ -85,6 +87,10 @@ export default function CafeMinigameOverlay({
   const [view, setView] = useState<View>("home");
   const [remaining, setRemaining] = useState<number | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Portal 은 클라이언트에서만. SSR 시 document 접근 방지.
+  useEffect(() => setMounted(true), []);
 
   // 오늘 남은 횟수 조회
   const refreshStatus = useCallback(async () => {
@@ -111,7 +117,7 @@ export default function CafeMinigameOverlay({
     }
   }, [open, refreshStatus]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const remainingUnknown = remaining === null;
   const exhausted = remaining !== null && remaining <= 0;
@@ -128,7 +134,7 @@ export default function CafeMinigameOverlay({
 
   const activeIcon = CAFE_ICONS.find((i) => i.code === view);
 
-  return (
+  return createPortal(
     <div
       className={styles.backdrop}
       onClick={(e) => {
@@ -187,8 +193,24 @@ export default function CafeMinigameOverlay({
               </div>
             ) : null}
           </>
+        ) : view === "cafe_order" ? (
+          // ── 주문 받기 (실게임) ──────────────────────
+          <>
+            <div className={styles.header}>
+              <span className={styles.title}>
+                {activeIcon?.emoji} {activeIcon?.name}
+              </span>
+            </div>
+            <CafeOrderGame
+              onExit={() => {
+                setView("home");
+                refreshStatus();
+              }}
+              onPlayed={refreshStatus}
+            />
+          </>
         ) : (
-          // ── 게임 화면 (J1 placeholder) ──────────────
+          // ── 게임 화면 (미구현 게임 placeholder) ─────
           <>
             <div className={styles.header}>
               <span className={styles.title}>
@@ -210,6 +232,7 @@ export default function CafeMinigameOverlay({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
