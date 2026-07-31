@@ -403,6 +403,7 @@ export default function CafeOrderGame({ onExit, onPlayed }: Props) {
         <RewardPopup
           result={result}
           score={finalScore}
+          gameName="주문 받기"
           onClose={onExit}
           onRetry={handleRetry}
           canRetry={canRetry}

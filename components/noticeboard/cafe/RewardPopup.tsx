@@ -44,6 +44,7 @@ import type { PlayResult } from "@/lib/minigame-helpers";
 type Props = {
   result:   PlayResult | null;
   score:    number;
+  gameName: string;        // 영수증 ITEM 표시용 (예: "주문 받기")
   onClose:  () => void;
   onRetry?: () => void;
   canRetry: boolean;
@@ -52,6 +53,7 @@ type Props = {
 export default function RewardPopup({
   result,
   score,
+  gameName,
   onClose,
   onRetry,
   canRetry,
@@ -116,8 +118,17 @@ export default function RewardPopup({
   } else {
     // ── 성공 : 영수증 인쇄 연출 ────────────────────
     const perfect = score === 100;
-    const perfectBonus = perfect ? 300 : 0;
-    const baseMobil = result.mobilGained - perfectBonus;
+
+    // 서버 breakdown 사용 (하드코딩 제거).
+    const diff        = result.difficulty;
+    const stars       = "★".repeat(diff) + "☆".repeat(Math.max(0, 3 - diff));
+    const mobilBase   = result.mobilBase;
+    const mobilDiff   = result.mobilDifficultyBonus;
+    const mobilPerf   = result.mobilPerfectBonus;
+    const expBase     = result.expressionBase;
+    const expBonus    = result.expressionBonus;
+    const phyBase     = result.physicalBase;
+    const phyBonus    = result.physicalBonus;
 
     content = (
       <div className={styles.backdrop}>
@@ -140,7 +151,8 @@ export default function RewardPopup({
                 <div className={styles.receiptMeta}>
                   <div><span>DATE</span><span>{dateStr}</span></div>
                   <div><span>ORDER</span><span>#{orderNo}</span></div>
-                  <div><span>ITEM</span><span>주문 받기</span></div>
+                  <div><span>ITEM</span><span>{gameName}</span></div>
+                  <div><span>DIFFICULTY</span><span>{stars}</span></div>
                 </div>
 
                 <div className={styles.receiptDivider}>
@@ -161,12 +173,18 @@ export default function RewardPopup({
 
                 <div className={styles.receiptRow}>
                   <span>기본 보상</span>
-                  <span>₩{baseMobil.toLocaleString()}</span>
+                  <span>₩{mobilBase.toLocaleString()}</span>
                 </div>
-                {perfect ? (
+                {mobilDiff > 0 ? (
+                  <div className={styles.receiptRow}>
+                    <span>난이도 ({stars})</span>
+                    <span>+₩{mobilDiff.toLocaleString()}</span>
+                  </div>
+                ) : null}
+                {mobilPerf > 0 ? (
                   <div className={styles.receiptRow}>
                     <span>퍼펙트 보너스</span>
-                    <span>₩{perfectBonus.toLocaleString()}</span>
+                    <span>+₩{mobilPerf.toLocaleString()}</span>
                   </div>
                 ) : null}
 
@@ -176,12 +194,24 @@ export default function RewardPopup({
 
                 <div className={styles.receiptRow}>
                   <span>표현력 EXP</span>
-                  <span>+{result.expressionGained}</span>
+                  <span>+{expBase}</span>
                 </div>
+                {expBonus > 0 ? (
+                  <div className={styles.receiptRow}>
+                    <span>난이도 EXP</span>
+                    <span>+{expBonus}</span>
+                  </div>
+                ) : null}
                 <div className={styles.receiptRow}>
                   <span>체력 EXP</span>
-                  <span>+{result.physicalGained}</span>
+                  <span>+{phyBase}</span>
                 </div>
+                {phyBonus > 0 ? (
+                  <div className={styles.receiptRow}>
+                    <span>난이도 EXP</span>
+                    <span>+{phyBonus}</span>
+                  </div>
+                ) : null}
                 <div className={`${styles.receiptRow} ${styles.receiptTotal}`}>
                   <span>지급 모빌</span>
                   <span>₩{result.mobilGained.toLocaleString()}</span>

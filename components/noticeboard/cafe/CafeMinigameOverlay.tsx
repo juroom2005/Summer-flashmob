@@ -38,36 +38,46 @@ import {
 
 // ── 카페 미니게임 아이콘 정의 (seed subtype 과 매핑) ─────────────
 type CafeIcon = {
-  code:   CafeMinigameCode;
-  emoji:  string;
-  name:   string;
-  desc:   string;
-  border: string;
+  code:       CafeMinigameCode;
+  emoji:      string;
+  name:       string;
+  desc:       string;
+  border:     string;
+  difficulty: 1 | 2 | 3;   // 별 개수 (UI 안내용 · 실제 리워드는 서버 metadata)
 };
 
+// 별 낮은 순으로 정렬 (초보 친절). seed metadata 의 difficulty 값과 일치해야 함.
 const CAFE_ICONS: CafeIcon[] = [
   {
-    code:   "cafe_order",
-    emoji:  "🧾",
-    name:   "카운터",
-    desc:   "손님 주문을 순서대로 받습니다.",
-    border: "#f0c987",
+    code:       "cafe_dish",
+    emoji:      "🧽",
+    name:       "싱크대",
+    desc:       "시간 안에 접시를 깨끗하게 닦습니다.",
+    border:     "#8fd0e6",
+    difficulty: 1,
   },
   {
-    code:   "cafe_mix",
-    emoji:  "🥤",
-    name:   "음료 제조대",
-    desc:   "레시피대로 재료를 쌓아 만듭니다.",
-    border: "#c9a6e6",
+    code:       "cafe_mix",
+    emoji:      "🥤",
+    name:       "음료 제조대",
+    desc:       "레시피대로 재료를 쌓아 만듭니다.",
+    border:     "#c9a6e6",
+    difficulty: 2,
   },
   {
-    code:   "cafe_dish",
-    emoji:  "🧽",
-    name:   "싱크대",
-    desc:   "시간 안에 접시를 깨끗하게 닦습니다.",
-    border: "#8fd0e6",
+    code:       "cafe_order",
+    emoji:      "🧾",
+    name:       "카운터",
+    desc:       "손님 주문을 순서대로 받습니다.",
+    border:     "#f0c987",
+    difficulty: 3,
   },
 ];
+
+function difficultyStars(n: number): string {
+  const clamp = Math.max(0, Math.min(3, n));
+  return "★".repeat(clamp) + "☆".repeat(3 - clamp);
+}
 
 type Props = {
   open:      boolean;
@@ -177,6 +187,9 @@ export default function CafeMinigameOverlay({
                 >
                   <span className={styles.iconEmoji}>{icon.emoji}</span>
                   <span className={styles.iconName}>{icon.name}</span>
+                  <span className={styles.iconDifficulty}>
+                    {difficultyStars(icon.difficulty)}
+                  </span>
                   <span className={styles.iconDesc}>{icon.desc}</span>
                 </button>
               ))}

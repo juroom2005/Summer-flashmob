@@ -55,6 +55,7 @@ export type TodayMinigameStatus = {
 export type PlayResult =
   | {
       ok: true;
+      // 결과 (즉시 화면에 반영할 최종 값)
       nextMobil:         number;
       nextExpressionExp: number;
       nextPhysicalExp:   number;
@@ -63,6 +64,15 @@ export type PlayResult =
       physicalGained:    number;
       playsToday:        number;
       playsRemaining:    number;
+      // 세부 breakdown (영수증 항목별 표시용)
+      difficulty:            number; // 1|2|3
+      mobilBase:             number;
+      mobilDifficultyBonus:  number;
+      mobilPerfectBonus:     number;
+      expressionBase:        number;
+      expressionBonus:       number;
+      physicalBase:          number;
+      physicalBonus:         number;
     }
   | { ok: false; reason: string; message: string };
 
@@ -213,5 +223,13 @@ export async function playCafeMinigame(
     physicalGained:    Number(row.physical_gained ?? 0),
     playsToday:        Number(row.plays_today ?? 0),
     playsRemaining:    Number(row.plays_remaining ?? 0),
+    difficulty:            Number(row.difficulty ?? 1),
+    mobilBase:             Number(row.mobil_base ?? 0),
+    mobilDifficultyBonus:  Number(row.mobil_difficulty_bonus ?? 0),
+    mobilPerfectBonus:     Number(row.mobil_perfect_bonus ?? 0),
+    expressionBase:        Number(row.expression_base ?? 0),
+    expressionBonus:       Number(row.expression_bonus ?? 0),
+    physicalBase:          Number(row.physical_base ?? 0),
+    physicalBonus:         Number(row.physical_bonus ?? 0),
   };
 }

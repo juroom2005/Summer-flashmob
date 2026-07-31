@@ -71,6 +71,7 @@
   padding: 4px 13px;
   box-shadow: 2px 2px 0 var(--ink);
   transform: rotate(-2deg);
+  margin-right: 40px;
 }
 .subtitle {
   font-family: var(--f-body);
@@ -130,6 +131,13 @@
   font-family: var(--f-head);
   font-size: 18px;
   color: var(--ink);
+}
+.iconDifficulty {
+  font-family: var(--f-note);
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: var(--brick);
+  line-height: 1;
 }
 .iconDesc {
   font-family: var(--f-body);
