@@ -1,0 +1,1105 @@
+/* components/noticeboard/cafe/mix/CafeMixGame.module.css
+ * ─────────────────────────────────────────────────────────────
+ * 시안 2b — 빈티지 카페 · 크래프트 톤 (v3)
+ *
+ * v2 → v3 변경:
+ *   레시피북을 페이지 넘김형 도감으로 재설계.
+ *     · 좌측 페이지 : 메뉴 이미지 슬롯
+ *     · 우측 페이지 : 레시피 상세
+ *     · 오른쪽 옆에 북마크 탭 8개 세로 나열
+ *     · 하단에 페이지 인디케이터 + 이전/다음 화살표
+ *     · 양방향 flip 애니메이션 (next / prev)
+ */
+
+.wrap {
+  --ink:     #3E2C1C;
+  --paper:   #E0CFA8;
+  --pad:     #F1E4C6;
+  --desk:    #D6BF98;
+  --key:     #F8EFD8;
+  --brick:   #B5482E;
+  --mustard: #C98A24;
+  --receipt: #FBF3DE;
+  --rline:   #C4A46F;
+  --counter: #7A5A38;
+  /* 책 표지 톤 */
+  --leather:      #4A3120;
+  --leather-edge: #2C1C10;
+  --leather-hi:   #6B4A2E;
+  --gold:         #C9A24B;
+
+  --f-head: "Black Han Sans", var(--font-jua, "Jua"), sans-serif;
+  --f-note: "Gaegu", cursive;
+  --f-body: "Gowun Dodum", sans-serif;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  color: var(--ink);
+  font-family: var(--f-body);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 인트로
+ * ─────────────────────────────────────────────────────────── */
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 32px 24px;
+  background: var(--receipt);
+  border: 2.5px dashed var(--ink);
+  border-radius: 10px;
+}
+.introTitle {
+  font-family: var(--f-head);
+  font-size: 26px;
+  color: var(--brick);
+}
+.introBody {
+  font-family: var(--f-body);
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 460px;
+  text-align: center;
+  margin: 0;
+}
+.introActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 메인 그리드
+ * ─────────────────────────────────────────────────────────── */
+
+.main {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr;
+  gap: 14px;
+  height: min(600px, 66vh);
+}
+@media (max-width: 720px) {
+  .main {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+
+.left,
+.right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 오더 티켓
+ *   상단 : 헤더("오늘의 오더") + 타이머
+ *   본문 : 좌측(음료명·쌓은 재료 리스트) + 우측(모디파이어 배지 열)
+ * ─────────────────────────────────────────────────────────── */
+
+.orderTicket {
+  flex: 0 1 auto;
+  background: var(--pad);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 10px 12px;
+  box-shadow: 3px 3px 0 var(--ink);
+  min-height: 78px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 40%;
+  overflow: hidden;
+}
+.ticketTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.ticketHeader {
+  font-family: var(--f-note);
+  font-size: 12px;
+  color: var(--counter);
+  letter-spacing: 1px;
+}
+/* 타이머 : 기본 · 20초 이하 (mid) · 10초 이하 (low) 3단계 */
+.ticketTimer {
+  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--counter);
+  background: rgba(62, 44, 28, 0.08);
+  border: 1px solid rgba(62, 44, 28, 0.35);
+  border-radius: 4px;
+  padding: 2px 8px;
+  letter-spacing: 0.5px;
+}
+.ticketTimerMid {
+  color: #a54a1a;
+  background: rgba(201, 138, 36, 0.18);
+  border-color: rgba(201, 138, 36, 0.55);
+}
+.ticketTimerLow {
+  color: #d02b1a;
+  background: rgba(181, 72, 46, 0.2);
+  border-color: rgba(181, 72, 46, 0.65);
+  animation: timerPulse 0.9s ease-in-out infinite;
+}
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1);    opacity: 1;   }
+  50%      { transform: scale(1.08); opacity: 0.7; }
+}
+
+/* 본문 : 좌측 메인 + 우측 모디파이어 열 */
+.ticketBody {
+  flex: 1 1 0;
+  display: flex;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+.ticketMain {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.ticketDrink {
+  font-family: var(--f-head);
+  font-size: 18px;
+  color: var(--brick);
+  line-height: 1.2;
+  flex: 0 0 auto;
+}
+.ticketDivider {
+  height: 0;
+  border-top: 1px dashed var(--ink);
+  opacity: 0.5;
+  margin: 2px 0;
+  flex: 0 0 auto;
+}
+.ticketSubHead {
+  font-family: var(--f-note);
+  font-size: 12px;
+  color: var(--counter);
+  flex: 0 0 auto;
+}
+.ticketEmpty {
+  font-family: var(--f-body);
+  font-size: 12px;
+  color: rgba(62, 44, 28, 0.55);
+  padding: 4px 2px;
+  flex: 0 0 auto;
+}
+.ticketList {
+  flex: 1 1 0;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+  min-height: 0;
+}
+.ticketItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--f-body);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.ticketSwatch {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+/* ═══ 모디파이어 배지 열 (우측) ═══ */
+.ticketModCol {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 74px;
+  max-width: 90px;
+  padding-left: 8px;
+  border-left: 1.5px dashed rgba(62, 44, 28, 0.3);
+}
+.ticketModHead {
+  font-family: var(--f-note);
+  font-size: 11px;
+  color: var(--counter);
+  letter-spacing: 0.5px;
+  text-align: center;
+  padding-bottom: 2px;
+}
+.ticketModBadge {
+  font-family: var(--f-note);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1.5px solid var(--ink);
+  line-height: 1.2;
+  box-shadow: 1px 1px 0 var(--ink);
+  animation: modBadgePop 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.ticketModBadgePlus {
+  background: var(--mustard);
+  color: var(--ink);
+}
+.ticketModBadgeMinus {
+  background: var(--receipt);
+  color: var(--brick);
+}
+/* 다크초콜릿 개수 배지 : 진한 초콜릿 톤 + 이모지 */
+.ticketModBadgeChocolate {
+  background: linear-gradient(135deg, #4a2416 0%, #2a1610 100%);
+  color: #ffd870;
+  border-color: #1a0d08;
+  font-family: var(--f-body);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+@keyframes modBadgePop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 컵 영역
+ *   CSS div 방식 (참고자료 CodePen "Minimalistic Cups" 이식).
+ *   clip-path · pseudo-element 그대로 유지. 내부만 반투명.
+ * ─────────────────────────────────────────────────────────── */
+
+.cupArea {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--desk);
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: inset 0 -4px 0 rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+.cupStage {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 220 / 340;
+}
+
+/* ═════════ Mug (핫) : SVG 방식 ═════════
+ * v3 의 CSS pseudo-element 방식은 조잡했음 (사각형 + 도넛).
+ * SVG 로 몸통·손잡이·상단개구부·밑받침 모두 직접 그림.
+ *
+ * viewBox 200×280 기준 몸통 내부 좌표:
+ *   x = 32~148 (폭 116), y = 62~240 (높이 178)
+ *   → 층 stack 은 left 22%, right 32% (오른편 손잡이 공간 감안 mug 몸통이
+ *   중앙 아닌 살짝 왼쪽 치우침), top 24%, bottom 12% 로 mug 내부에 안착.
+ */
+.mugCupWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mugCupSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(2px 3px 4px rgba(62, 44, 28, 0.22));
+}
+/* 재료 층 stack : SVG 몸통 내부에 절대 위치 겹침
+ * 손잡이가 오른쪽에 있으므로 stack 은 왼쪽 살짝 치우침 */
+.mugCupLayers {
+  position: absolute;
+  top: 24%;
+  bottom: 12%;
+  left: 20%;
+  right: 30%;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 0 0 6px 6px;
+}
+
+/* ═════════ Cup-3 (아이스) : 파도 표면 + 돔 뚜껑 + 빨대 ═════════
+ * 원본 clip-path polygon(0 0, 100% 0, 80% 100%, 20% 100%) 사다리꼴 유지.
+ * 파도 SVG 는 원본 그대로. 뚜껑은 원본대로 어두운 돔.
+ */
+.iceCupBody {
+  position: absolute;
+  bottom: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 65%;
+  height: 62%;
+  background: rgba(255, 253, 245, 0.32);
+  clip-path: polygon(0 0, 100% 0%, 80% 100%, 20% 100%);
+  overflow: hidden;
+  filter: drop-shadow(2px 3px 4px rgba(62, 44, 28, 0.28));
+}
+/* 파도 표면 (컵 상단, SVG) */
+.iceCupWave {
+  position: absolute;
+  top: 8%;
+  left: 0;
+  width: 100%;
+  height: 14%;
+  z-index: 1;
+  pointer-events: none;
+}
+.iceCupWave svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* 재료 층 (파도 아래부터 바닥까지) */
+.iceCupLayers {
+  position: absolute;
+  top: 26%;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  pointer-events: none;
+}
+/* 돔 뚜껑 (컵 상단에 살짝 겹쳐 얹힘) */
+.iceCupCap {
+  position: absolute;
+  bottom: 66%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72%;
+  height: 20%;
+  background: #333;
+  clip-path: circle(50% at 50% 100%);
+  filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.28));
+  z-index: 2;
+}
+/* 빨대 (뚜껑 위, 오른쪽으로 살짝, 15deg 회전) */
+.iceCupStraw {
+  position: absolute;
+  bottom: 78%;
+  left: 58%;
+  width: 5%;
+  height: 22%;
+  background: #377c43;
+  transform: rotate(15deg);
+  transform-origin: bottom center;
+  border-radius: 2px;
+  filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.22));
+  z-index: 3;
+}
+
+/* 공통 : 재료 층 한 조각 (액체 표현)
+ *   · 3단 그라디언트 : 상단 살짝 밝음 → 중간 원색 → 하단 살짝 어두움
+ *   · 상단에 얇은 흰색 하이라이트로 액체 표면 반사 느낌
+ *   · 마운트 시 아래에서 스윽 차오르는 애니메이션 (scaleY 0→1, opacity 0→1)
+ *   · flex 재분배 부드럽게 (기존 층이 밀리며 자리 조정)
+ *
+ * 재료 색은 인라인 스타일 --layer-color CSS 변수로 전달됨.
+ * color-mix() 는 모던 브라우저(크롬 111+ / 사파리 16.2+ / 파이어폭스 113+)
+ * 에서 지원. 지원 안 되는 환경은 fallback 으로 원색만 보임.
+ */
+.layer {
+  flex: 1 1 0;
+  min-height: 4px;
+  position: relative;
+  overflow: hidden;
+  background: var(--layer-color); /* fallback (color-mix 미지원 시) */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--layer-color) 88%, white 12%) 0%,
+    var(--layer-color) 50%,
+    color-mix(in srgb, var(--layer-color) 92%, black 8%) 100%
+  );
+  transition: flex 0.28s ease-out;
+  animation: layerRise 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  transform-origin: bottom;
+  will-change: transform;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 다크초콜릿 층 : 뽀잉뽀잉 통통 튀는 등장 애니메이션 (텐션용)
+ * 다른 층의 layerRise 를 오버라이드. cubic-bezier 오버슈트로 통통 튐. */
+.chocolateLayer {
+  animation: chocolateBounce 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes chocolateBounce {
+  0%   { transform: scaleY(0) translateY(20px); opacity: 0;   }
+  50%  { transform: scaleY(1.18) translateY(-4px); opacity: 1; }
+  75%  { transform: scaleY(0.92) translateY(2px);  opacity: 1; }
+  100% { transform: scaleY(1) translateY(0);       opacity: 1; }
+}
+/* 다크초콜릿 층 안 이모지 */
+.chocolateEmoji {
+  font-size: min(2vw, 22px);
+  line-height: 1;
+  z-index: 2;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+}
+
+/* 층 상단 흰 하이라이트 (액체 표면 반사) */
+.layer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0)   100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+/* 액체 안 기포 : 층 하단에서 스멀스멀 올라와 상단에서 커지며 터짐.
+ * 층당 하나씩 (::after 는 하나). 위치·타이밍은 nth-child 로 다양화. */
+.layer::after {
+  content: "";
+  position: absolute;
+  bottom: 5%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow:
+    inset 0 -1px 1px rgba(0, 0, 0, 0.1),
+    0 0 3px rgba(255, 255, 255, 0.28);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.6);
+  pointer-events: none;
+  animation: bubbleRise 3.5s ease-in infinite;
+  z-index: 1;
+}
+/* 층별 기포 위치·시작 딜레이 (최대 5층 = 카라멜마키아토 · 카페모카)
+ * flex column-reverse 안이므로 nth-child(1) 이 실제 최상단 층. */
+.mugCupLayers .layer:nth-child(1)::after,
+.iceCupLayers .layer:nth-child(1)::after {
+  left: 32%;
+  animation-delay: 0.6s;
+}
+.mugCupLayers .layer:nth-child(2)::after,
+.iceCupLayers .layer:nth-child(2)::after {
+  left: 68%;
+  animation-delay: 1.4s;
+  animation-duration: 4.2s;
+}
+.mugCupLayers .layer:nth-child(3)::after,
+.iceCupLayers .layer:nth-child(3)::after {
+  left: 45%;
+  animation-delay: 2.3s;
+  animation-duration: 3.8s;
+}
+.mugCupLayers .layer:nth-child(4)::after,
+.iceCupLayers .layer:nth-child(4)::after {
+  left: 60%;
+  animation-delay: 3.1s;
+  animation-duration: 4.5s;
+}
+.mugCupLayers .layer:nth-child(5)::after,
+.iceCupLayers .layer:nth-child(5)::after {
+  left: 38%;
+  animation-delay: 1.8s;
+  animation-duration: 3.6s;
+}
+
+@keyframes layerRise {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+@keyframes bubbleRise {
+  0% {
+    opacity: 0;
+    bottom: -8%;
+    transform: translateX(-50%) scale(0.55);
+  }
+  12% {
+    opacity: 0.65;
+    transform: translateX(-50%) scale(1);
+  }
+  75% {
+    opacity: 0.6;
+    bottom: 65%;
+    transform: translateX(-50%) scale(1);
+  }
+  90% {
+    opacity: 0.3;
+    bottom: 82%;
+    transform: translateX(-50%) scale(1.7);
+  }
+  100% {
+    opacity: 0;
+    bottom: 90%;
+    transform: translateX(-50%) scale(1.7);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 레시피북 : 책 본체 + 태그 컬럼
+ *
+ * .bookOuter : 책 + 태그를 가로로 배치 (탭이 오른쪽 옆)
+ * .bookWrapper : 책 표지 + 페이지 스프레드 + 하단 인디케이터
+ * .tabColumn : 태그 8개 세로 나열
+ * ─────────────────────────────────────────────────────────── */
+
+.bookOuter {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+
+.bookWrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  padding: 6px 8px 8px 6px;
+  perspective: 1400px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 표지 : bookWrapper 안쪽을 꽉 채워서 페이지 뒤로 깔림 */
+.bookCover {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    linear-gradient(135deg,
+      var(--leather-hi) 0%,
+      var(--leather) 40%,
+      var(--leather-edge) 100%);
+  border-radius: 4px 8px 8px 4px;
+  box-shadow:
+    0 8px 18px rgba(0,0,0,0.35),
+    inset 0 0 0 1px rgba(0,0,0,0.35),
+    inset 3px 0 0 rgba(0,0,0,0.25);
+}
+.bookCoverBorder {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  right: 6px;
+  bottom: 6px;
+  border: 1px solid rgba(201, 162, 75, 0.35);
+  border-radius: 2px 5px 5px 2px;
+  pointer-events: none;
+}
+
+/* 페이지 컨테이너 : 표지 위에 얹힘 */
+.pagesContainer {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 4px 6px 4px 12px;
+}
+.pageSpread {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--receipt);
+  border-radius: 2px 6px 6px 2px;
+  box-shadow:
+    0 2px 4px rgba(0,0,0,0.08),
+    inset 0 0 0 1px rgba(62,44,28,0.15);
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+.pageLeft,
+.pageRight {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 10px;
+  min-height: 0;
+  background: var(--receipt);
+  background-image:
+    radial-gradient(ellipse at 20% 30%,
+      rgba(196, 164, 111, 0.10), transparent 55%),
+    radial-gradient(ellipse at 75% 80%,
+      rgba(196, 164, 111, 0.08), transparent 60%);
+}
+.pageLeft {
+  border-right: 1px solid rgba(62,44,28,0.12);
+}
+.spineShadow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 12px;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(62,44,28,0.18) 45%,
+    rgba(62,44,28,0.22) 50%,
+    rgba(62,44,28,0.18) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 좌측 페이지 : 메뉴 이미지 슬롯
+ * ─────────────────────────────────────────────────────────── */
+
+.menuPage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+}
+.menuTitle {
+  font-family: var(--f-head);
+  font-size: 18px;
+  color: var(--brick);
+  text-align: center;
+  border-bottom: 1.5px dashed var(--ink);
+  padding-bottom: 4px;
+  flex: 0 0 auto;
+}
+.menuImageSlot {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(62, 44, 28, 0.05);
+  border: 2px dashed rgba(62, 44, 28, 0.3);
+  border-radius: 6px;
+}
+/* 마스킹 테이프 (좌우 상단 대각선 2조각).
+ * 반투명 크림/노랑 톤. 실제 이미지 리소스 붙어도 이미지 위에 얹힘(z-index 2). */
+.menuImageSlot::before,
+.menuImageSlot::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 56px;
+  height: 18px;
+  background:
+    linear-gradient(180deg,
+      rgba(235, 215, 155, 0.78) 0%,
+      rgba(220, 195, 130, 0.82) 100%);
+  border-top:    1px solid rgba(180, 150, 90, 0.35);
+  border-bottom: 1px solid rgba(120, 95, 45,  0.25);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.18);
+  z-index: 2;
+  pointer-events: none;
+}
+.menuImageSlot::before {
+  left: -10px;
+  transform: rotate(-32deg);
+}
+.menuImageSlot::after {
+  right: -10px;
+  transform: rotate(32deg);
+}
+.menuImagePlaceholder {
+  font-family: var(--f-note);
+  font-size: 13px;
+  color: rgba(62, 44, 28, 0.55);
+  text-align: center;
+  line-height: 1.6;
+}
+.menuLayerCount {
+  font-family: var(--f-note);
+  font-size: 13px;
+  color: var(--counter);
+  text-align: center;
+  padding-top: 2px;
+  flex: 0 0 auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 우측 페이지 : 레시피
+ * ─────────────────────────────────────────────────────────── */
+
+.recipePage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+}
+.pageHead {
+  font-family: var(--f-head);
+  font-size: 16px;
+  color: var(--brick);
+  border-bottom: 1.5px dashed var(--ink);
+  padding-bottom: 4px;
+  flex: 0 0 auto;
+}
+.recipeText {
+  font-family: var(--f-note);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--counter);
+  padding: 4px 2px;
+  border-bottom: 1px dashed rgba(62, 44, 28, 0.35);
+  flex: 0 0 auto;
+}
+.recipeSteps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.recipeStep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--f-body);
+  font-size: 13px;
+  padding: 3px 2px;
+}
+.recipeStepNum {
+  font-family: var(--f-note);
+  font-size: 12px;
+  color: var(--brick);
+  min-width: 16px;
+}
+.recipeSwatch {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * Flipper (책장 넘김 오버레이) — 양방향
+ * ─────────────────────────────────────────────────────────── */
+
+.flipper {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 50%;
+  transform-style: preserve-3d;
+  z-index: 3;
+  pointer-events: none;
+}
+.flipperFace {
+  position: absolute;
+  inset: 0;
+  padding: 12px 12px 10px;
+  background: var(--receipt);
+  background-image:
+    radial-gradient(ellipse at 20% 30%,
+      rgba(196, 164, 111, 0.10), transparent 55%),
+    radial-gradient(ellipse at 75% 80%,
+      rgba(196, 164, 111, 0.08), transparent 60%);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.flipperBack {
+  transform: rotateY(180deg);
+}
+
+/* next 방향 : 우측 페이지 자리에서 시작 → 좌로 회전 */
+.flipperNext {
+  right: 0;
+  transform-origin: left center;
+  animation: pageFlipNext 0.65s cubic-bezier(0.55, 0.1, 0.35, 1) forwards;
+  box-shadow: -3px 0 8px rgba(0,0,0,0.12);
+}
+@keyframes pageFlipNext {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(-180deg); }
+}
+
+/* prev 방향 : 좌측 페이지 자리에서 시작 → 우로 회전 */
+.flipperPrev {
+  left: 0;
+  transform-origin: right center;
+  animation: pageFlipPrev 0.65s cubic-bezier(0.55, 0.1, 0.35, 1) forwards;
+  box-shadow: 3px 0 8px rgba(0,0,0,0.12);
+}
+@keyframes pageFlipPrev {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(180deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 하단 페이지 인디케이터
+ * ─────────────────────────────────────────────────────────── */
+
+.pageNav {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 4px 0 2px;
+  color: var(--gold);
+  font-family: var(--f-note);
+}
+.navArrow {
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--gold);
+  background: transparent;
+  border: 1.5px solid rgba(201, 162, 75, 0.55);
+  border-radius: 4px;
+  width: 28px;
+  height: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+.navArrow:hover:not(:disabled) {
+  background: rgba(201, 162, 75, 0.15);
+  color: #ffd870;
+}
+.navArrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.pageCount {
+  font-size: 14px;
+  min-width: 56px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 북마크 탭 컬럼 (오른쪽 옆)
+ * ─────────────────────────────────────────────────────────── */
+
+.tabColumn {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  align-self: stretch;
+  justify-content: flex-start;
+  width: 78px;
+}
+.tab {
+  position: relative;
+  font-family: var(--f-body);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: -0.2px;
+  line-height: 1.2;
+  color: var(--receipt);
+  background:
+    linear-gradient(135deg,
+      var(--leather-hi) 0%,
+      var(--leather) 60%,
+      var(--leather-edge) 100%);
+  border: none;
+  border-radius: 0 4px 4px 0;
+  padding: 6px 6px 6px 8px;
+  cursor: pointer;
+  text-align: left;
+  min-height: 34px;
+  /* 표지 왼쪽 끝에 살짝 겹치도록 좌측 음수 마진 */
+  margin-left: -4px;
+  box-shadow:
+    inset 1px 0 0 rgba(0,0,0,0.3),
+    2px 2px 4px rgba(0,0,0,0.2);
+  text-shadow: 0 1px 1px rgba(0,0,0,0.4);
+  transition: transform 0.1s, background 0.1s;
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tab:hover:not(:disabled) {
+  transform: translateX(2px);
+}
+.tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.tabActive {
+  background:
+    linear-gradient(135deg, var(--gold) 0%, #a3801a 100%);
+  color: var(--ink);
+  text-shadow: none;
+  transform: translateX(6px);
+  box-shadow:
+    inset 1px 0 0 rgba(0,0,0,0.2),
+    3px 3px 5px rgba(0,0,0,0.25);
+}
+.tabActive:hover:not(:disabled) {
+  transform: translateX(6px); /* 활성은 이미 나옴, 추가 이동 없음 */
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 재료 자판 (11종, 5×3 그리드. 마지막 4칸은 빈칸)
+ * ─────────────────────────────────────────────────────────── */
+
+.keypad {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 6px;
+  padding: 8px;
+  background: var(--desk);
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  min-height: 180px;
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.08);
+}
+.keypadBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 4px;
+  background: var(--key);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 2px 2px 0 var(--ink);
+  cursor: pointer;
+  font-family: var(--f-body);
+  color: var(--ink);
+  transition: transform 0.06s, box-shadow 0.06s;
+  min-height: 52px;
+}
+.keypadBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.keypadBtn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.keypadSwatch {
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+}
+/* 이모지 재료 (다크초콜릿) : 스와치 대신 이모지 표시 */
+.keypadEmoji {
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.15));
+}
+.keypadLabel {
+  font-size: 11px;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 액션 버튼
+ * ─────────────────────────────────────────────────────────── */
+
+.actionRow {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.primaryBtn,
+.secondaryBtn,
+.ghostBtn {
+  font-family: var(--f-note);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 20px;
+  border-radius: 7px;
+  border: 2.5px solid var(--ink);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 0.08s, box-shadow 0.08s;
+  color: var(--ink);
+}
+.primaryBtn   { background: var(--brick); color: var(--receipt); }
+.secondaryBtn { background: var(--mustard); }
+.ghostBtn     { background: var(--pad); }
+
+.primaryBtn:hover,
+.secondaryBtn:hover,
+.ghostBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.primaryBtn:active,
+.secondaryBtn:active,
+.ghostBtn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+.primaryBtn:disabled,
+.secondaryBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 3px 3px 0 var(--ink);
+}

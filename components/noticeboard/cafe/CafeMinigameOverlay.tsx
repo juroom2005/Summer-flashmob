@@ -31,6 +31,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./CafeMinigameOverlay.module.css";
 import CafeOrderGame from "./order/CafeOrderGame";
+import CafeMixGame from "./mix/CafeMixGame";
 import {
   getTodayMinigameStatus,
   type CafeMinigameCode,
@@ -215,6 +216,22 @@ export default function CafeMinigameOverlay({
               </span>
             </div>
             <CafeOrderGame
+              onExit={() => {
+                setView("home");
+                refreshStatus();
+              }}
+              onPlayed={refreshStatus}
+            />
+          </>
+        ) : view === "cafe_mix" ? (
+          // ── 음료 제조 (실게임) ──────────────────────
+          <>
+            <div className={styles.header}>
+              <span className={styles.title}>
+                {activeIcon?.emoji} {activeIcon?.name}
+              </span>
+            </div>
+            <CafeMixGame
               onExit={() => {
                 setView("home");
                 refreshStatus();
