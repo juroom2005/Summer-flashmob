@@ -1,0 +1,327 @@
+/* components/noticeboard/cafe/dish/CafeDishGame.module.css
+ * ─────────────────────────────────────────────────────────────
+ * 시안 2b — 빈티지 카페 · 크래프트 톤 (설거지)
+ *
+ * 톤은 CafeOrderGame · CafeMixGame 과 통일 (--ink, --pad, --brick 등).
+ *
+ * 레이아웃 :
+ *   .wrap       : column flex (게임 영역 + 하단 액션)
+ *   .gameArea   : column (HUD 상단 + 접시 중앙)
+ *   .dish       : 원형 접시, 반응형 (max 400px). 스팟 · 스펀지가 자식.
+ *   .actionRow  : 최하단 그만두기 버튼
+ */
+
+.wrap {
+  --ink:     #3E2C1C;
+  --paper:   #E0CFA8;
+  --pad:     #F1E4C6;
+  --desk:    #D6BF98;
+  --brick:   #B5482E;
+  --mustard: #C98A24;
+  --receipt: #FBF3DE;
+  --counter: #7A5A38;
+
+  --f-head: "Black Han Sans", var(--font-jua, "Jua"), sans-serif;
+  --f-note: "Gaegu", cursive;
+  --f-body: "Gowun Dodum", sans-serif;
+
+  /* 접시 · 얼룩 색 */
+  --dish-color:  #ffffff;
+  --dish-edge:   #d8cbb0;
+  --stain-color: #4a2a1a;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  color: var(--ink);
+  font-family: var(--f-body);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 인트로
+ * ─────────────────────────────────────────────────────────── */
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 32px 24px;
+  background: var(--receipt);
+  border: 2.5px dashed var(--ink);
+  border-radius: 10px;
+}
+.introTitle {
+  font-family: var(--f-head);
+  font-size: 26px;
+  color: var(--brick);
+}
+.introBody {
+  font-family: var(--f-body);
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 460px;
+  text-align: center;
+  margin: 0;
+}
+.introActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 게임 영역
+ * ─────────────────────────────────────────────────────────── */
+
+.gameArea {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * HUD (타이머 + 진행률)
+ * ─────────────────────────────────────────────────────────── */
+
+.hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--pad);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 3px 3px 0 var(--ink);
+  flex: 0 0 auto;
+}
+
+.timer {
+  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--counter);
+  background: rgba(62, 44, 28, 0.08);
+  border: 1.5px solid rgba(62, 44, 28, 0.35);
+  border-radius: 4px;
+  padding: 4px 12px;
+  letter-spacing: 0.5px;
+  min-width: 70px;
+  text-align: center;
+}
+.timerMid {
+  color: #a54a1a;
+  background: rgba(201, 138, 36, 0.18);
+  border-color: rgba(201, 138, 36, 0.55);
+}
+.timerLow {
+  color: #d02b1a;
+  background: rgba(181, 72, 46, 0.2);
+  border-color: rgba(181, 72, 46, 0.65);
+  animation: timerPulse 0.8s ease-in-out infinite;
+}
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1);    opacity: 1;   }
+  50%      { transform: scale(1.08); opacity: 0.7; }
+}
+
+.progress {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.progressLabel {
+  font-family: var(--f-note);
+  font-size: 13px;
+  color: var(--counter);
+  text-align: right;
+}
+.progressBar {
+  height: 10px;
+  background: rgba(62, 44, 28, 0.15);
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brick) 0%, var(--mustard) 100%);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 4px 0 0 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 접시 영역
+ * ─────────────────────────────────────────────────────────── */
+
+.dishArea {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--desk);
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 접시 : 원형, 반응형 (min(80%, 400px)) */
+.dish {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  aspect-ratio: 1 / 1;
+  background:
+    radial-gradient(circle at 32% 28%,
+      #ffffff 0%,
+      #f7f2e6 55%,
+      var(--dish-edge) 100%);
+  border: 4px solid var(--ink);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 -6px 12px rgba(0, 0, 0, 0.08),
+    0 6px 16px rgba(62, 44, 28, 0.25);
+  cursor: none;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow: hidden;
+}
+
+/* 접시 안쪽 얇은 링 (도자기 테두리 느낌) */
+.dish::before {
+  content: "";
+  position: absolute;
+  top: 6%;
+  left: 6%;
+  right: 6%;
+  bottom: 6%;
+  border: 1.5px solid rgba(62, 44, 28, 0.18);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 얼룩 스팟
+ *
+ * 각 스팟은 접시 대비 % 좌표. left · top 은 스팟 중심 기준.
+ * transform 으로 -50% 오프셋해서 중심 정렬.
+ *
+ * cleanliness 는 opacity 로 시각화 (0 → 완전 불투명, 100 → 완전 투명).
+ * transition 으로 지워지는 순간 부드럽게.
+ * ─────────────────────────────────────────────────────────── */
+
+.spot {
+  position: absolute;
+  aspect-ratio: 1 / 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 35%,
+      color-mix(in srgb, var(--stain-color) 82%, black 18%) 0%,
+      var(--stain-color) 50%,
+      color-mix(in srgb, var(--stain-color) 85%, black 15%) 100%);
+  box-shadow: inset 1px 2px 3px rgba(0, 0, 0, 0.3);
+  transition:
+    opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  /* 살짝 자연스러운 얼룩 왜곡 */
+  filter: blur(0.5px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 스펀지 커서
+ *
+ * 접시 위에서만 표시. 드래그 중이면 살짝 흔들림.
+ * ─────────────────────────────────────────────────────────── */
+
+.sponge {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.3));
+  z-index: 10;
+  transition: transform 0.05s linear;
+  will-change: transform;
+}
+
+/* 드래그 중 스펀지가 살짝 흔들리는 애니메이션 */
+.spongeActive {
+  animation: spongeShake 0.18s ease-in-out infinite;
+}
+@keyframes spongeShake {
+  0%   { transform: translate(-50%, -50%) rotate(-8deg); }
+  50%  { transform: translate(-50%, -50%) rotate(8deg);  }
+  100% { transform: translate(-50%, -50%) rotate(-8deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 액션 버튼
+ * ─────────────────────────────────────────────────────────── */
+
+.actionRow {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 4px;
+  flex: 0 0 auto;
+}
+
+.primaryBtn,
+.ghostBtn {
+  font-family: var(--f-note);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 20px;
+  border-radius: 7px;
+  border: 2.5px solid var(--ink);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 0.08s, box-shadow 0.08s;
+  color: var(--ink);
+}
+.primaryBtn { background: var(--brick); color: var(--receipt); }
+.ghostBtn   { background: var(--pad); }
+
+.primaryBtn:hover,
+.ghostBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.primaryBtn:active,
+.ghostBtn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 반응형 (모바일 · 좁은 화면)
+ * ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .hud {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .progressLabel {
+    text-align: left;
+  }
+  .dish {
+    max-width: 320px;
+  }
+  .sponge {
+    font-size: 34px;
+  }
+}

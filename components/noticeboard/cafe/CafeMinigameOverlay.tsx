@@ -32,6 +32,7 @@ import { createPortal } from "react-dom";
 import styles from "./CafeMinigameOverlay.module.css";
 import CafeOrderGame from "./order/CafeOrderGame";
 import CafeMixGame from "./mix/CafeMixGame";
+import CafeDishGame from "./dish/CafeDishGame";
 import {
   getTodayMinigameStatus,
   type CafeMinigameCode,
@@ -232,6 +233,22 @@ export default function CafeMinigameOverlay({
               </span>
             </div>
             <CafeMixGame
+              onExit={() => {
+                setView("home");
+                refreshStatus();
+              }}
+              onPlayed={refreshStatus}
+            />
+          </>
+        ) : view === "cafe_dish" ? (
+          // ── 설거지 (실게임) ─────────────────────────
+          <>
+            <div className={styles.header}>
+              <span className={styles.title}>
+                {activeIcon?.emoji} {activeIcon?.name}
+              </span>
+            </div>
+            <CafeDishGame
               onExit={() => {
                 setView("home");
                 refreshStatus();
