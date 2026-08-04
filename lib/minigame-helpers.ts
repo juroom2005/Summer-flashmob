@@ -233,3 +233,143 @@ export async function playCafeMinigame(
     physicalBonus:         Number(row.physical_bonus ?? 0),
   };
 }
+
+/* ═══════════════════════════════════════════════════════════
+ * 연습실알바 (세션 L)
+ *
+ * 카페 함수와 대칭. 완전 별도 RPC (play_practice_minigame).
+ * 카페 코드는 이 섹션에서 절대 참조하지 않는다.
+ *
+ * 스탯 차이 :
+ *   · 카페      : 주 스탯 = expression (표현력)
+ *   · 연습실    : 주 스탯 = rhythm     (리듬감)
+ *   · 부가 스탯 : 양쪽 모두 physical
+ *
+ * getTodayMinigameStatus 는 카테고리 무관 (카페 + 연습실 통합 카운트) 이므로
+ * 이 섹션에서 별도 정의하지 않고 카페 섹션의 것을 그대로 재사용한다.
+ * normalizePlayError · PLAY_ERROR_MESSAGES 도 재사용 (같은 예외 문자열).
+ * ─────────────────────────────────────────────────────────── */
+
+// 연습실 미니게임 code (seed 와 일치)
+export type PracticeMinigameCode =
+  | "practice_clean"
+  | "practice_stock"
+  | "practice_setup";
+
+// 완주 결과 (play_practice_minigame 반환)
+export type PracticePlayResult =
+  | {
+      ok: true;
+      // 결과 (즉시 화면에 반영할 최종 값)
+      nextMobil:      number;
+      nextRhythmExp:  number;
+      nextPhysicalExp:number;
+      mobilGained:    number;
+      rhythmGained:   number;
+      physicalGained: number;
+      playsToday:     number;
+      playsRemaining: number;
+      // 세부 breakdown (영수증 항목별 표시용)
+      difficulty:            number; // 1|2|3
+      mobilBase:             number;
+      mobilDifficultyBonus:  number;
+      mobilPerfectBonus:     number;
+      rhythmBase:            number;
+      rhythmBonus:           number;
+      physicalBase:          number;
+      physicalBonus:         number;
+    }
+  | { ok: false; reason: string; message: string };
+
+/**
+ * 연습실 미니게임 마스터 3종 조회.
+ * RLS minigames_select_all 로 누구나 조회 가능.
+ * is_active=true 만 · code 오름차순.
+ */
+export async function listPracticeMinigames(): Promise<MinigameRow[]> {
+  const { data, error } = await supabase
+    .from("minigames")
+    .select(
+      "id, code, name, category, subtype, target_stat, base_stat_gain, base_mobil_gain, is_active, metadata"
+    )
+    .eq("category", "practice_room")
+    .eq("is_active", true)
+    .order("code", { ascending: true });
+
+  if (error || !data) {
+    console.error("[listPracticeMinigames] failed:", error?.message);
+    return [];
+  }
+  return data as MinigameRow[];
+}
+
+/**
+ * 연습실 미니게임 완주 결과 제출. RPC play_practice_minigame 호출.
+ *
+ * 서버 처리 (RPC 참고, 카페와 대칭) :
+ *   · 인증 · 미니게임 활성 · score 범위 · 카테고리 검증 ('practice_room')
+ *   · profiles FOR UPDATE 로 유저 단위 직렬화
+ *   · 하루 3회 검증 (카페 + 연습실 통합 카운트, 락 획득 후)
+ *   · mobil 구간표 지급 + 100점 퍼펙트 보너스
+ *     - practice_clean 은 축소 스케일 (별 1 밸런스, 카페 설거지와 동일)
+ *   · 리듬감 exp +5 · 체력 exp +8 (450 상한 clamp)
+ *   · minigame_plays 이력 저장 (target_stat='rhythm')
+ *
+ * 성공 시 window "profile-changed" 이벤트 발행 → 헤더 mobil · 스탯 재조회.
+ *
+ * @param code          연습실 미니게임 code
+ * @param score         0~100 정수 점수
+ * @param resultDetail  게임별 결과 상세. 선택.
+ */
+export async function playPracticeMinigame(
+  code: PracticeMinigameCode,
+  score: number,
+  resultDetail: Record<string, unknown> = {}
+): Promise<PracticePlayResult> {
+  const safeScore = Math.max(0, Math.min(100, Math.round(score)));
+
+  const { data, error } = await supabase.rpc("play_practice_minigame", {
+    p_minigame_code: code,
+    p_score:         safeScore,
+    p_result_detail: resultDetail,
+  });
+
+  if (error) {
+    console.error("[playPracticeMinigame] failed:", error.message);
+    return { ok: false, ...normalizePlayError(error.message) };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return {
+      ok: false,
+      reason: "empty_result",
+      message: "처리 결과를 확인할 수 없습니다. 잠시 후 다시 시도해 주십시오.",
+    };
+  }
+
+  // 프로필 변경 알림 브로드캐스트 (mobil · exp 재조회 유도)
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("profile-changed"));
+  }
+
+  return {
+    ok: true,
+    nextMobil:      Number(row.next_mobil ?? 0),
+    nextRhythmExp:  Number(row.next_rhythm_exp ?? 0),
+    nextPhysicalExp:Number(row.next_physical_exp ?? 0),
+    mobilGained:    Number(row.mobil_gained ?? 0),
+    rhythmGained:   Number(row.rhythm_gained ?? 0),
+    physicalGained: Number(row.physical_gained ?? 0),
+    playsToday:     Number(row.plays_today ?? 0),
+    playsRemaining: Number(row.plays_remaining ?? 0),
+    difficulty:            Number(row.difficulty ?? 1),
+    mobilBase:             Number(row.mobil_base ?? 0),
+    mobilDifficultyBonus:  Number(row.mobil_difficulty_bonus ?? 0),
+    mobilPerfectBonus:     Number(row.mobil_perfect_bonus ?? 0),
+    rhythmBase:            Number(row.rhythm_base ?? 0),
+    rhythmBonus:           Number(row.rhythm_bonus ?? 0),
+    physicalBase:          Number(row.physical_base ?? 0),
+    physicalBonus:         Number(row.physical_bonus ?? 0),
+  };
+}

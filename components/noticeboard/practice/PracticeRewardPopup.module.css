@@ -1,0 +1,352 @@
+/* components/noticeboard/cafe/RewardPopup.module.css
+ *
+ * 미니게임 완주 리워드 팝업. 세 카페 게임 공통.
+ */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 30, 50, 0.72);
+  animation: rpFade 0.2s ease both;
+  padding: 20px;
+}
+
+@keyframes rpFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.card {
+  width: min(420px, 88%);
+  background: linear-gradient(180deg, #fffdf6 0%, #fff4de 100%);
+  border: 3px solid #f0c987;
+  border-radius: 22px;
+  box-shadow: 0 20px 50px rgba(80, 50, 10, 0.4);
+  padding: 26px 26px 22px;
+  text-align: center;
+  animation: rpPop 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@keyframes rpPop {
+  from { transform: scale(0.9) translateY(10px); opacity: 0; }
+  to   { transform: scale(1) translateY(0);      opacity: 1; }
+}
+
+.stamp {
+  font-size: 46px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.headline {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 24px;
+  color: #8a5a12;
+  margin-bottom: 2px;
+}
+
+.scoreLine {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 15px;
+  color: #b0803a;
+  margin-bottom: 16px;
+}
+
+.perfectBadge {
+  display: inline-block;
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 13px;
+  color: #fff;
+  background: linear-gradient(90deg, #ff9a3c, #ff6f91);
+  border-radius: 999px;
+  padding: 3px 12px;
+  margin-bottom: 14px;
+}
+
+/* ── 보상 목록 ─────────────────────────────────────── */
+.rewards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fff;
+  border: 2px solid #f0dcb0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.rewardRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 14px;
+  color: #6a5a3a;
+}
+
+.rewardLabel {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.rewardValue {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 15px;
+  color: #c8811f;
+}
+
+.rewardValue.mobil {
+  color: #1f9d55;
+}
+
+/* ── 남은 횟수 ─────────────────────────────────────── */
+.remainNote {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 12.5px;
+  color: #9a7c4a;
+  margin-bottom: 16px;
+}
+
+/* ── 버튼 ─────────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.btn {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 15px;
+  border-radius: 999px;
+  padding: 10px 22px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.14s, background 0.14s;
+}
+.btn:hover { transform: translateY(-2px); }
+
+.btnPrimary {
+  background: linear-gradient(90deg, #ffb347, #ff9a3c);
+  color: #fff;
+}
+
+.btnGhost {
+  background: #fff;
+  border-color: #f0c987;
+  color: #a5701c;
+}
+
+.btnGhost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── 에러 상태 ─────────────────────────────────────── */
+.errorBox {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 14px;
+  color: #c0392b;
+  background: #fdecea;
+  border: 1.5px solid #f5b7b1;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 성공 리워드 : POS 프린터에서 영수증이 인쇄되어 나오는 연출
+ * ─────────────────────────────────────────────────────────── */
+
+.printerFrame {
+  position: relative;
+  width: min(360px, 92vw);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 프린터 상단 슬롯 (종이 나오는 홈) */
+.printerSlot {
+  position: relative;
+  height: 22px;
+  background: linear-gradient(180deg, #2a2f36 0%, #1a1e24 100%);
+  border-radius: 10px 10px 4px 4px;
+  border: 2px solid #0d1015;
+  border-bottom: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4),
+              inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  z-index: 2;
+}
+.printerSlot::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 2px;
+  height: 4px;
+  background: #050709;
+  border-radius: 2px;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.9);
+}
+
+/* 영수증 전체: clip-path 로 위→아래 인쇄 애니메이션 */
+.receipt {
+  position: relative;
+  color: #fafaf5;   /* SVG currentColor 참조용 (하단 톱니 색) */
+  animation:
+    printOut 0.9s cubic-bezier(0.22, 0.7, 0.3, 1) 0.15s both,
+    settle 0.4s ease-out 1.05s both;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes printOut {
+  from { clip-path: inset(0 0 100% 0); transform: translateY(-16px); }
+  to   { clip-path: inset(0 0 0 0);    transform: translateY(0); }
+}
+@keyframes settle {
+  0%   { transform: translateY(0)    rotate(0); }
+  30%  { transform: translateY(-3px) rotate(-0.5deg); }
+  65%  { transform: translateY(0)    rotate(0.3deg); }
+  100% { transform: translateY(0)    rotate(0); }
+}
+
+.receiptBody {
+  background: #fafaf5;
+  padding: 20px 24px 6px;
+  font-family: "Courier New", "Consolas", monospace;
+  color: #1e1a15;
+}
+
+.receiptContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.receiptTitle {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 3px;
+  margin-bottom: 2px;
+}
+.receiptSubtitle {
+  font-size: 12px;
+  text-align: center;
+  letter-spacing: 2px;
+  color: #4a4238;
+  margin-bottom: 10px;
+}
+.receiptMeta {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.receiptMeta > div {
+  display: flex;
+  justify-content: space-between;
+  margin: 2px 0;
+}
+.receiptDivider {
+  text-align: center;
+  font-size: 11px;
+  color: #7a7166;
+  letter-spacing: 3px;
+  margin: 6px 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.receiptDividerHeavy {
+  text-align: center;
+  font-size: 12px;
+  color: #1e1a15;
+  letter-spacing: 1px;
+  margin: 6px 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-weight: 700;
+}
+.receiptScore {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 4px 0;
+}
+.receiptScoreLabel {
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+.receiptScoreValue {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.receiptPerfect {
+  text-align: center;
+  font-size: 13px;
+  color: #b2261f;
+  letter-spacing: 5px;
+  margin: 4px 0 6px;
+  font-weight: 700;
+  border: 2px solid #b2261f;
+  padding: 3px 8px;
+  transform: rotate(-2deg);
+  align-self: center;
+}
+.receiptRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin: 2px 0;
+}
+.receiptTotal {
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 4px;
+}
+.receiptFooter {
+  text-align: center;
+  font-size: 14px;
+  letter-spacing: 4px;
+  margin: 8px 0 2px;
+  font-weight: 700;
+}
+.receiptRemain {
+  text-align: center;
+  font-size: 11px;
+  color: #6a6258;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+/* 하단 톱니 (SVG). currentColor 로 종이와 같은 색 유지. */
+.receiptTeeth {
+  display: block;
+  width: 100%;
+  height: 10px;
+}
+
+/* 인쇄 완료 후 페이드인되는 액션 버튼 영역 */
+.receiptActions {
+  margin-top: 22px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  opacity: 0;
+  animation: actionsIn 0.32s ease 1.35s forwards;
+}
+@keyframes actionsIn {
+  to { opacity: 1; }
+}
+
+/* 프린터 + 액션을 세로 스택으로 감쌈 (backdrop 이 flex center 라 필요) */
+.receiptStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
