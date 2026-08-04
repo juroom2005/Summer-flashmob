@@ -3,35 +3,30 @@
 // 연습실 청소 (practice_clean) 미니게임 본체
 // ═══════════════════════════════════════════════════════════════════
 //
-// 카페 CafeDishGame 을 복제해서 신설.
-// 안정성 원칙 상 카페 컴포넌트는 참조·수정하지 않는다.
-//
-// 카페 설거지와 다른 점 :
-//   · 도메인 : 접시 → 연습실 바닥 (사각형)
-//   · 도구   : 스펀지 🧽 → 대걸레 🧹
-//   · 얼룩   : 어두운 갈색 (요리 얼룩) → 회갈색 (먼지 뭉치)
-//   · 서버   : playCafeMinigame("cafe_dish") → playPracticeMinigame("practice_clean")
-//   · 팝업   : RewardPopup → PracticeRewardPopup (리듬감 EXP 표기)
-//   · 문구   : "카페로" → "연습실로"
-//
-// 규칙 (완전 동일, cleanData 상수 그대로 재사용) :
-//   · 15초 안에 드래그로 문질러 먼지 지우기
-//   · 스팟 위 재진입 시 청결도 +70 (2번 지나가야 완전 소멸)
-//   · 모든 스팟 청결 → 조기 종료 · 자동 채점
-//   · 시간 초과 → 자동 채점 (지금까지 상태로)
-//   · 채점 : 비율 감산 (cleaned / total × 100) + 시간 보너스 (0~10) · 100 캡
-//   · 별 1 · 난이도 가산 없음
+// 게임 방식 (세션 L 재설계) :
+//   · 연습실 바닥에 쓰레기 5~7개 랜덤 배치
+//   · 하단 오른쪽 코너에 쓰레기통 고정
+//   · 유저가 쓰레기를 드래그해서 쓰레기통에 드롭 → 수거
+//   · 쓰레기통 밖에서 드롭 → 놓은 위치에 그대로 남음 (재시도 가능, 관대함)
+//   · 20초 안에 최대한 많이 수거
+//   · 모든 쓰레기 수거 → 조기 종료 · 자동 채점
+//   · 시간 초과 → 자동 채점
+//   · 별 1 · 난이도 가산 없음 (RPC 축소 스케일 자동 처리)
 //
 // 조작 (Pointer Events, 마우스·터치 통합) :
-//   · pointerdown  → 드래그 시작
-//   · pointermove  → 바닥 % 좌표로 변환 → 각 스팟에 대해 재진입 감지
-//   · pointerup / pointerleave / pointercancel → 드래그 종료 · inside ref 리셋
+//   · pointerdown : findPickupTarget → 대상 있으면 picked_up 상태로 · draggingId 저장
+//   · pointermove : 커서 위치 갱신 + 드래그 중 아이템 위치를 커서로
+//   · pointerup   : isOverBin 판정
+//                    → 통 안이면 in_bin (수거 완료, 화면에서 숨김)
+//                    → 통 밖이면 idle 복귀 (놓은 위치에 남음)
+//   · pointercancel / pointerleave : pointerup 과 동일 처리
 //
 // 안정성 :
 //   · submitLock 으로 중복 제출 방어
 //   · 언마운트 시 타이머 정리
 //   · touchAction: none 으로 모바일 스크롤 방해 방지
 //   · setState 콜백 안 부작용 금지 (StrictMode 대응, v12 §7-1 교훈)
+//     · 드롭 판정은 setState 밖에서 미리 계산, 이후 setItems 한 번만 호출
 
 "use client";
 
@@ -49,13 +44,18 @@ import {
   type PracticePlayResult,
 } from "@/lib/minigame-helpers";
 import {
-  generateSpots,
-  isInsideSpot,
-  isAllClean,
+  generateTrashItems,
+  findPickupTarget,
+  isOverBin,
+  isAllCollected,
   calculateFinalScore,
-  SCRUB_DAMAGE,
   TIME_LIMIT_SEC,
-  type CleanSpot,
+  BIN_CENTER_X,
+  BIN_CENTER_Y,
+  BIN_HALF_W,
+  BIN_HALF_H,
+  TRASH_EMOJI,
+  type TrashItem,
 } from "./cleanData";
 
 type Phase = "intro" | "playing" | "submitting" | "done";
@@ -66,23 +66,19 @@ type Props = {
 };
 
 export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
-  const [phase, setPhase]                     = useState<Phase>("intro");
-  const [spots, setSpots]                     = useState<CleanSpot[]>([]);
-  const [remainingSec, setRemainingSec]       = useState(TIME_LIMIT_SEC);
-  const [finalScore, setFinalScore]           = useState(0);
-  const [accuracyScore, setAccuracyScore]     = useState(0);
-  const [timeBonus, setTimeBonus]             = useState(0);
-  const [result, setResult]                   = useState<PracticePlayResult | null>(null);
+  const [phase, setPhase]                 = useState<Phase>("intro");
+  const [items, setItems]                 = useState<TrashItem[]>([]);
+  const [remainingSec, setRemainingSec]   = useState(TIME_LIMIT_SEC);
+  const [finalScore, setFinalScore]       = useState(0);
+  const [result, setResult]               = useState<PracticePlayResult | null>(null);
 
   // 드래그 · 커서 상태
-  const [dragging, setDragging]     = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [cursorPos, setCursorPos]   = useState<{ x: number; y: number } | null>(null);
 
-  const submitLock       = useRef(false);
-  const gameTimer        = useRef<ReturnType<typeof setInterval> | null>(null);
-  const floorRef         = useRef<HTMLDivElement | null>(null);
-  // 각 스팟의 이전 프레임 inside 상태 (재진입 감지용)
-  const spotInsideRef    = useRef<Record<string, boolean>>({});
+  const submitLock = useRef(false);
+  const gameTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const floorRef   = useRef<HTMLDivElement | null>(null);
 
   /* ═══════════════════════════════════════════════
    * 타이머 헬퍼
@@ -100,16 +96,13 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
    * ─────────────────────────────────────────────── */
 
   const startGame = useCallback(() => {
-    const fresh = generateSpots();
-    setSpots(fresh);
+    const fresh = generateTrashItems();
+    setItems(fresh);
     setRemainingSec(TIME_LIMIT_SEC);
     setFinalScore(0);
-    setAccuracyScore(0);
-    setTimeBonus(0);
     setResult(null);
-    setDragging(false);
+    setDraggingId(null);
     setCursorPos(null);
-    spotInsideRef.current = {};
     submitLock.current = false;
     setPhase("playing");
 
@@ -124,7 +117,7 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
    * 완성 → 채점 → 제출
    *
    * 두 진입점 통합 :
-   *   · 조기 종료 (isAllClean === true)
+   *   · 조기 종료 (isAllCollected === true)
    *   · 시간 초과 (remainingSec === 0)
    *
    * submitLock 으로 중복 방어.
@@ -138,26 +131,24 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
     clearGameTimer();
 
     // 드래그 상태도 종료
-    setDragging(false);
+    setDraggingId(null);
     setCursorPos(null);
 
-    const score = calculateFinalScore(spots, remainingSec);
+    const score = calculateFinalScore(items, remainingSec);
 
-    setAccuracyScore(score.accuracyScore);
-    setTimeBonus(score.timeBonus);
     setFinalScore(score.finalScore);
     setPhase("submitting");
     setResult(null);
 
     const detail = {
-      total_spots:     score.totalSpots,
-      cleaned_spots:   score.cleanedSpots,
-      remaining_spots: score.remainingSpots,
+      total_items:     score.totalItems,
+      collected_items: score.collectedItems,
+      remaining_items: score.remainingItems,
       accuracy_score:  score.accuracyScore,
       time_bonus:      score.timeBonus,
       remaining_sec:   remainingSec,
       time_out:        remainingSec === 0,
-      cleared_early:   score.remainingSpots === 0 && remainingSec > 0,
+      cleared_early:   score.remainingItems === 0 && remainingSec > 0,
     };
 
     const res = await playPracticeMinigame("practice_clean", score.finalScore, detail);
@@ -165,7 +156,7 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
     setPhase("done");
     onPlayed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spots, remainingSec, onPlayed, clearGameTimer]);
+  }, [items, remainingSec, onPlayed, clearGameTimer]);
 
   /* 시간 초과 자동 채점 */
   useEffect(() => {
@@ -174,12 +165,12 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
     }
   }, [phase, remainingSec, finalizeAndSubmit]);
 
-  /* 조기 종료 : 모든 스팟 청결 시 즉시 채점 */
+  /* 조기 종료 : 모든 쓰레기 수거 시 즉시 채점 */
   useEffect(() => {
-    if (phase === "playing" && spots.length > 0 && isAllClean(spots)) {
+    if (phase === "playing" && items.length > 0 && isAllCollected(items)) {
       finalizeAndSubmit();
     }
-  }, [phase, spots, finalizeAndSubmit]);
+  }, [phase, items, finalizeAndSubmit]);
 
   /* 언마운트 시 타이머 정리 */
   useEffect(() => {
@@ -201,7 +192,6 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
    * 드래그 처리 (Pointer Events)
    *
    * 마우스 · 터치 통합. touch-action: none 으로 모바일 스크롤 방지.
-   * 바닥 밖으로 나가면 (pointerleave) 드래그 종료 · inside 리셋.
    * ─────────────────────────────────────────────── */
 
   /**
@@ -220,68 +210,84 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
     return { x, y };
   };
 
-  /**
-   * 재진입 감지 → 청결도 증가.
-   * StrictMode 안전 : setState 콜백 안에 부작용 넣지 않음 (v12 §7-1 교훈).
-   * 부작용 (spotInsideRef mutation · hit 판정) 은 setState 밖에서 한 번만 수행.
-   */
-  const scrubAtPosition = useCallback((x: number, y: number) => {
-    const hits: string[] = [];
-    spots.forEach((s) => {
-      const wasInside = spotInsideRef.current[s.id] ?? false;
-      const nowInside = isInsideSpot(s, x, y);
-      spotInsideRef.current[s.id] = nowInside;
-      if (s.cleanliness >= 100) return;
-      if (!wasInside && nowInside) hits.push(s.id);
-    });
-
-    if (hits.length === 0) return;
-
-    setSpots((prev: CleanSpot[]) =>
-      prev.map((s) =>
-        hits.includes(s.id)
-          ? { ...s, cleanliness: Math.min(100, s.cleanliness + SCRUB_DAMAGE) }
-          : s
-      )
-    );
-  }, [spots]);
-
   const handlePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (phase !== "playing") return;
-    setDragging(true);
     const pos = toFloorPercent(e.clientX, e.clientY);
-    if (pos) {
-      setCursorPos(pos);
-      scrubAtPosition(pos.x, pos.y);
-    }
+    if (!pos) return;
+    setCursorPos(pos);
+
+    // 쓰레기통 위에서 pointerdown → 무시 (드래그 시작 안 함)
+    if (isOverBin(pos.x, pos.y)) return;
+
+    const targetId = findPickupTarget(items, pos.x, pos.y);
+    if (!targetId) return;
+
+    setDraggingId(targetId);
+    // 아이템 상태를 picked_up 로, 위치도 커서 위치로 초기 스냅
+    setItems((prev: TrashItem[]) =>
+      prev.map((it) =>
+        it.id === targetId
+          ? { ...it, status: "picked_up", x: pos.x, y: pos.y }
+          : it
+      )
+    );
   };
 
   const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (phase !== "playing") return;
-    if (!dragging) {
-      // 드래그 중이 아니어도 커서 위치는 갱신 (대걸레 아이콘 위치 표시용)
-      const pos = toFloorPercent(e.clientX, e.clientY);
-      if (pos) setCursorPos(pos);
-      return;
-    }
     const pos = toFloorPercent(e.clientX, e.clientY);
-    if (pos) {
-      setCursorPos(pos);
-      scrubAtPosition(pos.x, pos.y);
+    if (!pos) return;
+    setCursorPos(pos);
+
+    // 드래그 중이면 해당 아이템 위치를 커서로 갱신
+    if (draggingId) {
+      setItems((prev: TrashItem[]) =>
+        prev.map((it) =>
+          it.id === draggingId ? { ...it, x: pos.x, y: pos.y } : it
+        )
+      );
     }
   };
 
-  const endDrag = () => {
-    setDragging(false);
-    // 모든 스팟 inside 상태 초기화 → 다시 진입 시 재진입으로 인식
-    spotInsideRef.current = {};
+  /**
+   * 드롭 처리. pointerup · pointercancel · pointerleave 통합.
+   * · draggingId 있는 상태에서만 드롭 판정
+   * · 통 안이면 in_bin, 밖이면 idle 복귀 (놓은 위치 유지)
+   */
+  const finalizeDrop = useCallback((cursorX: number | null, cursorY: number | null) => {
+    if (!draggingId) return;
+
+    // 커서 위치 없으면 (예: pointerleave 후) 안전하게 아이템 마지막 x/y 로 판정
+    const currentItem = items.find((it) => it.id === draggingId);
+    const finalX = cursorX ?? currentItem?.x ?? 0;
+    const finalY = cursorY ?? currentItem?.y ?? 0;
+    const success = isOverBin(finalX, finalY);
+
+    setItems((prev: TrashItem[]) =>
+      prev.map((it) =>
+        it.id === draggingId
+          ? success
+            ? { ...it, status: "in_bin" }
+            : { ...it, status: "idle" }  // 놓은 위치에 그대로 남음 (관대함)
+          : it
+      )
+    );
+    setDraggingId(null);
+  }, [draggingId, items]);
+
+  const handlePointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (phase !== "playing") return;
+    const pos = toFloorPercent(e.clientX, e.clientY);
+    finalizeDrop(pos?.x ?? null, pos?.y ?? null);
   };
 
-  const handlePointerUp     = () => endDrag();
-  const handlePointerCancel = () => endDrag();
-  const handlePointerLeave  = () => {
-    // 바닥 밖으로 나가면 드래그 종료 + 커서 표시 감춤
-    endDrag();
+  const handlePointerCancel = () => {
+    finalizeDrop(null, null);
+  };
+
+  const handlePointerLeave = () => {
+    // 바닥 밖으로 나가면 드롭 (실패 처리 · 마지막 위치에 남김)
+    finalizeDrop(null, null);
     setCursorPos(null);
   };
 
@@ -295,9 +301,9 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
         <div className={styles.intro}>
           <div className={styles.introTitle}>🧹 연습실 청소</div>
           <p className={styles.introBody}>
-            연습실 바닥에 쌓인 먼지 뭉치를 시간 안에 문질러 지우십시오. 대걸레로
-            먼지 위를 두 번 지나가면 완전히 사라집니다. 15초 안에 모든 먼지를
-            치우면 조기 종료됩니다.
+            연습실 바닥에 놓인 쓰레기를 잡아 오른쪽 아래 쓰레기통에 넣어 주십시오.
+            드래그해서 통 안에 놓으면 수거됩니다. 20초 안에 최대한 많이 치우면
+            됩니다. 통 밖에 놓아도 다시 잡을 수 있습니다.
           </p>
           <div className={styles.introActions}>
             <button className={styles.primaryBtn} onClick={startGame}>
@@ -316,15 +322,24 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
    * 렌더 : playing / submitting / done
    * ─────────────────────────────────────────────── */
 
-  const totalSpots     = spots.length;
-  const cleanedSpots   = spots.filter((s) => s.cleanliness >= 100).length;
-  const progressPct    = totalSpots === 0 ? 0 : (cleanedSpots / totalSpots) * 100;
+  const totalItems     = items.length;
+  const collectedItems = items.filter((it) => it.status === "in_bin").length;
+  const progressPct    = totalItems === 0 ? 0 : (collectedItems / totalItems) * 100;
   const lowTime        = remainingSec <= 5;
   const midTime        = remainingSec <= 10 && !lowTime;
   const timerClass     =
     lowTime ? `${styles.timer} ${styles.timerLow}` :
     midTime ? `${styles.timer} ${styles.timerMid}` :
               styles.timer;
+
+  // 드래그 중 커서가 통 위에 있으면 하이라이트
+  const binHover =
+    draggingId !== null &&
+    cursorPos !== null &&
+    isOverBin(cursorPos.x, cursorPos.y);
+  const binClass = binHover
+    ? `${styles.bin} ${styles.binHover}`
+    : styles.bin;
 
   return (
     <div className={styles.wrap}>
@@ -334,7 +349,7 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
           <div className={timerClass}>⏱ {remainingSec}s</div>
           <div className={styles.progress}>
             <div className={styles.progressLabel}>
-              치운 먼지 {cleanedSpots} / {totalSpots}
+              수거한 쓰레기 {collectedItems} / {totalItems}
             </div>
             <div className={styles.progressBar}>
               <div
@@ -357,38 +372,41 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
             onPointerCancel={handlePointerCancel}
             onPointerLeave={handlePointerLeave}
           >
-            {/* 먼지 스팟들 */}
-            {spots.map((spot) => (
-              <div
-                key={spot.id}
-                className={styles.spot}
-                style={{
-                  left:    `${spot.x}%`,
-                  top:     `${spot.y}%`,
-                  width:   `${spot.size}%`,
-                  opacity: 1 - spot.cleanliness / 100,
-                }}
-                aria-hidden
-              />
-            ))}
+            {/* 쓰레기통 (고정 위치 · 사각형 목표 영역) */}
+            <div
+              className={binClass}
+              style={{
+                left:   `${BIN_CENTER_X}%`,
+                top:    `${BIN_CENTER_Y}%`,
+                width:  `${BIN_HALF_W * 2}%`,
+                height: `${BIN_HALF_H * 2}%`,
+              }}
+              aria-hidden
+            >
+              <span className={styles.binEmoji}>🗑️</span>
+            </div>
 
-            {/* 대걸레 커서 (마우스가 바닥 위에 있을 때만) */}
-            {cursorPos ? (
-              <span
-                className={
-                  dragging
-                    ? `${styles.mop} ${styles.mopActive}`
-                    : styles.mop
-                }
-                style={{
-                  left: `${cursorPos.x}%`,
-                  top:  `${cursorPos.y}%`,
-                }}
-                aria-hidden
-              >
-                🧹
-              </span>
-            ) : null}
+            {/* 쓰레기 아이템들 (in_bin 은 렌더 안 함) */}
+            {items.map((it) => {
+              if (it.status === "in_bin") return null;
+              const cls =
+                it.status === "picked_up"
+                  ? `${styles.trash} ${styles.trashPicked}`
+                  : styles.trash;
+              return (
+                <span
+                  key={it.id}
+                  className={cls}
+                  style={{
+                    left: `${it.x}%`,
+                    top:  `${it.y}%`,
+                  }}
+                  aria-hidden
+                >
+                  {TRASH_EMOJI[it.kind]}
+                </span>
+              );
+            })}
           </div>
         </div>
       </div>
