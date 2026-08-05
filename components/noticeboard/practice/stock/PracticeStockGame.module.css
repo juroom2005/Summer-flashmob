@@ -1,0 +1,471 @@
+/* components/noticeboard/practice/stock/PracticeStockGame.module.css
+ * ─────────────────────────────────────────────────────────────
+ * 시안 2b — 빈티지 카페 · 크래프트 톤 (연습실 재고 정리)
+ *
+ * 레이아웃 :
+ *   .wrap       : column flex (HUD → 보드 → 액션)
+ *   .board      : 좌우 2단 (창고 | 선반)
+ *   .warehouse  : 좌측, 5종 박스 그리드
+ *   .shelf      : 우측, 슬롯 세로 나열
+ *   .dragBox    : 드래그 중인 박스 (absolute, pointer-events: none)
+ *
+ * 박스 : 크래프트 종이 상자 느낌. 이모지 스티커 위에.
+ * 슬롯 : 선반 칸. 완료/hover-valid/hover-invalid 색상 분기.
+ */
+
+.wrap {
+  --ink:     #3E2C1C;
+  --paper:   #E0CFA8;
+  --pad:     #F1E4C6;
+  --desk:    #D6BF98;
+  --brick:   #B5482E;
+  --mustard: #C98A24;
+  --receipt: #FBF3DE;
+  --counter: #7A5A38;
+
+  --f-head: "Black Han Sans", var(--font-jua, "Jua"), sans-serif;
+  --f-note: "Gaegu", cursive;
+  --f-body: "Gowun Dodum", sans-serif;
+
+  /* 박스 · 슬롯 색 */
+  --box-fill:       #c9a878;   /* 크래프트 종이 상자 톤 */
+  --box-edge:       #8a6a3c;
+  --box-shadow:     rgba(62, 44, 28, 0.35);
+
+  --slot-bg:        #f1e4c6;
+  --slot-done-bg:   #a7d6a7;
+  --slot-done-edge: #4a7a3e;
+  --slot-hover-ok-bg:   #fde79f;
+  --slot-hover-ok-edge: #b5842e;
+  --slot-hover-no-bg:   #efb8a8;
+  --slot-hover-no-edge: #a84838;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  color: var(--ink);
+  font-family: var(--f-body);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 인트로
+ * ─────────────────────────────────────────────────────────── */
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 32px 24px;
+  background: var(--receipt);
+  border: 2.5px dashed var(--ink);
+  border-radius: 10px;
+}
+.introTitle {
+  font-family: var(--f-head);
+  font-size: 26px;
+  color: var(--brick);
+}
+.introBody {
+  font-family: var(--f-body);
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 460px;
+  text-align: center;
+  margin: 0;
+}
+.introActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 게임 영역
+ * ─────────────────────────────────────────────────────────── */
+
+.gameArea {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * HUD
+ * ─────────────────────────────────────────────────────────── */
+
+.hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--pad);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow: 3px 3px 0 var(--ink);
+  flex: 0 0 auto;
+}
+
+.timer {
+  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--counter);
+  background: rgba(62, 44, 28, 0.08);
+  border: 1.5px solid rgba(62, 44, 28, 0.35);
+  border-radius: 4px;
+  padding: 4px 12px;
+  letter-spacing: 0.5px;
+  min-width: 70px;
+  text-align: center;
+}
+.timerMid {
+  color: #a54a1a;
+  background: rgba(201, 138, 36, 0.18);
+  border-color: rgba(201, 138, 36, 0.55);
+}
+.timerLow {
+  color: #d02b1a;
+  background: rgba(181, 72, 46, 0.2);
+  border-color: rgba(181, 72, 46, 0.65);
+  animation: timerPulse 0.8s ease-in-out infinite;
+}
+@keyframes timerPulse {
+  0%, 100% { transform: scale(1);    opacity: 1;   }
+  50%      { transform: scale(1.08); opacity: 0.7; }
+}
+
+.progress {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.progressLabel {
+  font-family: var(--f-note);
+  font-size: 13px;
+  color: var(--counter);
+  text-align: right;
+}
+.progressBar {
+  height: 10px;
+  background: rgba(62, 44, 28, 0.15);
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brick) 0%, var(--mustard) 100%);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 4px 0 0 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 보드 (좌우 2단)
+ * ─────────────────────────────────────────────────────────── */
+
+.board {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  background: var(--desk);
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 창고 (좌)
+ * ─────────────────────────────────────────────────────────── */
+
+.warehouse {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.warehouseTitle,
+.shelfTitle {
+  font-family: var(--f-head);
+  font-size: 16px;
+  color: var(--brick);
+  padding: 4px 10px;
+  border-bottom: 2px solid var(--ink);
+  letter-spacing: 1px;
+  flex: 0 0 auto;
+}
+
+.warehouseGrid {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-rows: min-content;
+  gap: 10px;
+  padding: 4px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 창고 박스 : 크래프트 종이 상자 */
+.warehouseBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px 8px 6px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--box-fill) 90%, white 10%) 0%,
+      var(--box-fill) 50%,
+      color-mix(in srgb, var(--box-fill) 85%, black 15%) 100%);
+  border: 2.5px solid var(--box-edge);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 -3px 6px rgba(0, 0, 0, 0.12),
+    2px 3px 0 var(--box-shadow);
+  cursor: grab;
+  position: relative;
+  transition: transform 0.08s, box-shadow 0.08s;
+  touch-action: none;
+}
+
+/* 뚜껑 라인 (상단) */
+.warehouseBox::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 1px;
+}
+
+.warehouseBox:hover {
+  transform: translate(-1px, -1px);
+  box-shadow:
+    inset 0 -3px 6px rgba(0, 0, 0, 0.12),
+    3px 4px 0 var(--box-shadow);
+}
+.warehouseBox:active {
+  transform: translate(1px, 1px);
+  box-shadow:
+    inset 0 -3px 6px rgba(0, 0, 0, 0.12),
+    1px 1px 0 var(--box-shadow);
+  cursor: grabbing;
+}
+
+.boxEmoji {
+  font-size: 32px;
+  line-height: 1;
+  filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.2));
+}
+
+.boxLabel {
+  font-family: var(--f-note);
+  font-size: 12px;
+  color: var(--ink);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 선반 (우)
+ * ─────────────────────────────────────────────────────────── */
+
+.shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.shelfSlots {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 4px;
+  min-height: 0;
+}
+
+/* 슬롯 : 선반 한 칸 */
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--slot-bg);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 -2px 4px rgba(0, 0, 0, 0.08),
+    2px 2px 0 var(--box-shadow);
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+  position: relative;
+}
+
+.slotEmoji {
+  font-size: 26px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.slotQty {
+  flex: 1 1 auto;
+  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.5px;
+}
+
+.slotCheck {
+  font-size: 18px;
+  color: var(--slot-done-edge);
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+
+/* 완료 슬롯 */
+.slotDone {
+  background: var(--slot-done-bg);
+  border-color: var(--slot-done-edge);
+}
+
+/* hover : 옳은 품목 (드롭 가능) */
+.slotHoverValid {
+  background: var(--slot-hover-ok-bg);
+  border-color: var(--slot-hover-ok-edge);
+  transform: translate(-1px, -1px);
+  box-shadow:
+    inset 0 -2px 4px rgba(0, 0, 0, 0.08),
+    3px 3px 0 var(--box-shadow),
+    0 0 10px rgba(255, 210, 100, 0.6);
+}
+
+/* hover : 잘못된 품목 or 이미 완료 (드롭 실패 예고) */
+.slotHoverInvalid {
+  background: var(--slot-hover-no-bg);
+  border-color: var(--slot-hover-no-edge);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 드래그 중인 박스 (커서 따라감)
+ *
+ * 반드시 pointer-events: none — elementFromPoint 가 자기 자신을
+ * 반환하지 않도록. 슬롯 히트 검출을 위해 필수.
+ * ─────────────────────────────────────────────────────────── */
+
+.dragBox {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(1.1);
+  padding: 8px 6px 6px 6px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--box-fill) 90%, white 10%) 0%,
+      var(--box-fill) 50%,
+      color-mix(in srgb, var(--box-fill) 85%, black 15%) 100%);
+  border: 2.5px solid var(--box-edge);
+  border-radius: 6px;
+  box-shadow:
+    inset 0 -3px 6px rgba(0, 0, 0, 0.12),
+    3px 5px 8px rgba(0, 0, 0, 0.35),
+    0 0 8px rgba(255, 220, 130, 0.5);
+  pointer-events: none;
+  z-index: 100;
+  will-change: left, top;
+  /* 드래그 중 살짝 흔들림 */
+  animation: dragWobble 0.35s ease-in-out infinite;
+}
+@keyframes dragWobble {
+  0%   { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); }
+  50%  { transform: translate(-50%, -50%) scale(1.1) rotate(3deg);  }
+  100% { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 액션 버튼
+ * ─────────────────────────────────────────────────────────── */
+
+.actionRow {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding-top: 4px;
+  flex: 0 0 auto;
+}
+
+.primaryBtn,
+.ghostBtn {
+  font-family: var(--f-note);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 20px;
+  border-radius: 7px;
+  border: 2.5px solid var(--ink);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--ink);
+  transition: transform 0.08s, box-shadow 0.08s;
+  color: var(--ink);
+}
+.primaryBtn { background: var(--brick); color: var(--receipt); }
+.ghostBtn   { background: var(--pad); }
+
+.primaryBtn:hover,
+.ghostBtn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.primaryBtn:active,
+.ghostBtn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 반응형
+ * ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+  .hud {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .progressLabel {
+    text-align: left;
+  }
+  .board {
+    grid-template-columns: 1fr;
+    grid-auto-rows: min-content;
+  }
+  .warehouseGrid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .warehouseBox {
+    padding: 8px 4px 6px 4px;
+  }
+  .boxEmoji {
+    font-size: 24px;
+  }
+  .boxLabel {
+    font-size: 11px;
+  }
+  .shelfSlots {
+    max-height: 220px;
+  }
+}

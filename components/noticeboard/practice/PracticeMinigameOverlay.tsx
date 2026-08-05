@@ -29,6 +29,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import styles from "./PracticeMinigameOverlay.module.css";
 import PracticeCleanGame from "./clean/PracticeCleanGame";
+import PracticeStockGame from "./stock/PracticeStockGame";
 import {
   getTodayMinigameStatus,
   type PracticeMinigameCode,
@@ -220,8 +221,24 @@ export default function PracticeMinigameOverlay({
               onPlayed={refreshStatus}
             />
           </>
+        ) : view === "practice_stock" ? (
+          // ── 재고 정리 (실게임) ───────────────────────
+          <>
+            <div className={styles.header}>
+              <span className={styles.title}>
+                {activeIcon?.emoji} {activeIcon?.name}
+              </span>
+            </div>
+            <PracticeStockGame
+              onExit={() => {
+                setView("home");
+                refreshStatus();
+              }}
+              onPlayed={refreshStatus}
+            />
+          </>
         ) : (
-          // ── 게임 화면 (미구현 게임 placeholder : stock · setup) ─────
+          // ── 게임 화면 (미구현 게임 placeholder : setup) ─────
           <>
             <div className={styles.header}>
               <span className={styles.title}>
