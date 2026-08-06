@@ -373,31 +373,37 @@ export default function PracticeStockGame({ onExit, onPlayed }: Props) {
             </div>
           </div>
 
-          {/* 선반 */}
-          <div className={styles.shelf}>
-            <div className={styles.shelfTitle}>선반</div>
-            <div className={styles.shelfSlots}>
+          {/* 캐비닛 (선반장) : 프레임 안 여러 선반 칸 세로 나열 */}
+          <div className={styles.cabinet}>
+            <div className={styles.cabinetTitle}>선반</div>
+            <div className={styles.cabinetInterior}>
               {slots.map((slot: StockSlot) => {
                 const done   = slot.currentQty >= slot.targetQty;
                 const isHover =
                   draggingBox !== null &&
                   hoverSlotId === slot.id;
-                // hover 상태에서 옳은 품목인지 여부로 색상 분기
                 const validHover =
                   isHover &&
                   !done &&
                   draggingBox?.itemKey === slot.itemKey;
                 const invalidHover =
                   isHover &&
-                  !validHover;  // 잘못된 품목 or 이미 완료 슬롯
+                  !validHover;
 
                 const cls = done
-                  ? `${styles.slot} ${styles.slotDone}`
+                  ? `${styles.cabinetShelf} ${styles.shelfDone}`
                   : validHover
-                  ? `${styles.slot} ${styles.slotHoverValid}`
+                  ? `${styles.cabinetShelf} ${styles.shelfHoverValid}`
                   : invalidHover
-                  ? `${styles.slot} ${styles.slotHoverInvalid}`
-                  : styles.slot;
+                  ? `${styles.cabinetShelf} ${styles.shelfHoverInvalid}`
+                  : styles.cabinetShelf;
+
+                // 목표 개수만큼 박스 자리를 가로로 나열.
+                // 왼쪽부터 채워짐 (currentQty 개까지 실 박스, 나머지 빈 자리)
+                const boxSlots = Array.from({ length: slot.targetQty }, (_, i: number) => ({
+                  filled: i < slot.currentQty,
+                  key:    `${slot.id}_box_${i}`,
+                }));
 
                 return (
                   <div
@@ -405,15 +411,38 @@ export default function PracticeStockGame({ onExit, onPlayed }: Props) {
                     data-slot-id={slot.id}
                     className={cls}
                   >
-                    <span className={styles.slotEmoji}>
-                      {STOCK_EMOJI[slot.itemKey]}
-                    </span>
-                    <span className={styles.slotQty}>
-                      {slot.currentQty} / {slot.targetQty}
-                    </span>
-                    {done ? (
-                      <span className={styles.slotCheck}>✓</span>
-                    ) : null}
+                    <div className={styles.shelfLabel}>
+                      <span className={styles.shelfEmoji}>
+                        {STOCK_EMOJI[slot.itemKey]}
+                      </span>
+                      <span className={styles.shelfName}>
+                        {STOCK_LABEL[slot.itemKey]}
+                      </span>
+                      <span className={styles.shelfQty}>
+                        {slot.currentQty} / {slot.targetQty}
+                      </span>
+                      {done ? (
+                        <span className={styles.shelfCheck}>✓</span>
+                      ) : null}
+                    </div>
+                    <div className={styles.shelfRow}>
+                      {boxSlots.map((pos) => (
+                        <div
+                          key={pos.key}
+                          className={
+                            pos.filled
+                              ? styles.placedBox
+                              : styles.emptySlot
+                          }
+                        >
+                          {pos.filled ? (
+                            <span className={styles.placedBoxEmoji}>
+                              {STOCK_EMOJI[slot.itemKey]}
+                            </span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}

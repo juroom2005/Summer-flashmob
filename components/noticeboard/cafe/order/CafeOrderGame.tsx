@@ -49,7 +49,7 @@ import {
 } from "./orderData";
 
 // 말풍선 제시 간격 (ms). 조절 지점.
-const PRESENT_INTERVAL = 500;
+const PRESENT_INTERVAL = 1000;
 
 type Phase = "intro" | "presenting" | "input" | "reviewing" | "submitting" | "done";
 

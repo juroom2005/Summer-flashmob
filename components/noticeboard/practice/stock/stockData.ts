@@ -27,10 +27,15 @@
  * ─────────────────────────────────────────────────────────── */
 
 export const TIME_LIMIT_SEC       = 30;
-export const TIME_BONUS_MAX       = 10;
-// 빡빡한 시간 보너스 구간 : 절반 이상 남겨야 만점
+export const TIME_BONUS_MAX       = 20;
+// 빡빡한 시간 보너스 구간 : 20초 이상 남겨야 (= 10초 안 완주) 만점
 export const TIME_BONUS_FLOOR_SEC = 5;   // 이하면 보너스 0
-export const TIME_BONUS_CEIL_SEC  = 15;  // 이상이면 만점
+export const TIME_BONUS_CEIL_SEC  = 20;  // 이상이면 만점
+
+// 정확도 가중치 : accuracyRaw × ACCURACY_WEIGHT 만큼만 최종 점수에 반영.
+// 즉 정확도 100 % 여도 accuracy 만으로는 80점. 시간 보너스 (최대 20) 로 나머지를 채워야 100.
+// → 정확도만 챙기고 시간 방치하면 만점 불가. 빠른 완주도 채점 기준.
+export const ACCURACY_WEIGHT      = 0.8;
 
 export const SLOT_MIN_COUNT     = 3;
 export const SLOT_MAX_COUNT     = 5;
@@ -159,43 +164,67 @@ export type StockFinalScore = {
 };
 
 /**
- * 최종 점수 계산.
- * · accuracyScore = round(전체 currentQty / 전체 targetQty × 100)
- *   전체 대비 비율. 부분 배치도 부분 점수.
- * · timeBonus (빡빡한 구간) :
- *     · remainingSec ≤ 5   → 0
- *     · remainingSec ≥ 15  → TIME_BONUS_MAX (10)
- *     · 그 사이            → 선형 보간
- * · finalScore = min(100, accuracyScore + timeBonus)
+ * 최종 점수 계산 (2 단계).
+ *
+ * 1) accuracyRaw    = round(전체 currentQty / 전체 targetQty × 100)   0~100
+ *    · 부분 배치도 부분 점수 (비율 기반)
+ *    · detail 저장 · UI 표시용 원본 정확도
+ *
+ * 2) 최종 점수 :
+ *    · accuracyWeighted = round(accuracyRaw × ACCURACY_WEIGHT)         0~80
+ *    · timeBonusRaw     = 시간 남은량 → 구간 계산                       0~TIME_BONUS_MAX (20)
+ *        · remainingSec ≤ 5   → 0
+ *        · remainingSec ≥ 20  → 20 (매우 빡빡, 30초 중 20초 이상 남겨야 만점)
+ *        · 그 사이            → 선형 보간
+ *    · timeBonus        = round(timeBonusRaw × accuracyRaw / 100)      정확도 비율로 스케일
+ *        · 정확도 0 이면 시간 보너스도 0 (아무것도 안 하고 시간만 남겨도 점수 없음)
+ *    · finalScore       = min(100, accuracyWeighted + timeBonus)
+ *
+ * 시뮬레이션 :
+ *   정확도 100 % + 20초 이상 남김 → 80 + 20 = 100 (퍼펙트, 서버 +300 보너스)
+ *   정확도 100 % + 12초 남김      → 80 + 9  = 89
+ *   정확도 100 % + 5초 이하 남김  → 80 + 0  = 80  (완주만 하면 최소 80 보장)
+ *   정확도 50 %  + 20초 남김      → 40 + 10 = 50
+ *   정확도 0 %   + 30초 남김      → 0  + 0  = 0
+ *
+ * StockFinalScore 반환 :
+ *   · accuracyScore : accuracyRaw (원본 0~100, detail 저장·표시용)
+ *   · timeBonus     : 최종 반영값 (곱 반영 후, 0~20)
  */
 export function calculateFinalScore(
   slots: StockSlot[],
   remainingSec: number,
 ): StockFinalScore {
-  const totalTargetQty  = slots.reduce((sum, s) => sum + s.targetQty, 0);
-  const totalCurrentQty = slots.reduce((sum, s) => sum + s.currentQty, 0);
-  const completedSlots  = slots.filter((s) => s.currentQty >= s.targetQty).length;
+  const totalTargetQty  = slots.reduce((sum: number, s: StockSlot) => sum + s.targetQty, 0);
+  const totalCurrentQty = slots.reduce((sum: number, s: StockSlot) => sum + s.currentQty, 0);
+  const completedSlots  = slots.filter((s: StockSlot) => s.currentQty >= s.targetQty).length;
   const totalSlots      = slots.length;
-  const accuracyScore   = totalTargetQty === 0
+  const accuracyRaw     = totalTargetQty === 0
     ? 0
     : Math.round((totalCurrentQty / totalTargetQty) * 100);
 
+  // 시간 보너스 raw (구간 계산)
   const remainClamped = Math.max(0, Math.min(TIME_LIMIT_SEC, remainingSec));
-  let bonus: number;
+  let bonusRaw: number;
   if (remainClamped <= TIME_BONUS_FLOOR_SEC) {
-    bonus = 0;
+    bonusRaw = 0;
   } else if (remainClamped >= TIME_BONUS_CEIL_SEC) {
-    bonus = TIME_BONUS_MAX;
+    bonusRaw = TIME_BONUS_MAX;
   } else {
     const range   = TIME_BONUS_CEIL_SEC - TIME_BONUS_FLOOR_SEC;
     const inRange = remainClamped - TIME_BONUS_FLOOR_SEC;
-    bonus = Math.round((inRange / range) * TIME_BONUS_MAX);
+    bonusRaw = Math.round((inRange / range) * TIME_BONUS_MAX);
   }
 
+  // 시간 보너스는 정확도 비율로 스케일 (정확도 0 → 시간 보너스 0)
+  const timeBonus        = Math.round(bonusRaw * (accuracyRaw / 100));
+  const accuracyWeighted = Math.round(accuracyRaw * ACCURACY_WEIGHT);
+  const finalScore       = Math.min(100, accuracyWeighted + timeBonus);
+
   return {
-    finalScore:      Math.min(100, accuracyScore + bonus),
-    accuracyScore,
-    timeBonus:       bonus,
+    finalScore,
+    accuracyScore:   accuracyRaw,   // detail · 표시용 원본 (0~100)
+    timeBonus,                       // 최종 반영값 (0~20)
     totalTargetQty,
     totalCurrentQty,
     completedSlots,

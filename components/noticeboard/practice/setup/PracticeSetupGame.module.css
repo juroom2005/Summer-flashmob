@@ -302,211 +302,120 @@
   min-height: 0;
 }
 
-/* ═══════════════════════════════════════════════════════════
- * 캐비닛 (선반장) — 하나의 큰 갈색 나무 프레임 안 선반 칸들
- * ─────────────────────────────────────────────────────────── */
-
-.cabinet {
+/* 슬롯 : 선반 한 칸 (헤더 + 박스 스택) */
+.slot {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 0;
-}
-
-.cabinetTitle {
-  font-family: var(--f-head);
-  font-size: 16px;
-  color: var(--brick);
-  padding: 4px 10px;
-  border-bottom: 2px solid var(--ink);
-  letter-spacing: 1px;
-  flex: 0 0 auto;
-}
-
-/* 캐비닛 내부 : 갈색 나무 프레임 · inner shadow · 선반 칸 세로 나열 */
-.cabinetInterior {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 8px;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--counter) 82%, black 18%) 0%,
-      var(--counter) 100%);
-  border: 4px solid var(--box-edge);
-  border-radius: 8px;
+  gap: 6px;
+  padding: 8px 10px 10px 10px;
+  background: var(--slot-bg);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
   box-shadow:
-    inset 0 4px 12px rgba(0, 0, 0, 0.5),
-    inset 0 -2px 6px rgba(0, 0, 0, 0.35),
-    2px 3px 0 var(--box-shadow);
-  overflow-y: auto;
-  min-height: 0;
-}
-
-/* 각 선반 칸 : 상하 나무판 라인 사이 밝은 공간 */
-.cabinetShelf {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px 8px 8px;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--paper) 90%, white 10%) 0%,
-      var(--paper) 100%);
-  border-top:    3px solid var(--box-edge);
-  border-bottom: 3px solid var(--box-edge);
-  margin-bottom: -3px;   /* 인접 선반 나무판이 겹쳐서 하나의 두꺼운 판처럼 보이게 */
-  transition: background 0.15s, box-shadow 0.15s;
+    inset 0 -2px 4px rgba(0, 0, 0, 0.08),
+    2px 2px 0 var(--box-shadow);
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
   position: relative;
 }
-.cabinetShelf:first-child { border-top: none; }
-.cabinetShelf:last-child  { border-bottom: none; margin-bottom: 0; }
 
-/* 선반 상단 라벨 (품목 · 이름 · 카운트) */
-.shelfLabel {
+/* 슬롯 헤더 : 이모지 · 라벨 · 카운트 · 완료 마크 */
+.slotHeader {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 4px 2px 4px;
+  padding-bottom: 4px;
+  border-bottom: 1.5px dashed rgba(62, 44, 28, 0.25);
 }
 
-.shelfEmoji {
-  font-size: 20px;
+.slotEmoji {
+  font-size: 22px;
   line-height: 1;
   flex: 0 0 auto;
 }
 
-.shelfName {
+.slotLabel {
   flex: 1 1 auto;
   font-family: var(--f-note);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--ink);
 }
 
-.shelfQty {
+.slotQty {
   font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--counter);
   letter-spacing: 0.5px;
   flex: 0 0 auto;
 }
 
-.shelfCheck {
-  font-size: 16px;
+.slotCheck {
+  font-size: 18px;
   color: var(--slot-done-edge);
   font-weight: 900;
   flex: 0 0 auto;
 }
 
-/* 박스 자리 가로 나열 (왼쪽부터 채움) */
-.shelfRow {
+/* 박스 스택 영역 : 목표 개수만큼 자리 세로 나열
+   flex-direction: column-reverse 로 아래에서 위로 채워지는 인상
+   (렌더 순서 상 배열 첫 번째 = 채워지는 순서 첫 번째 = 아래에 위치) */
+.slotStack {
   display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  gap: 6px;
-  padding: 4px 0 0 0;
-  min-height: 44px;   /* 박스 크기 + 여유 */
+  flex-direction: column-reverse;
+  gap: 3px;
+  padding: 2px 0;
 }
 
-/* 놓인 실물 박스 : 창고 박스와 같은 크래프트 톤, 실물감 (drop-shadow · 두께감) */
-.placedBox {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
+/* 채워진 박스 : 창고 박스와 같은 크래프트 종이 톤 (미니) */
+.stackedBox {
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   background:
-    linear-gradient(155deg,
-      color-mix(in srgb, var(--box-fill) 88%, white 12%) 0%,
-      var(--box-fill) 55%,
-      color-mix(in srgb, var(--box-fill) 82%, black 18%) 100%);
-  border: 2px solid var(--box-edge);
-  border-radius: 4px;
-  box-shadow:
-    inset 0 -2px 4px rgba(0, 0, 0, 0.18),
-    inset 0 1px 2px rgba(255, 255, 255, 0.25),
-    2px 3px 4px rgba(0, 0, 0, 0.28);
-  pointer-events: none;   /* 드롭 판정 방해 방지 */
-  position: relative;
-  animation: placedBoxIn 0.22s ease-out;
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--box-fill) 90%, white 10%) 0%,
+      var(--box-fill) 50%,
+      color-mix(in srgb, var(--box-fill) 85%, black 15%) 100%);
+  border: 1.5px solid var(--box-edge);
+  border-radius: 3px;
+  box-shadow: inset 0 -1px 3px rgba(0, 0, 0, 0.12);
+  pointer-events: none;   /* elementFromPoint 슬롯 감지 방해 방지 */
+  animation: stackedBoxIn 0.18s ease-out;
 }
 
-/* 박스 뚜껑 (테이프) 표현 */
-.placedBox::before {
-  content: "";
-  position: absolute;
-  top: 45%;
-  left: -1px;
-  right: -1px;
-  height: 3px;
-  background: rgba(0, 0, 0, 0.18);
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+@keyframes stackedBoxIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0);    }
 }
 
-.placedBoxEmoji {
-  font-size: 20px;
+.stackedBoxEmoji {
+  font-size: 15px;
   line-height: 1;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
-  position: relative;
-  z-index: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 
-@keyframes placedBoxIn {
-  from { opacity: 0; transform: translateY(-10px) scale(0.85); }
-  to   { opacity: 1; transform: translateY(0)    scale(1);    }
-}
-
-/* 빈 자리 : 은은한 그림자 · 대시 경계 (놓아야 할 곳 힌트) */
-.emptySlot {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 auto;
-  border: 1.5px dashed rgba(62, 44, 28, 0.35);
-  border-radius: 4px;
-  background: rgba(62, 44, 28, 0.06);
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+/* 빈 자리 : 대시 경계로 표시 */
+.stackedBoxEmpty {
+  height: 24px;
+  border: 1.5px dashed rgba(62, 44, 28, 0.28);
+  border-radius: 3px;
+  background: rgba(62, 44, 28, 0.03);
   pointer-events: none;
 }
 
-/* hover 상태 색 오버라이드 */
-.shelfHoverValid {
+/* 완료 슬롯 : 스택 박스도 초록 톤으로 */
+.slotDone .stackedBox {
   background:
     linear-gradient(180deg,
-      #fde79f 0%,
-      #f0d68a 100%);
-}
-.shelfHoverInvalid {
-  background:
-    linear-gradient(180deg,
-      #efb8a8 0%,
-      #e5a595 100%);
-}
-
-/* 완료 선반 */
-.shelfDone {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--slot-done-bg) 92%, white 8%) 0%,
-      var(--slot-done-bg) 100%);
-}
-.shelfDone .placedBox {
-  background:
-    linear-gradient(155deg,
-      color-mix(in srgb, var(--slot-done-bg) 90%, white 10%) 0%,
-      var(--slot-done-bg) 55%,
+      color-mix(in srgb, var(--slot-done-bg) 88%, white 12%) 0%,
+      var(--slot-done-bg) 50%,
       color-mix(in srgb, var(--slot-done-bg) 85%, black 15%) 100%);
   border-color: var(--slot-done-edge);
 }
-.shelfDone .emptySlot {
-  display: none;   /* 완료 시 빈 자리 감춤 */
-}
-.shelfDone .shelfQty,
-.shelfDone .shelfName {
-  color: var(--slot-done-edge);
+.slotDone .stackedBoxEmpty {
+  display: none;   /* 완료 슬롯엔 빈 자리 없음 */
 }
 
 /* 완료 슬롯 */

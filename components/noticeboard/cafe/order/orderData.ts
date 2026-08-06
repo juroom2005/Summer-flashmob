@@ -236,6 +236,20 @@ export function generateOrder(): CustomerOrder {
     }
   }
 
+  // ── 게임 완화 (별 3 · 세션 M 패치) ──────────────────────────────
+  // items 를 UI 자판 순서 (BUTTON_LAYOUT) 로 정렬해서 손님 발화 순서와 유저
+  // 버튼 배치 순서가 일치하도록 만든다. 유저가 발화 순서 = 버튼 위치 순서 로
+  // 예측 가능해서 진행 부담이 줄어든다.
+  // 정렬 안정성 : Array.sort 는 ES2019 stable, 같은 axis 아이템이 없어 순서 유지 무관.
+  // 채점 로직 (checkOrder 등) 은 order.items 순서 그대로 참조하므로 이 정렬만으로
+  // 게임 진행이 UI 순서 기준으로 정렬된다.
+  const layoutIndex = new Map<AxisKey, number>();
+  BUTTON_LAYOUT.forEach((axis: AxisKey, i: number) => layoutIndex.set(axis, i));
+  items.sort(
+    (a: OrderItem, b: OrderItem) =>
+      (layoutIndex.get(a.axis) ?? 999) - (layoutIndex.get(b.axis) ?? 999),
+  );
+
   return { drink, items };
 }
 
@@ -255,7 +269,9 @@ export function generateRound(count = 2): CustomerOrder[] {
 //
 // 배치 원칙: wide 축(값 4개 이상, 전체폭 사용) 을 앞에 모으고,
 // 좁은 축(값 2~3개, 반폭 사용) 을 뒤에 모아 2컬럼 그리드에 빈칸 없이 배치.
-// 이 순서는 UI 자판 순서일 뿐 게임 채점 로직(order.items 순서) 과는 무관.
+//
+// 세션 M 패치 : generateOrder 가 이 순서로 items 를 정렬한다.
+// 즉 손님 발화 순서 = UI 버튼 위치 순서 = 유저 예측 가능한 진행 순서.
 export const BUTTON_LAYOUT: AxisKey[] = [
   "drink",
   "temp",

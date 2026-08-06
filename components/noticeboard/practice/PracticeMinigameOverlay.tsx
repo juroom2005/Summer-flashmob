@@ -30,6 +30,7 @@ import { createPortal } from "react-dom";
 import styles from "./PracticeMinigameOverlay.module.css";
 import PracticeCleanGame from "./clean/PracticeCleanGame";
 import PracticeStockGame from "./stock/PracticeStockGame";
+import PracticeSetupGame from "./setup/PracticeSetupGame";
 import {
   getTodayMinigameStatus,
   type PracticeMinigameCode,
@@ -237,8 +238,24 @@ export default function PracticeMinigameOverlay({
               onPlayed={refreshStatus}
             />
           </>
+        ) : view === "practice_setup" ? (
+          // ── 장비 세팅 (실게임) ───────────────────────
+          <>
+            <div className={styles.header}>
+              <span className={styles.title}>
+                {activeIcon?.emoji} {activeIcon?.name}
+              </span>
+            </div>
+            <PracticeSetupGame
+              onExit={() => {
+                setView("home");
+                refreshStatus();
+              }}
+              onPlayed={refreshStatus}
+            />
+          </>
         ) : (
-          // ── 게임 화면 (미구현 게임 placeholder : setup) ─────
+          // ── 안전망 : 예상치 못한 view 값 처리 ─────────
           <>
             <div className={styles.header}>
               <span className={styles.title}>
@@ -246,10 +263,7 @@ export default function PracticeMinigameOverlay({
               </span>
             </div>
             <div className={styles.gameStage}>
-              <span className={styles.placeholderText}>준비 중입니다</span>
-              <span className={styles.placeholderSub}>
-                이 미니게임은 다음 업데이트에서 실제로 플레이할 수 있습니다.
-              </span>
+              <span className={styles.placeholderText}>알 수 없는 게임입니다</span>
               <button
                 className={styles.backBtn}
                 onClick={() => setView("home")}
