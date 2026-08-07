@@ -373,3 +373,166 @@ export async function playPracticeMinigame(
     physicalBonus:         Number(row.physical_bonus ?? 0),
   };
 }
+
+/* ═══════════════════════════════════════════════════════════
+ * 리듬게임 (세션 M)
+ *
+ * 카페 · 연습실과 완전 별도 RPC (play_rhythm_minigame).
+ * 카페 · 연습실 코드는 이 섹션에서 절대 참조하지 않는다.
+ *
+ * 근본 차이 (알바와의 트레이드) :
+ *   · mobil 지급 없음 (알바는 mobil 위주)
+ *   · 선택 스탯 대량 상승 (18~30, 알바의 3~5배)
+ *   · 시작 전 스탯 선택 (리듬감 / 표현력) → 선택한 스탯만 상승
+ *   · 체력 exp 부가 (7~12)
+ *
+ * getTodayMinigameStatus 는 카테고리 무관 통합 카운트이므로 재사용.
+ * normalizePlayError · PLAY_ERROR_MESSAGES 도 재사용 (같은 예외 문자열).
+ * 단 리듬 고유 예외 (invalid_selected_stat) 는 아래에서 추가 매핑.
+ * ─────────────────────────────────────────────────────────── */
+
+// 리듬게임 code (seed 와 일치)
+export type RhythmMinigameCode = "rhythm";
+
+// 선택 스탯 (시작 전 UI 선택)
+export type RhythmSelectedStat = "rhythm" | "expression";
+
+// 리듬게임 고유 예외 메시지 (카페 매핑에 없는 것만 추가)
+const RHYTHM_EXTRA_ERROR_MESSAGES: Record<string, string> = {
+  invalid_selected_stat: "성장시킬 스탯을 올바르게 선택해 주십시오.",
+};
+
+function normalizeRhythmError(message: string | undefined): {
+  reason:  string;
+  message: string;
+} {
+  const raw = (message ?? "").trim();
+  // 리듬 고유 예외 먼저 확인
+  for (const code of Object.keys(RHYTHM_EXTRA_ERROR_MESSAGES)) {
+    if (raw.includes(code)) {
+      return { reason: code, message: RHYTHM_EXTRA_ERROR_MESSAGES[code] };
+    }
+  }
+  // 공통 예외는 카페 매핑 재사용
+  return normalizePlayError(message);
+}
+
+// 완주 결과 (play_rhythm_minigame 반환)
+export type RhythmPlayResult =
+  | {
+      ok: true;
+      nextMobil:            number; // 변경 없음 (정보용)
+      nextSelectedStatExp:  number; // 선택 스탯 (리듬감 또는 표현력) 지급 후 exp
+      nextPhysicalExp:      number;
+      mobilGained:          number; // 항상 0
+      selectedStat:         RhythmSelectedStat;
+      selectedStatGained:   number; // 18~30
+      physicalGained:       number; // 7~12
+      playsToday:           number;
+      playsRemaining:       number;
+      // 세부 breakdown (영수증 항목별 표시용)
+      difficulty:           number; // 항상 3
+      selectedStatBase:     number;
+      selectedStatRangeMin: number;
+      selectedStatRangeMax: number;
+      physicalBase:         number;
+    }
+  | { ok: false; reason: string; message: string };
+
+/**
+ * 리듬게임 마스터 조회 (초안은 단일 row).
+ * RLS minigames_select_all 로 누구나 조회 가능.
+ * is_active=true 만.
+ */
+export async function listRhythmMinigames(): Promise<MinigameRow[]> {
+  const { data, error } = await supabase
+    .from("minigames")
+    .select(
+      "id, code, name, category, subtype, target_stat, base_stat_gain, base_mobil_gain, is_active, metadata"
+    )
+    .eq("category", "rhythm_game")
+    .eq("is_active", true)
+    .order("code", { ascending: true });
+
+  if (error || !data) {
+    console.error("[listRhythmMinigames] failed:", error?.message);
+    return [];
+  }
+  return data as MinigameRow[];
+}
+
+/**
+ * 리듬게임 완주 결과 제출. RPC play_rhythm_minigame 호출.
+ *
+ * 서버 처리 (RPC 참고) :
+ *   · 인증 · 미니게임 활성 · score 범위 · 선택 스탯 · 카테고리 검증
+ *   · profiles FOR UPDATE 로 유저 단위 직렬화
+ *   · 하루 3회 검증 (카페 + 연습실 + 리듬 통합 카운트)
+ *   · 점수 구간표로 선택 스탯 exp (18~30) · 체력 exp (7~12) 산정
+ *   · 선택 스탯 컬럼만 UPDATE (rhythm_exp 또는 expression_exp), mobil 무변경
+ *   · minigame_plays 이력 저장 (target_stat = 선택값, mobil_gained=0)
+ *
+ * 성공 시 window "profile-changed" 이벤트 발행 → 헤더 · 스탯 재조회.
+ *
+ * @param code          리듬 미니게임 code ("rhythm")
+ * @param score         0~100 정수 점수
+ * @param selectedStat  시작 전 선택한 스탯 ("rhythm" | "expression")
+ * @param resultDetail  게임별 결과 상세 (판정 카운트 · 콤보 등). 선택.
+ */
+export async function playRhythmMinigame(
+  code: RhythmMinigameCode,
+  score: number,
+  selectedStat: RhythmSelectedStat,
+  resultDetail: Record<string, unknown> = {}
+): Promise<RhythmPlayResult> {
+  const safeScore = Math.max(0, Math.min(100, Math.round(score)));
+
+  const { data, error } = await supabase.rpc("play_rhythm_minigame", {
+    p_minigame_code: code,
+    p_score:         safeScore,
+    p_selected_stat: selectedStat,
+    p_result_detail: resultDetail,
+  });
+
+  if (error) {
+    console.error("[playRhythmMinigame] failed:", error.message);
+    return { ok: false, ...normalizeRhythmError(error.message) };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    return {
+      ok: false,
+      reason: "empty_result",
+      message: "처리 결과를 확인할 수 없습니다. 잠시 후 다시 시도해 주십시오.",
+    };
+  }
+
+  // 프로필 변경 알림 브로드캐스트 (mobil 은 안 바뀌지만 스탯 exp 갱신됨)
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("profile-changed"));
+  }
+
+  // selected_stat 은 'rhythm' | 'expression' 만 서버가 반환하지만 방어적 캐스팅
+  const rawSelected = String(row.selected_stat ?? selectedStat);
+  const safeSelected: RhythmSelectedStat =
+    rawSelected === "expression" ? "expression" : "rhythm";
+
+  return {
+    ok: true,
+    nextMobil:            Number(row.next_mobil ?? 0),
+    nextSelectedStatExp:  Number(row.next_selected_stat_exp ?? 0),
+    nextPhysicalExp:      Number(row.next_physical_exp ?? 0),
+    mobilGained:          Number(row.mobil_gained ?? 0),
+    selectedStat:         safeSelected,
+    selectedStatGained:   Number(row.selected_stat_gained ?? 0),
+    physicalGained:       Number(row.physical_gained ?? 0),
+    playsToday:           Number(row.plays_today ?? 0),
+    playsRemaining:       Number(row.plays_remaining ?? 0),
+    difficulty:           Number(row.difficulty ?? 3),
+    selectedStatBase:     Number(row.selected_stat_base ?? 0),
+    selectedStatRangeMin: Number(row.selected_stat_range_min ?? 0),
+    selectedStatRangeMax: Number(row.selected_stat_range_max ?? 0),
+    physicalBase:         Number(row.physical_base ?? 0),
+  };
+}

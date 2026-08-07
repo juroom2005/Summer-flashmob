@@ -32,6 +32,7 @@ import { useCallback, useEffect, useState } from "react";
 import styles from "./DailyPanel.module.css";
 import CafeMinigameOverlay from "../cafe/CafeMinigameOverlay";
 import PracticeMinigameOverlay from "../practice/PracticeMinigameOverlay";
+import RhythmMinigameOverlay from "../rhythm/RhythmMinigameOverlay";
 import { getTodayMinigameStatus } from "@/lib/minigame-helpers";
 
 type Props = {
@@ -45,6 +46,7 @@ export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
   const [dailyLimit, setDailyLimit] = useState(3);
   const [cafeOpen, setCafeOpen] = useState(false);
   const [practiceOpen, setPracticeOpen] = useState(false);
+  const [rhythmOpen, setRhythmOpen] = useState(false);
 
   const refreshStatus = useCallback(async () => {
     if (!isLoggedIn) {
@@ -91,6 +93,14 @@ export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
       return;
     }
     setPracticeOpen(true);
+  };
+
+  const handleRhythmClick = () => {
+    if (!isLoggedIn) {
+      onOpenLogin();
+      return;
+    }
+    setRhythmOpen(true);
   };
 
   return (
@@ -148,15 +158,23 @@ export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
             ) : null}
           </button>
 
-          {/* 리듬게임 (준비 중) */}
-          <div className={`${styles.actionCard} ${styles.actionCardSoon}`}>
+          {/* 리듬게임 (실기능, 세션 M) */}
+          <button
+            className={styles.actionCard}
+            style={{ ["--card-border" as string]: "#8fd0e6" }}
+            onClick={handleRhythmClick}
+          >
             <span className={styles.actionEmoji}>🎵</span>
             <span className={styles.actionName}>연습 (리듬게임)</span>
             <span className={styles.actionDesc}>
-              짧은 리듬게임으로 선택한 스탯을 크게 올립니다.
+              노트에 맞춰 박자를 치고, 선택한 스탯을 크게 올립니다.
             </span>
-            <span className={styles.soonTag}>준비 중</span>
-          </div>
+            {isLoggedIn && remaining !== null ? (
+              <span className={styles.remainLine}>
+                오늘 남은 횟수 {remaining}회
+              </span>
+            ) : null}
+          </button>
         </div>
       )}
 
@@ -174,6 +192,16 @@ export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
         open={practiceOpen}
         onClose={() => {
           setPracticeOpen(false);
+          refreshStatus();
+        }}
+        onOpenLogin={onOpenLogin}
+        isLoggedIn={isLoggedIn}
+      />
+
+      <RhythmMinigameOverlay
+        open={rhythmOpen}
+        onClose={() => {
+          setRhythmOpen(false);
           refreshStatus();
         }}
         onOpenLogin={onOpenLogin}
