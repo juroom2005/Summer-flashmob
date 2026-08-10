@@ -12,6 +12,7 @@ import InviteCodeList     from "@/components/gm/InviteCodeList";
 import ReportList         from "@/components/gm/reports/ReportList";
 import UserList           from "@/components/gm/users/UserList";
 import GmNoticesTab       from "@/components/gm/notices/GmNoticesTab";
+import GmEventsTab        from "@/components/gm/events/GmEventsTab";
 import GmShopTab          from "@/components/gm/shop/GmShopTab";
 import { getPendingReportCount } from "@/lib/auth-helpers";
 
@@ -19,12 +20,13 @@ const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
 const BODY  = "'Gowun Dodum', sans-serif";
 
-type TabKey = "invite" | "users" | "notices" | "shop" | "reports";
+type TabKey = "invite" | "users" | "notices" | "events" | "shop" | "reports";
 
 const TABS: { key: TabKey; label: string; emoji: string }[] = [
   { key: "invite",  label: "초대", emoji: "📮" },
   { key: "users",   label: "유저", emoji: "👥" },
   { key: "notices", label: "공지", emoji: "📢" },
+  { key: "events",  label: "일정", emoji: "📅" },
   { key: "shop",    label: "매점", emoji: "🛒" },
   { key: "reports", label: "문의", emoji: "🙋" },
 ];
@@ -99,6 +101,8 @@ export default function GmPage() {
         {tab === "users" && <UserList />}
 
         {tab === "notices" && <GmNoticesTab />}
+
+        {tab === "events" && <GmEventsTab />}
 
         {tab === "shop" && <GmShopTab />}
 

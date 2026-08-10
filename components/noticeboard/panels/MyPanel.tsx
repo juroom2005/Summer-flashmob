@@ -46,6 +46,19 @@ import {
   effectiveStat,
   type StatKey,
 } from "@/lib/stat-helpers";
+import {
+  CALENDAR_YEAR,
+  listCommunityEventsByYear,
+  type CommunityEvent,
+} from "@/lib/community-events-helpers";
+import {
+  listMyMemosByYear,
+  createMyMemo,
+  updateMyMemo,
+  deleteMyMemo,
+  MAX_MEMO_LEN,
+  type PersonalMemo,
+} from "@/lib/personal-memos-helpers";
 import styles from "./MyPanel.module.css";
 
 /* ── 타입 ─────────────────────────────────────── */
@@ -60,12 +73,10 @@ type MyPanelDisplayProfile = {
   cardImageUrl?: string;
 };
 export type MyPanelStat = { key: StatKey; exp: number; level: number };
-export type MyPanelEvent = { day: number; title: string; icon: string };
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  events?: MyPanelEvent[];
 };
 
 type ColorTarget = "bg" | "text";
@@ -78,16 +89,16 @@ const DEFAULT_TEXT_COLOR = NAVY;
 const GENDER_LABEL: Record<"male" | "female" | "other", string> = { male: "남", female: "여", other: "기타" };
 const HEX6 = /^#[0-9a-fA-F]{6}$/;
 
-// TODO(공용 일정): community_events 테이블 + GM 관리 UI 붙이면 실데이터 교체
-const DEFAULT_EVENTS: MyPanelEvent[] = [
-  { day: 4, title: "파트 모집 시작", icon: "📣" },
-  { day: 11, title: "안무 1차 합주", icon: "🕺" },
-  { day: 15, title: "보컬 연습", icon: "🎤" },
-  { day: 24, title: "중간 점검 촬영", icon: "📷" },
-  { day: 28, title: "지원 폼 마감", icon: "⏰" },
-];
+const MONTH_LABELS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 
-/* ── 유틸: 한 색상에서 학생증 배경 그라디언트 자동 생성 ── */
+
+function dateKey(year: number, month0: number, day: number): string {
+  const mm = String(month0 + 1).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
+
+
 function hexToHsl(hex: string): { h: number; s: number; l: number } {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -149,7 +160,6 @@ function purgeLegacyLocalStorage(profileId: string) {
  * ═══════════════════════════════════════════════ */
 export default function MyPanel({
   open, onClose,
-  events = DEFAULT_EVENTS,
 }: Props) {
   /* ── profile 로드 ────────────────────────────── */
   const [profileRow, setProfileRow] = useState<MyPanelProfileRow | null>(null);
@@ -178,11 +188,27 @@ export default function MyPanel({
   // 저장 실패 시 사용자 안내용 (null이면 배너 없음)
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // 달력은 26년 한 해 고정. today 는 "오늘" 하이라이트 판정에만 사용.
   const today = useMemo(() => new Date(), []);
-  const [selDay, setSelDay] = useState(today.getDate());
-  // memos: 아직 DB 스키마 없음. 컴포넌트 생명주기 동안만 유지(§7-C 이관 예정).
-  const [memos, setMemos] = useState<Record<number, string>>({});
+  const year = CALENDAR_YEAR;
+
+  // 초기 표시 월: 실제 오늘이 26년이면 그 달, 아니면 1월.
+  const [month, setMonth] = useState<number>(
+    today.getFullYear() === CALENDAR_YEAR ? today.getMonth() : 0
+  );
+  // 선택일: 달을 넘기면 1일로 초기화 (해당 달에 존재하지 않는 날짜 선택 방지)
+  const [selDay, setSelDay] = useState<number>(
+    today.getFullYear() === CALENDAR_YEAR ? today.getDate() : 1
+  );
   const [draft, setDraft] = useState("");
+
+  // DB 로드 상태
+  const [communityEvents, setCommunityEvents] = useState<CommunityEvent[]>([]);
+  const [memoList, setMemoList] = useState<PersonalMemo[]>([]);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  // 메모 편집 중인 항목 id (null = 신규 작성 모드)
+  const [editingMemoId, setEditingMemoId] = useState<string | null>(null);
+  const [memoBusy, setMemoBusy] = useState(false);
 
   /* ── DB값으로 색/서명 초기화 + 과거 localStorage 잔재 제거 ─── */
   // profileRow 가 바뀔 때(=열릴 때마다 재fetch) DB값을 state에 반영.
@@ -264,28 +290,128 @@ export default function MyPanel({
     setProfileRow((prev) => (prev ? { ...prev, signature_data: dataUrl } : prev));
   };
 
+  /* ── 달력 데이터 로드 (열릴 때 26년 공용일정 + 본인 메모 fetch) ──
+   * 색/서명과 달리 profileRow 와 무관하게 열릴 때 한 번 로드.
+   * 실패해도 달력 골격은 유지하고 배너로만 알림. */
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setCalendarError(null);
+    (async () => {
+      const [evs, memos] = await Promise.all([
+        listCommunityEventsByYear(year),
+        listMyMemosByYear(year),
+      ]);
+      if (cancelled) return;
+      setCommunityEvents(evs);
+      setMemoList(memos);
+    })();
+    return () => { cancelled = true; };
+  }, [open, year]);
+
   /* ── 달력 파생값 ─────────────────────────────── */
-  const year = today.getFullYear(); const month = today.getMonth();
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // 날짜키("YYYY-MM-DD") → 공용일정. 같은 날 여러 개면 첫 항목만 달력 셀에 표시.
   const evMap = useMemo(() => {
-    const m: Record<number, MyPanelEvent> = {};
-    events.forEach((e) => { m[e.day] = e; });
+    const m: Record<string, CommunityEvent> = {};
+    for (const e of communityEvents) {
+      if (!(e.eventDate in m)) m[e.eventDate] = e;
+    }
     return m;
-  }, [events]);
-  const saveMemo = () => {
-    const d = draft.trim();
-    if (!d) return;
-    setMemos((m) => ({ ...m, [selDay]: d }));
+  }, [communityEvents]);
+
+  // 날짜키 → 해당 날짜의 공용일정 전체 (상세 패널용)
+  const evListMap = useMemo(() => {
+    const m: Record<string, CommunityEvent[]> = {};
+    for (const e of communityEvents) {
+      (m[e.eventDate] ??= []).push(e);
+    }
+    return m;
+  }, [communityEvents]);
+
+  // 날짜키 → 해당 날짜의 본인 메모 전체
+  const memoMap = useMemo(() => {
+    const m: Record<string, PersonalMemo[]> = {};
+    for (const mm of memoList) {
+      (m[mm.memoDate] ??= []).push(mm);
+    }
+    return m;
+  }, [memoList]);
+
+  const selKey = dateKey(year, month, selDay);
+  const selEvents = evListMap[selKey] ?? [];
+  const selMemos = memoMap[selKey] ?? [];
+
+  /* ── 월 이동 (1~12 클램프) ───────────────────── */
+  const gotoMonth = (next: number) => {
+    if (next < 0 || next > 11) return;
+    setMonth(next);
+    setSelDay(1);          // 존재하지 않는 날짜 선택 방지
+    setDraft("");
+    setEditingMemoId(null);
+  };
+
+  // 날짜 선택 시 편집 상태 초기화
+  const selectDay = (d: number) => {
+    setSelDay(d);
+    setDraft("");
+    setEditingMemoId(null);
+  };
+
+  /* ── 메모 저장 (신규 생성 or 편집) ──────────────
+   * 성공 시 로컬 리스트를 낙관적으로 갱신해 재fetch 없이 반영. */
+  const saveMemo = async () => {
+    const text = draft.trim();
+    if (!text || memoBusy) return;
+    setMemoBusy(true);
+    setCalendarError(null);
+
+    if (editingMemoId) {
+      const res = await updateMyMemo(editingMemoId, text);
+      setMemoBusy(false);
+      if (!res.ok) { setCalendarError(res.message); return; }
+      const updated = res.memo;
+      setMemoList((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+      setEditingMemoId(null);
+      setDraft("");
+    } else {
+      const res = await createMyMemo(selKey, text);
+      setMemoBusy(false);
+      if (!res.ok) { setCalendarError(res.message); return; }
+      setMemoList((prev) => [...prev, res.memo]);
+      setDraft("");
+    }
+  };
+
+  const startEditMemo = (m: PersonalMemo) => {
+    setEditingMemoId(m.id);
+    setDraft(m.body);
+  };
+
+  const cancelEditMemo = () => {
+    setEditingMemoId(null);
     setDraft("");
   };
-  const selEv = evMap[selDay];
+
+  const removeMemo = async (id: string) => {
+    if (memoBusy) return;
+    if (!window.confirm("이 메모를 삭제하시겠습니까?")) return;
+    setMemoBusy(true);
+    setCalendarError(null);
+    const res = await deleteMyMemo(id);
+    setMemoBusy(false);
+    if (!res.ok) { setCalendarError(res.message); return; }
+    setMemoList((prev) => prev.filter((m) => m.id !== id));
+    if (editingMemoId === id) { setEditingMemoId(null); setDraft(""); }
+  };
 
   /* ── 인라인 스타일 프리셋 (chip은 흰 배경이라 색상 고정) ─── */
   const secTitle: React.CSSProperties = { fontFamily: JUA, fontSize: 19, color: "#0d6fa8" };
   const secHint: React.CSSProperties = { fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#2ea3dd" };
   const chip: React.CSSProperties = { fontFamily: JUA, fontSize: 11, background: "rgba(255,255,255,.85)", color: "#0d6fa8", borderRadius: 999, padding: "2px 9px" };
-  // 그라디언트 배경 위 텍스트에 적용될 스타일 (사용자 지정 textColor 사용)
+  const memoMiniBtn: React.CSSProperties = { flex: "none", height: 24, padding: "0 8px", borderRadius: 7, border: "1.5px solid #bfe4f7", background: "#fff", color: "#0d6fa8", fontFamily: JUA, fontSize: 11, cursor: "pointer" };
   const cardText: React.CSSProperties = { color: textColor };
   const gaeguVal: React.CSSProperties = { fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: textColor };
 
@@ -510,12 +636,46 @@ export default function MyPanel({
             {/* ── 인벤토리 (별도 컴포넌트) ── */}
             <InventorySection />
 
-            {/* ── 달력 ── */}
+            {/* ── 달력 (26년 · 월 이동) ── */}
             <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={secTitle}>📅 나의 {month + 1}월</span>
+                <span style={secTitle}>📅 나의 달력</span>
                 <span style={secHint}>날짜를 눌러 나만의 메모를 남겨요</span>
               </div>
+
+              {/* 월 이동 헤더 */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 12 }}>
+                <button
+                  onClick={() => gotoMonth(month - 1)}
+                  disabled={month <= 0}
+                  aria-label="이전 달"
+                  style={{
+                    width: 34, height: 34, borderRadius: "50%", border: "2px solid #bfe4f7",
+                    background: "#fff", color: month <= 0 ? "#cfe6f4" : "#0d6fa8",
+                    fontFamily: JUA, fontSize: 15, cursor: month <= 0 ? "not-allowed" : "pointer",
+                  }}
+                >‹</button>
+                <div style={{ fontFamily: JUA, fontSize: 18, color: "#0d6fa8", minWidth: 96, textAlign: "center" }}>
+                  {year}년 {MONTH_LABELS[month]}
+                </div>
+                <button
+                  onClick={() => gotoMonth(month + 1)}
+                  disabled={month >= 11}
+                  aria-label="다음 달"
+                  style={{
+                    width: 34, height: 34, borderRadius: "50%", border: "2px solid #bfe4f7",
+                    background: "#fff", color: month >= 11 ? "#cfe6f4" : "#0d6fa8",
+                    fontFamily: JUA, fontSize: 15, cursor: month >= 11 ? "not-allowed" : "pointer",
+                  }}
+                >›</button>
+              </div>
+
+              {calendarError && (
+                <div style={{ marginTop: 10, background: "#ffe1e1", border: "2px solid #f2a8a8", borderRadius: 10, padding: "7px 12px", fontFamily: GAEGU, fontWeight: 700, fontSize: 14, color: "#b03a3a" }}>
+                  {calendarError}
+                </div>
+              )}
+
               <div style={{ marginTop: 10, background: "#fff", border: "2px solid #cdeeff", borderRadius: 14, padding: "12px 10px" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, textAlign: "center", fontFamily: JUA, fontSize: 11, color: "#7fb3d4" }}>
                   <span style={{ color: "#e2695f" }}>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span style={{ color: "#2ea3dd" }}>토</span>
@@ -524,11 +684,16 @@ export default function MyPanel({
                   {Array.from({ length: firstDow }).map((_, i) => <div key={`b${i}`} />)}
                   {Array.from({ length: daysInMonth }).map((_, i) => {
                     const d = i + 1;
-                    const ev = evMap[d];
+                    const key = dateKey(year, month, d);
+                    const ev = evMap[key];
+                    const hasMemo = (memoMap[key]?.length ?? 0) > 0;
                     const isSel = selDay === d;
-                    const isToday = d === today.getDate();
+                    const isToday =
+                      today.getFullYear() === year &&
+                      today.getMonth() === month &&
+                      today.getDate() === d;
                     return (
-                      <div key={d} className={styles.day} onClick={() => setSelDay(d)}
+                      <div key={d} className={styles.day} onClick={() => selectDay(d)}
                         style={{
                           position: "relative", height: 37, borderRadius: 9, display: "flex", flexDirection: "column",
                           alignItems: "center", justifyContent: "center", cursor: "pointer",
@@ -536,28 +701,66 @@ export default function MyPanel({
                           border: isToday ? "2px solid #2ea3dd" : "2px solid transparent",
                         }}>
                         <span style={{ fontFamily: JUA, fontSize: 13, color: isSel ? NAVY : "#2a5878", lineHeight: 1.1 }}>{d}</span>
-                        {ev && <span style={{ fontSize: 9, lineHeight: 1, color: "#e0721f", fontFamily: JUA }}>♪</span>}
+                        <div style={{ display: "flex", gap: 2, lineHeight: 1, marginTop: 1 }}>
+                          {ev && <span style={{ fontSize: 9, color: "#e0721f", fontFamily: JUA }}>♪</span>}
+                          {hasMemo && <span style={{ fontSize: 9, color: "#1e7d6a" }}>✏️</span>}
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
+
+              {/* 선택일 상세 : 공용일정 + 개인메모 */}
               <div style={{ marginTop: 10, background: "#e8f7ff", border: "2px solid #a8dcf5", borderRadius: 12, padding: "11px 14px" }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
                   <span style={{ fontFamily: JUA, fontSize: 16, color: "#0d6fa8" }}>{month + 1}월 {selDay}일</span>
-                  <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#2a5878" }}>{selEv ? `${selEv.icon} ${selEv.title}` : "🌤️ 등록된 일정 없음"}</span>
+                  {selEvents.length === 0 ? (
+                    <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#2a5878" }}>🌤️ 등록된 일정 없음</span>
+                  ) : null}
                 </div>
-                {memos[selDay] && (
-                  <div style={{ marginTop: 7, fontFamily: GAEGU, fontWeight: 700, fontSize: 16, color: "#1e7d6a", background: "#fff", borderRadius: 8, padding: "5px 10px" }}>✏️ {memos[selDay]}</div>
-                )}
+
+                {/* 공용 운영 일정 (읽기 전용) */}
+                {selEvents.map((ev) => (
+                  <div key={ev.id} style={{ marginTop: 7, background: "#fff", borderRadius: 8, padding: "6px 10px", border: "1.5px solid #cdeeff" }}>
+                    <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#0d6fa8" }}>
+                      {ev.icon} {ev.title}
+                    </div>
+                    {ev.body ? (
+                      <div style={{ fontFamily: BODY, fontSize: 12, color: "#2a5878", marginTop: 3, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {ev.body}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+
+                {/* 개인 메모 목록 (편집/삭제) */}
+                {selMemos.map((m) => (
+                  <div key={m.id} style={{ marginTop: 7, display: "flex", gap: 6, alignItems: "flex-start", background: "#fff", borderRadius: 8, padding: "5px 8px 5px 10px" }}>
+                    <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: "#1e7d6a", flex: 1, whiteSpace: "pre-wrap", wordBreak: "break-word", minWidth: 0 }}>
+                      ✏️ {m.body}
+                    </span>
+                    <button onClick={() => startEditMemo(m)} disabled={memoBusy} style={memoMiniBtn}>편집</button>
+                    <button onClick={() => removeMemo(m.id)} disabled={memoBusy} style={{ ...memoMiniBtn, color: "#c94a4a", borderColor: "#f4c9c9" }}>삭제</button>
+                  </div>
+                ))}
+
+                {/* 메모 입력 (신규 or 편집) */}
                 <div style={{ display: "flex", gap: 7, marginTop: 8 }}>
                   <input
-                    value={draft} onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") saveMemo(); }}
-                    placeholder="이 날의 메모..."
+                    value={draft} onChange={(e) => setDraft(e.target.value.slice(0, MAX_MEMO_LEN))}
+                    onKeyDown={(e) => { if (e.key === "Enter") void saveMemo(); }}
+                    placeholder={editingMemoId ? "메모 수정..." : "이 날의 메모..."}
+                    maxLength={MAX_MEMO_LEN}
+                    disabled={memoBusy}
                     style={{ flex: 1, height: 34, border: "2px solid #bfe4f7", borderRadius: 9, padding: "0 11px", fontFamily: BODY, fontSize: 13, color: "#1e4b6e", outline: "none", background: "#fff", minWidth: 0 }}
                   />
-                  <button onClick={saveMemo} style={{ height: 34, padding: "0 14px", borderRadius: 9, background: "#1a9edb", color: "#fff", fontFamily: JUA, fontSize: 13, boxShadow: "0 3px 0 #0d6fa8", flex: "none", cursor: "pointer", border: 0 }}>저장</button>
+                  {editingMemoId ? (
+                    <button onClick={cancelEditMemo} disabled={memoBusy} style={{ height: 34, padding: "0 12px", borderRadius: 9, background: "#fff", color: "#0d6fa8", fontFamily: JUA, fontSize: 13, border: "2px solid #bfe4f7", flex: "none", cursor: "pointer" }}>취소</button>
+                  ) : null}
+                  <button onClick={() => void saveMemo()} disabled={memoBusy || draft.trim().length === 0} style={{ height: 34, padding: "0 14px", borderRadius: 9, background: "#1a9edb", color: "#fff", fontFamily: JUA, fontSize: 13, boxShadow: "0 3px 0 #0d6fa8", flex: "none", cursor: memoBusy ? "not-allowed" : "pointer", border: 0, opacity: memoBusy || draft.trim().length === 0 ? 0.55 : 1 }}>
+                    {memoBusy ? "처리 중" : editingMemoId ? "저장" : "추가"}
+                  </button>
                 </div>
               </div>
             </div>

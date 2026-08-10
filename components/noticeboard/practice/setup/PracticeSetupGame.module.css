@@ -1,16 +1,17 @@
-/* components/noticeboard/practice/stock/PracticeStockGame.module.css
+/* components/noticeboard/practice/setup/PracticeSetupGame.module.css
  * ─────────────────────────────────────────────────────────────
- * 시안 2b — 빈티지 카페 · 크래프트 톤 (연습실 재고 정리)
+ * 시안 2b — 빈티지 카페 · 크래프트 톤 (연습실 장비 세팅 · 웨이브 매칭)
  *
  * 레이아웃 :
- *   .wrap       : column flex (HUD → 보드 → 액션)
- *   .board      : 좌우 2단 (창고 | 선반)
- *   .warehouse  : 좌측, 5종 박스 그리드
- *   .shelf      : 우측, 슬롯 세로 나열
- *   .dragBox    : 드래그 중인 박스 (absolute, pointer-events: none)
+ *   .wrap      : column flex (HUD → 스코프 → 페이더 → 액션)
+ *   .gameArea  : HUD 아래 세로 스택
+ *   .scope     : 오실로스코프 (목표/유저 웨이브 SVG)
+ *   .faderRow  : fader 4개 가로 나열
+ *   .faderCol  : 값(위) · 트랙(중앙) · 라벨(아래)
+ *   .faderTrack: 세로 슬라이더 트랙. 아래에서 knob 까지 채워짐(.fillFromBottom)
  *
- * 박스 : 크래프트 종이 상자 느낌. 이모지 스티커 위에.
- * 슬롯 : 선반 칸. 완료/hover-valid/hover-invalid 색상 분기.
+ * ※ 과거 이 파일에 재고관리(stock) 게임 CSS 가 잘못 들어가 있어
+ *   페이더/스코프 클래스가 전부 미정의 → 레이아웃 붕괴. 이번에 setup 전용으로 재작성.
  */
 
 .wrap {
@@ -27,18 +28,18 @@
   --f-note: "Gaegu", cursive;
   --f-body: "Gowun Dodum", sans-serif;
 
-  /* 박스 · 슬롯 색 */
-  --box-fill:       #c9a878;   /* 크래프트 종이 상자 톤 */
-  --box-edge:       #8a6a3c;
-  --box-shadow:     rgba(62, 44, 28, 0.35);
+  /* 스코프 · 페이더 색 */
+  --scope-bg:     #2b2016;   /* 오실로스코프 어두운 화면 */
+  --scope-grid:   rgba(201, 138, 36, 0.18);
+  --wave-target:  rgba(251, 243, 222, 0.4);   /* 목표 웨이브 (희미한 흰선) */
+  --wave-user:    #4aa3e0;   /* 유저 웨이브 (밝은 파랑) */
+  --wave-match:   #5cc46a;   /* 일치 시 녹색 */
 
-  --slot-bg:        #f1e4c6;
-  --slot-done-bg:   #a7d6a7;
-  --slot-done-edge: #4a7a3e;
-  --slot-hover-ok-bg:   #fde79f;
-  --slot-hover-ok-edge: #b5842e;
-  --slot-hover-no-bg:   #efb8a8;
-  --slot-hover-no-edge: #a84838;
+  --track-bg:     #f1e4c6;
+  --track-edge:   #8a6a3c;
+  --fill:         #C98A24;
+  --knob-fill:    #c9a878;
+  --knob-edge:    #8a6a3c;
 
   display: flex;
   flex-direction: column;
@@ -166,313 +167,189 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
- * 보드 (좌우 2단)
+ * 오실로스코프 (웨이브 스코프)
  * ─────────────────────────────────────────────────────────── */
 
-.board {
+.scope {
   position: relative;
+  flex: 0 0 auto;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--scope-bg) 88%, black 12%) 0%,
+      var(--scope-bg) 100%);
+  border: 2.5px solid var(--ink);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.45),
+    3px 3px 0 var(--ink);
+  /* 은은한 격자 (스코프 눈금 느낌) */
+  background-image:
+    linear-gradient(var(--scope-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--scope-grid) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 24px, 32px 24px;
+}
+
+.scopeSvg {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+
+/* 목표 웨이브 (희미한 흰선, 고정) */
+.waveTarget {
+  stroke: var(--wave-target);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+/* 유저 웨이브 (밝은 파랑, 실시간) */
+.waveCurrent {
+  stroke: var(--wave-user);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 3px rgba(74, 163, 224, 0.6));
+  transition: stroke 0.15s;
+}
+/* 완전 일치 시 녹색 */
+.waveMatched {
+  stroke: var(--wave-match);
+  filter: drop-shadow(0 0 5px rgba(92, 196, 106, 0.75));
+}
+
+.matchBadge {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-family: var(--f-head);
+  font-size: 14px;
+  color: var(--wave-match);
+  background: rgba(43, 32, 22, 0.85);
+  border: 1.5px solid var(--wave-match);
+  border-radius: 999px;
+  padding: 3px 12px;
+  letter-spacing: 1px;
+  animation: matchPop 0.25s ease-out;
+}
+@keyframes matchPop {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1);   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * 페이더 (세로 슬라이더 4개)
+ * ─────────────────────────────────────────────────────────── */
+
+.faderRow {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
   background: var(--desk);
   border: 2px solid var(--ink);
   border-radius: 8px;
-  padding: 16px;
+  padding: 16px 12px;
   box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.08);
-  overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
 }
 
-/* ═══════════════════════════════════════════════════════════
- * 창고 (좌)
- * ─────────────────────────────────────────────────────────── */
-
-.warehouse {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-}
-
-.warehouseTitle,
-.shelfTitle {
-  font-family: var(--f-head);
-  font-size: 16px;
-  color: var(--brick);
-  padding: 4px 10px;
-  border-bottom: 2px solid var(--ink);
-  letter-spacing: 1px;
-  flex: 0 0 auto;
-}
-
-.warehouseGrid {
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-auto-rows: min-content;
-  gap: 10px;
-  padding: 4px;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* 창고 박스 : 크래프트 종이 상자 */
-.warehouseBox {
+.faderCol {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 10px 6px 8px 6px;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--box-fill) 90%, white 10%) 0%,
-      var(--box-fill) 50%,
-      color-mix(in srgb, var(--box-fill) 85%, black 15%) 100%);
-  border: 2.5px solid var(--box-edge);
-  border-radius: 6px;
-  box-shadow:
-    inset 0 -3px 6px rgba(0, 0, 0, 0.12),
-    2px 3px 0 var(--box-shadow);
-  cursor: grab;
-  position: relative;
-  transition: transform 0.08s, box-shadow 0.08s;
-  touch-action: none;
+  gap: 8px;
+  min-width: 0;
 }
 
-/* 뚜껑 라인 (상단) */
-.warehouseBox::before {
+/* 값 표시 (트랙 위) */
+.faderReadout {
+  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--pad);
+  border: 1.5px solid var(--ink);
+  border-radius: 4px;
+  padding: 2px 8px;
+  min-width: 44px;
+  text-align: center;
+  flex: 0 0 auto;
+}
+.readoutCurrent {
+  color: var(--brick);
+}
+
+/* 트랙 : 세로 슬라이더. 높이가 실제 슬라이드 범위. */
+.faderTrack {
+  position: relative;
+  flex: 1 1 auto;
+  width: 26px;
+  min-height: 160px;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--track-bg) 82%, black 18%) 0%,
+      var(--track-bg) 100%);
+  border: 2px solid var(--track-edge);
+  border-radius: 999px;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.25);
+  cursor: ns-resize;
+  overflow: hidden;
+}
+
+/* 채워진 부분 (아래에서 knob 위치까지) */
+.fillFromBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--fill) 90%, white 10%) 0%,
+      var(--fill) 100%);
+  pointer-events: none;
+  transition: height 0.05s linear;
+}
+
+/* 노브 : top 은 인라인 style 로 (100 - value)% 지정 */
+.knob {
+  position: absolute;
+  left: 50%;
+  width: 34px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--knob-fill) 90%, white 12%) 0%,
+      var(--knob-fill) 55%,
+      color-mix(in srgb, var(--knob-fill) 82%, black 18%) 100%);
+  border: 2px solid var(--knob-edge);
+  border-radius: 5px;
+  box-shadow:
+    0 2px 3px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  pointer-events: none;   /* 트랙이 포인터 이벤트 처리 */
+}
+/* 노브 중앙 홈 (그립 표현) */
+.knob::after {
   content: "";
   position: absolute;
-  top: 6px;
-  left: 10%;
-  right: 10%;
+  top: 50%;
+  left: 6px;
+  right: 6px;
   height: 2px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 1px;
+  transform: translateY(-50%);
+  background: rgba(62, 44, 28, 0.4);
+  border-radius: 2px;
 }
 
-.warehouseBox:hover {
-  transform: translate(-1px, -1px);
-  box-shadow:
-    inset 0 -3px 6px rgba(0, 0, 0, 0.12),
-    3px 4px 0 var(--box-shadow);
-}
-.warehouseBox:active {
-  transform: translate(1px, 1px);
-  box-shadow:
-    inset 0 -3px 6px rgba(0, 0, 0, 0.12),
-    1px 1px 0 var(--box-shadow);
-  cursor: grabbing;
-}
-
-.boxEmoji {
-  font-size: 32px;
-  line-height: 1;
-  filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.2));
-}
-
-.boxLabel {
-  font-family: var(--f-note);
-  font-size: 12px;
-  color: var(--ink);
-}
-
-/* ═══════════════════════════════════════════════════════════
- * 선반 (우)
- * ─────────────────────────────────────────────────────────── */
-
-.shelf {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-}
-
-.shelfSlots {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-  padding: 4px;
-  min-height: 0;
-}
-
-/* 슬롯 : 선반 한 칸 (헤더 + 박스 스택) */
-.slot {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px 10px 10px;
-  background: var(--slot-bg);
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  box-shadow:
-    inset 0 -2px 4px rgba(0, 0, 0, 0.08),
-    2px 2px 0 var(--box-shadow);
-  transition: background 0.12s, border-color 0.12s, transform 0.12s;
-  position: relative;
-}
-
-/* 슬롯 헤더 : 이모지 · 라벨 · 카운트 · 완료 마크 */
-.slotHeader {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1.5px dashed rgba(62, 44, 28, 0.25);
-}
-
-.slotEmoji {
-  font-size: 22px;
-  line-height: 1;
-  flex: 0 0 auto;
-}
-
-.slotLabel {
-  flex: 1 1 auto;
-  font-family: var(--f-note);
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.slotQty {
-  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
-  font-size: 14px;
-  font-weight: 700;
+.faderLabel {
+  font-family: var(--f-head);
+  font-size: 13px;
   color: var(--counter);
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  text-align: center;
   flex: 0 0 auto;
-}
-
-.slotCheck {
-  font-size: 18px;
-  color: var(--slot-done-edge);
-  font-weight: 900;
-  flex: 0 0 auto;
-}
-
-/* 박스 스택 영역 : 목표 개수만큼 자리 세로 나열
-   flex-direction: column-reverse 로 아래에서 위로 채워지는 인상
-   (렌더 순서 상 배열 첫 번째 = 채워지는 순서 첫 번째 = 아래에 위치) */
-.slotStack {
-  display: flex;
-  flex-direction: column-reverse;
-  gap: 3px;
-  padding: 2px 0;
-}
-
-/* 채워진 박스 : 창고 박스와 같은 크래프트 종이 톤 (미니) */
-.stackedBox {
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--box-fill) 90%, white 10%) 0%,
-      var(--box-fill) 50%,
-      color-mix(in srgb, var(--box-fill) 85%, black 15%) 100%);
-  border: 1.5px solid var(--box-edge);
-  border-radius: 3px;
-  box-shadow: inset 0 -1px 3px rgba(0, 0, 0, 0.12);
-  pointer-events: none;   /* elementFromPoint 슬롯 감지 방해 방지 */
-  animation: stackedBoxIn 0.18s ease-out;
-}
-
-@keyframes stackedBoxIn {
-  from { opacity: 0; transform: translateY(-6px); }
-  to   { opacity: 1; transform: translateY(0);    }
-}
-
-.stackedBoxEmoji {
-  font-size: 15px;
-  line-height: 1;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
-}
-
-/* 빈 자리 : 대시 경계로 표시 */
-.stackedBoxEmpty {
-  height: 24px;
-  border: 1.5px dashed rgba(62, 44, 28, 0.28);
-  border-radius: 3px;
-  background: rgba(62, 44, 28, 0.03);
-  pointer-events: none;
-}
-
-/* 완료 슬롯 : 스택 박스도 초록 톤으로 */
-.slotDone .stackedBox {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--slot-done-bg) 88%, white 12%) 0%,
-      var(--slot-done-bg) 50%,
-      color-mix(in srgb, var(--slot-done-bg) 85%, black 15%) 100%);
-  border-color: var(--slot-done-edge);
-}
-.slotDone .stackedBoxEmpty {
-  display: none;   /* 완료 슬롯엔 빈 자리 없음 */
-}
-
-/* 완료 슬롯 */
-.slotDone {
-  background: var(--slot-done-bg);
-  border-color: var(--slot-done-edge);
-}
-
-/* hover : 옳은 품목 (드롭 가능) */
-.slotHoverValid {
-  background: var(--slot-hover-ok-bg);
-  border-color: var(--slot-hover-ok-edge);
-  transform: translate(-1px, -1px);
-  box-shadow:
-    inset 0 -2px 4px rgba(0, 0, 0, 0.08),
-    3px 3px 0 var(--box-shadow),
-    0 0 10px rgba(255, 210, 100, 0.6);
-}
-
-/* hover : 잘못된 품목 or 이미 완료 (드롭 실패 예고) */
-.slotHoverInvalid {
-  background: var(--slot-hover-no-bg);
-  border-color: var(--slot-hover-no-edge);
-}
-
-/* ═══════════════════════════════════════════════════════════
- * 드래그 중인 박스 (커서 따라감)
- *
- * 반드시 pointer-events: none — elementFromPoint 가 자기 자신을
- * 반환하지 않도록. 슬롯 히트 검출을 위해 필수.
- * ─────────────────────────────────────────────────────────── */
-
-.dragBox {
-  position: absolute;
-  transform: translate(-50%, -50%) scale(1.1);
-  padding: 8px 6px 6px 6px;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--box-fill) 90%, white 10%) 0%,
-      var(--box-fill) 50%,
-      color-mix(in srgb, var(--box-fill) 85%, black 15%) 100%);
-  border: 2.5px solid var(--box-edge);
-  border-radius: 6px;
-  box-shadow:
-    inset 0 -3px 6px rgba(0, 0, 0, 0.12),
-    3px 5px 8px rgba(0, 0, 0, 0.35),
-    0 0 8px rgba(255, 220, 130, 0.5);
-  pointer-events: none;
-  z-index: 100;
-  will-change: left, top;
-  /* 드래그 중 살짝 흔들림 */
-  animation: dragWobble 0.35s ease-in-out infinite;
-}
-@keyframes dragWobble {
-  0%   { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); }
-  50%  { transform: translate(-50%, -50%) scale(1.1) rotate(3deg);  }
-  100% { transform: translate(-50%, -50%) scale(1.1) rotate(-3deg); }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -513,6 +390,10 @@
   transform: translate(1px, 1px);
   box-shadow: 1px 1px 0 var(--ink);
 }
+.primaryBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 
 /* ═══════════════════════════════════════════════════════════
  * 반응형
@@ -527,23 +408,16 @@
   .progressLabel {
     text-align: left;
   }
-  .board {
-    grid-template-columns: 1fr;
-    grid-auto-rows: min-content;
+  .faderRow {
+    padding: 12px 8px;
+    gap: 8px;
   }
-  .warehouseGrid {
-    grid-template-columns: repeat(5, 1fr);
+  .faderTrack {
+    min-height: 130px;
+    width: 22px;
   }
-  .warehouseBox {
-    padding: 8px 4px 6px 4px;
-  }
-  .boxEmoji {
-    font-size: 24px;
-  }
-  .boxLabel {
-    font-size: 11px;
-  }
-  .shelfSlots {
-    max-height: 220px;
+  .faderReadout {
+    font-size: 13px;
+    min-width: 38px;
   }
 }
