@@ -1,47 +1,79 @@
 /* components/noticeboard/practice/clean/PracticeCleanGame.module.css
  * ─────────────────────────────────────────────────────────────
- * 시안 2b — 빈티지 카페 · 크래프트 톤 (연습실 청소, 쓰레기 줍기 재설계)
+ * 뉴트로 청량 · 화이트/블루 — 연습실 청소(clean) 리모델링
  *
- * 톤은 카페 3종과 통일 (--ink, --pad, --brick 등).
+ * 드롭인 교체용: PracticeCleanGame.tsx / cleanData.ts 는 수정 없이 그대로.
+ * 클래스 이름·구조·좌표계·pointer 이벤트 100% 유지, 색·테두리·그림자·폰트만 재정의.
  *
- * 레이아웃 :
- *   .wrap       : column flex (게임 영역 + 하단 액션)
- *   .gameArea   : column (HUD 상단 + 바닥 중앙)
- *   .floor      : 사각형 바닥, 반응형. 쓰레기 · 쓰레기통이 자식.
- *   .actionRow  : 최하단 그만두기 버튼
- *
- * 인터랙션 :
- *   · 쓰레기 아이템 : 이모지, absolute 위치. picked_up 상태면 확대 · 그림자 강조
- *   · 쓰레기통 : 하단 오른쪽 고정. 드래그 중 커서 진입 시 하이라이트 (binHover)
+ * 리뉴얼 포인트:
+ *   · 갈색 마루 → 밝은 블루 스튜디오 바닥(옅은 판자 라인 유지)
+ *   · 갈색 쓰레기통 → 블루 쓰레기통(뚜껑 라인·세로 골 유지, hover 글로우)
+ *   · 크래프트 배경 → 화이트 + 블루프린트 그리드 + 상단 스프링철 링
+ *   · 진행바 벽돌/머스타드 → 브랜드 블루 그라디언트
  */
+@import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@400;700&family=Gowun+Dodum&family=Space+Mono:wght@400;700&display=swap');
 
 .wrap {
-  --ink:     #3E2C1C;
-  --paper:   #E0CFA8;
-  --pad:     #F1E4C6;
-  --desk:    #D6BF98;
-  --brick:   #B5482E;
-  --mustard: #C98A24;
-  --receipt: #FBF3DE;
-  --counter: #7A5A38;
+  --ink:        #14406f;
+  --primary:    #1a9edb;
+  --strong:     #0d6fa8;
+  --mid:        #2ea3dd;
+  --border:     #bfe4f7;
+  --border-soft:#d6effc;
+  --page-top:   #eaf7fe;
+  --page:       #f4fbff;
+  --card:       #ffffff;
+  /* 바닥 · 쓰레기통 */
+  --floor:       #e3eef6;
+  --floor-plank: #b9d4e6;
+  --floor-deep:  #cfe0ee;
+  --bin:         #6fa8cf;
+  --bin-hi:      #9fcbe6;
+  --bin-deep:    #4a86b3;
+  --sun:         #d9b62a;
+  --ok:          #2f8a75;
+  --bad:         #c0392b;
 
-  --f-head: "Black Han Sans", var(--font-jua, "Jua"), sans-serif;
-  --f-note: "Gaegu", cursive;
-  --f-body: "Gowun Dodum", sans-serif;
+  --f-head: var(--font-heading, "Jua"), sans-serif;
+  --f-note: var(--font-accent,  "Gaegu"), cursive;
+  --f-body: var(--font-body,    "Gowun Dodum"), sans-serif;
+  --f-mono: var(--font-mono,    "Space Mono"), ui-monospace, monospace;
 
-  /* 바닥 · 아이템 색 */
-  --floor-color:    #d9c9a3;  /* 마루 밝은 톤 */
-  --floor-plank:    #b09776;  /* 마루 판자 어두운 라인 */
-  --floor-edge:     #8b6f4e;  /* 바닥 테두리 */
-  --bin-fill:       #6b5a3f;  /* 쓰레기통 몸통 */
-  --bin-highlight:  #a78a55;  /* 드래그 hover 하이라이트 */
-
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 16px 18px;
   color: var(--ink);
   font-family: var(--f-body);
+  background:
+    linear-gradient(rgba(26, 158, 219, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 158, 219, 0.07) 1px, transparent 1px),
+    #ffffff;
+  background-size: 24px 24px;
+}
+.wrap::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 10px;
+  background: radial-gradient(circle at 8px 12px,
+    transparent 8px, var(--primary) 8px 9px, transparent 9px);
+  background-size: 34px 20px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+.wrap::after {
+  content: "○ ○ ── PRACTICE · CLEAN No.01";
+  position: absolute;
+  left: 20px;
+  bottom: 14px;
+  z-index: 1;
+  pointer-events: none;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: rgba(26, 158, 219, 0.38);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -52,24 +84,26 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
   padding: 32px 24px;
-  background: var(--receipt);
-  border: 2.5px dashed var(--ink);
-  border-radius: 10px;
+  background: var(--card);
+  border: 2.5px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--border-soft);
 }
 .introTitle {
   font-family: var(--f-head);
-  font-size: 26px;
-  color: var(--brick);
+  font-size: 30px;
+  color: var(--primary);
 }
 .introBody {
   font-family: var(--f-body);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.7;
   max-width: 460px;
   text-align: center;
   margin: 0;
+  color: rgba(20, 64, 111, 0.82);
 }
 .introActions {
   display: flex;
@@ -78,7 +112,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
- * 게임 영역
+ * 게임 영역 · HUD
  * ─────────────────────────────────────────────────────────── */
 
 .gameArea {
@@ -87,54 +121,49 @@
   gap: 14px;
   min-height: 0;
   flex: 1 1 auto;
+  position: relative;
+  z-index: 2;
 }
-
-/* ═══════════════════════════════════════════════════════════
- * HUD (타이머 + 진행률)
- * ─────────────────────────────────────────────────────────── */
-
 .hud {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   padding: 10px 14px;
-  background: var(--pad);
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  box-shadow: 3px 3px 0 var(--ink);
+  background: var(--card);
+  border: 2.5px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 4px 0 var(--border-soft);
   flex: 0 0 auto;
 }
-
 .timer {
-  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
+  font-family: var(--f-mono);
   font-size: 16px;
   font-weight: 700;
-  color: var(--counter);
-  background: rgba(62, 44, 28, 0.08);
-  border: 1.5px solid rgba(62, 44, 28, 0.35);
-  border-radius: 4px;
+  color: var(--strong);
+  background: var(--page-top);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
   padding: 4px 12px;
   letter-spacing: 0.5px;
   min-width: 70px;
   text-align: center;
 }
 .timerMid {
-  color: #a54a1a;
-  background: rgba(201, 138, 36, 0.18);
-  border-color: rgba(201, 138, 36, 0.55);
+  color: #b8860b;
+  background: rgba(217, 182, 42, 0.16);
+  border-color: rgba(217, 182, 42, 0.55);
 }
 .timerLow {
-  color: #d02b1a;
-  background: rgba(181, 72, 46, 0.2);
-  border-color: rgba(181, 72, 46, 0.65);
+  color: var(--bad);
+  background: rgba(192, 57, 43, 0.14);
+  border-color: rgba(192, 57, 43, 0.5);
   animation: timerPulse 0.8s ease-in-out infinite;
 }
 @keyframes timerPulse {
   0%, 100% { transform: scale(1);    opacity: 1;   }
   50%      { transform: scale(1.08); opacity: 0.7; }
 }
-
 .progress {
   flex: 1 1 auto;
   display: flex;
@@ -143,26 +172,27 @@
 }
 .progressLabel {
   font-family: var(--f-note);
+  font-weight: 700;
   font-size: 13px;
-  color: var(--counter);
+  color: var(--mid);
   text-align: right;
 }
 .progressBar {
   height: 10px;
-  background: rgba(62, 44, 28, 0.15);
-  border: 1.5px solid var(--ink);
+  background: var(--page-top);
+  border: 1.5px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
 }
 .progressFill {
   height: 100%;
-  background: linear-gradient(90deg, var(--brick) 0%, var(--mustard) 100%);
+  background: linear-gradient(90deg, var(--primary) 0%, #5cc4e6 100%);
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 4px 0 0 4px;
 }
 
 /* ═══════════════════════════════════════════════════════════
- * 바닥 영역 (연습실)
+ * 바닥 영역 (연습실 스튜디오 바닥)
  * ─────────────────────────────────────────────────────────── */
 
 .floorArea {
@@ -171,57 +201,53 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--desk);
-  border: 2px solid var(--ink);
-  border-radius: 8px;
+  background: linear-gradient(180deg, #eef6fc, #dcebf6);
+  border: 2.5px solid var(--strong);
+  border-radius: 16px;
   padding: 20px;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.08);
+  box-shadow:
+    inset 0 -4px 0 rgba(255, 255, 255, 0.5),
+    inset 0 4px 10px rgba(13, 111, 168, 0.12);
   position: relative;
   overflow: hidden;
 }
-
-/* 바닥 : 사각형, 반응형 (min(80%, 400px)) */
 .floor {
   position: relative;
   width: 100%;
   max-width: 400px;
   aspect-ratio: 1 / 1;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--floor-color) 92%, white 8%) 0%,
-      var(--floor-color) 60%,
-      color-mix(in srgb, var(--floor-color) 88%, black 12%) 100%);
-  border: 4px solid var(--ink);
-  border-radius: 8px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--floor) 92%, white 8%) 0%,
+    var(--floor) 60%,
+    var(--floor-deep) 100%);
+  border: 4px solid var(--strong);
+  border-radius: 10px;
   box-shadow:
-    inset 0 -6px 12px rgba(0, 0, 0, 0.08),
-    0 6px 16px rgba(62, 44, 28, 0.25);
+    inset 0 -6px 12px rgba(20, 64, 111, 0.08),
+    0 6px 16px rgba(20, 64, 111, 0.2);
   user-select: none;
   -webkit-user-select: none;
   overflow: hidden;
 }
-
-/* 마루 판자 라인 (repeating-linear-gradient 로 나뭇결) */
+/* 스튜디오 마루 판자 라인 */
 .floor::before {
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    repeating-linear-gradient(
-      180deg,
-      transparent 0,
-      transparent 32%,
-      rgba(139, 111, 78, 0.25) 32%,
-      rgba(139, 111, 78, 0.25) 32.5%,
-      transparent 33%,
-      transparent 66%,
-      rgba(139, 111, 78, 0.25) 66%,
-      rgba(139, 111, 78, 0.25) 66.5%,
-      transparent 67%
-    );
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0,
+    transparent 32%,
+    rgba(120, 165, 200, 0.35) 32%,
+    rgba(120, 165, 200, 0.35) 32.5%,
+    transparent 33%,
+    transparent 66%,
+    rgba(120, 165, 200, 0.35) 66%,
+    rgba(120, 165, 200, 0.35) 66.5%,
+    transparent 67%
+  );
   pointer-events: none;
 }
-
 /* 바닥 안쪽 얇은 테두리 */
 .floor::after {
   content: "";
@@ -230,16 +256,13 @@
   left: 4%;
   right: 4%;
   bottom: 4%;
-  border: 1.5px solid rgba(62, 44, 28, 0.15);
-  border-radius: 4px;
+  border: 1.5px solid rgba(20, 64, 111, 0.15);
+  border-radius: 6px;
   pointer-events: none;
 }
 
 /* ═══════════════════════════════════════════════════════════
  * 쓰레기 아이템
- *
- * 이모지 기반. 위치는 % (중심 기준). transform 으로 -50% 오프셋.
- * picked_up 상태 : 확대 · 그림자 강조 · z-index 최상위.
  * ─────────────────────────────────────────────────────────── */
 
 .trash {
@@ -247,8 +270,8 @@
   transform: translate(-50%, -50%);
   font-size: 30px;
   line-height: 1;
-  pointer-events: none;   /* pointerdown 은 부모 .floor 에서 처리 */
-  filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.28));
+  pointer-events: none;
+  filter: drop-shadow(0 2px 2px rgba(20, 64, 111, 0.28));
   cursor: grab;
   transition:
     transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
@@ -256,15 +279,13 @@
   will-change: transform, left, top;
   z-index: 2;
 }
-
 .trashPicked {
   transform: translate(-50%, -50%) scale(1.25);
   filter:
-    drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.45))
-    drop-shadow(0 0 6px rgba(255, 220, 130, 0.55));
+    drop-shadow(0 4px 4px rgba(20, 64, 111, 0.4))
+    drop-shadow(0 0 6px rgba(26, 158, 219, 0.55));
   z-index: 20;
   cursor: grabbing;
-  /* 드래그 중 살짝 흔들림 */
   animation: trashWobble 0.35s ease-in-out infinite;
 }
 @keyframes trashWobble {
@@ -274,25 +295,21 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
- * 쓰레기통
- *
- * 고정 위치 · 사각형 목표 영역. left · top 은 중심 기준 (인라인 스타일).
- * transform 으로 -50% 오프셋. 드래그 hover 시 하이라이트.
+ * 쓰레기통 (블루)
  * ─────────────────────────────────────────────────────────── */
 
 .bin {
   position: absolute;
   transform: translate(-50%, -50%);
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--bin-fill) 78%, white 22%) 0%,
-      var(--bin-fill) 50%,
-      color-mix(in srgb, var(--bin-fill) 80%, black 20%) 100%);
-  border: 3px solid var(--ink);
+  background: linear-gradient(180deg,
+    var(--bin-hi) 0%,
+    var(--bin) 50%,
+    var(--bin-deep) 100%);
+  border: 3px solid var(--strong);
   border-radius: 8px 8px 4px 4px;
   box-shadow:
-    inset 0 -4px 8px rgba(0, 0, 0, 0.2),
-    3px 4px 0 rgba(62, 44, 28, 0.35);
+    inset 0 -4px 8px rgba(13, 111, 168, 0.25),
+    0 3px 0 var(--border-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -303,8 +320,6 @@
     transform 0.15s ease;
   z-index: 1;
 }
-
-/* 통 뚜껑 라인 (윗부분) */
 .bin::before {
   content: "";
   position: absolute;
@@ -312,47 +327,40 @@
   left: 8%;
   right: 8%;
   height: 3px;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(13, 111, 168, 0.35);
   border-radius: 2px;
 }
-
-/* 세로 골 (통 앞면 무늬) */
 .bin::after {
   content: "";
   position: absolute;
   inset: 22% 20% 12% 20%;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 22%,
-      rgba(0, 0, 0, 0.15) 22%,
-      rgba(0, 0, 0, 0.15) 25%,
-      transparent 25%
-    );
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 22%,
+    rgba(13, 111, 168, 0.2) 22%,
+    rgba(13, 111, 168, 0.2) 25%,
+    transparent 25%
+  );
   border-radius: 2px;
   pointer-events: none;
 }
-
 .binEmoji {
   font-size: 34px;
   line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 1px 2px rgba(13, 111, 168, 0.35));
   position: relative;
   z-index: 1;
 }
-
-/* 드래그 중 커서가 통 위에 있을 때 하이라이트 */
 .binHover {
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--bin-highlight) 82%, white 18%) 0%,
-      var(--bin-highlight) 50%,
-      color-mix(in srgb, var(--bin-highlight) 82%, black 18%) 100%);
+  background: linear-gradient(180deg,
+    #cdeafa 0%,
+    var(--bin-hi) 50%,
+    var(--bin) 100%);
   box-shadow:
-    inset 0 -4px 8px rgba(0, 0, 0, 0.22),
-    3px 4px 0 rgba(62, 44, 28, 0.4),
-    0 0 12px rgba(255, 220, 130, 0.7);
+    inset 0 -4px 8px rgba(13, 111, 168, 0.22),
+    0 3px 0 var(--border-soft),
+    0 0 14px rgba(26, 158, 219, 0.7);
   transform: translate(-50%, -50%) scale(1.06);
 }
 
@@ -366,37 +374,45 @@
   gap: 10px;
   padding-top: 4px;
   flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
 }
-
 .primaryBtn,
 .ghostBtn {
-  font-family: var(--f-note);
-  font-weight: 700;
+  font-family: var(--f-head);
   font-size: 15px;
-  padding: 8px 20px;
-  border-radius: 7px;
-  border: 2.5px solid var(--ink);
+  padding: 9px 22px;
+  border-radius: 12px;
+  border: 2.5px solid var(--border);
   cursor: pointer;
-  box-shadow: 3px 3px 0 var(--ink);
+  box-shadow: 0 3px 0 var(--border-soft);
   transition: transform 0.08s, box-shadow 0.08s;
   color: var(--ink);
+  background: #fff;
 }
-.primaryBtn { background: var(--brick); color: var(--receipt); }
-.ghostBtn   { background: var(--pad); }
-
+.primaryBtn {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--strong);
+  box-shadow: 0 4px 0 var(--strong);
+  font-size: 16px;
+  padding: 10px 24px;
+}
 .primaryBtn:hover,
 .ghostBtn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--ink);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 var(--border-soft);
 }
+.primaryBtn:hover { box-shadow: 0 5px 0 var(--strong); }
 .primaryBtn:active,
 .ghostBtn:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--ink);
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--border-soft);
 }
+.primaryBtn:active { box-shadow: 0 1px 0 var(--strong); }
 
 /* ═══════════════════════════════════════════════════════════
- * 반응형 (모바일 · 좁은 화면)
+ * 반응형
  * ─────────────────────────────────────────────────────────── */
 
 @media (max-width: 480px) {
@@ -405,16 +421,8 @@
     align-items: stretch;
     gap: 8px;
   }
-  .progressLabel {
-    text-align: left;
-  }
-  .floor {
-    max-width: 320px;
-  }
-  .trash {
-    font-size: 26px;
-  }
-  .binEmoji {
-    font-size: 28px;
-  }
+  .progressLabel { text-align: left; }
+  .floor         { max-width: 320px; }
+  .trash         { font-size: 26px; }
+  .binEmoji      { font-size: 28px; }
 }
