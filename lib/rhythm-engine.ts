@@ -68,6 +68,12 @@ export class RhythmEngine {
 
   private endTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // ── 디버그 : 채보 검증용 틱 ──────────────────────
+  //   setDebugTicks 로 노트 시각 배열을 넘기면 재생 시 각 시각에 비프.
+  //   운영에선 사용 안 함.
+  private debugTickTimes: number[] | null = null;
+  private tickNodes: OscillatorNode[] = [];
+
   /* ─────────────────────────────────────────────
    * 상태
    * ───────────────────────────────────────────── */
@@ -219,6 +225,14 @@ export class RhythmEngine {
     // 재생 : 오프셋 0 부터, audioStartAt 에 시작
     this.source.start(audioStartAt, 0, this.durationSec);
 
+    // ── 디버그 : 노트 시각마다 틱(비프) 예약 재생 ────
+    //   채보 검증용. tickTimes 가 주어지면 각 시각에 짧은 오실레이터 재생.
+    //   오디오와 같은 ctx 시간축(audioStartAt 기준)에 예약하므로 완벽 동기.
+    //   운영 빌드에선 tickTimes 를 넘기지 않아 아무 일도 안 함.
+    if (this.debugTickTimes && this.debugTickTimes.length > 0) {
+      this.scheduleTicks(this.debugTickTimes, audioStartAt);
+    }
+
     // 시간축 대응점 저장 : songTime 원점 = audioStartAt
     this.startCtxTime = audioStartAt;
     this.startPerfMs = performance.now() + countInSec * 1000;
@@ -231,6 +245,50 @@ export class RhythmEngine {
     this.endTimer = setTimeout(() => {
       if (this._status === "playing") this.setStatus("ended");
     }, totalMs);
+  }
+
+  /* ─────────────────────────────────────────────
+   * 디버그 : 채보 검증용 틱
+   * ───────────────────────────────────────────── */
+
+  /**
+   * 채보 검증용 틱 시각 설정. start() 전에 호출.
+   * @param times  노트 시각 배열 (곡 시작 후 초). rhythmData 의 note.time 그대로.
+   */
+  setDebugTicks(times: number[]): void {
+    this.debugTickTimes = times.slice();
+  }
+
+  /**
+   * 각 노트 시각에 짧은 비프(오실레이터) 를 ctx 시간축에 예약.
+   * audioStartAt(songTime=0 의 ctx 시각) 기준이므로 음악과 정확히 동기.
+   */
+  private scheduleTicks(times: number[], audioStartAt: number): void {
+    if (!this.ctx) return;
+    const TICK_FREQ = 1400;   // Hz (높은 톡 소리)
+    const TICK_DUR = 0.035;   // 초 (짧게)
+    const TICK_GAIN = 0.35;
+
+    for (const t of times) {
+      if (t < 0 || t > this.durationSec) continue;
+      const at = audioStartAt + t;
+
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(TICK_FREQ, at);
+
+      // 짧은 감쇠 엔벨로프 (클릭 노이즈 방지)
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.linearRampToValueAtTime(TICK_GAIN, at + 0.005);
+      g.gain.linearRampToValueAtTime(0.0001, at + TICK_DUR);
+
+      osc.connect(g);
+      g.connect(this.ctx.destination);
+      osc.start(at);
+      osc.stop(at + TICK_DUR + 0.01);
+      this.tickNodes.push(osc);
+    }
   }
 
   /* ─────────────────────────────────────────────
@@ -309,6 +367,20 @@ export class RhythmEngine {
       }
       this.gain = null;
     }
+    // 디버그 틱 노드 정리
+    for (const osc of this.tickNodes) {
+      try {
+        osc.stop();
+      } catch {
+        /* 이미 정지 */
+      }
+      try {
+        osc.disconnect();
+      } catch {
+        /* noop */
+      }
+    }
+    this.tickNodes = [];
     if (this.ctx) {
       try {
         this.ctx.close();

@@ -128,6 +128,17 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
 
   const song = getDefaultSong();
 
+  // ── 채보 검증 디버그 모드 ────────────────────────
+  //   true 면 : (1) 노트 시각마다 틱 소리, (2) 현재 곡 시각(초) 실시간 표시.
+  //   채보를 다 맞춘 뒤 false 로 되돌리거나 이 블록을 제거한다.
+  //   URL 에 ?rhythmDebug=1 이 있어도 켜짐 (코드 수정 없이 토글).
+  const DEBUG_CHART = false;
+  const debugOn =
+    DEBUG_CHART ||
+    (typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("rhythmDebug") === "1");
+  const [debugSongTime, setDebugSongTime] = useState(0);
+
   /* ═══════════════════════════════════════════════
    * 정리 유틸
    * ─────────────────────────────────────────────── */
@@ -207,13 +218,18 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
 
     setPhase("countin");
 
+    // 디버그 : 노트 시각마다 틱 소리 (채보 검증). start 전에 설정.
+    if (debugOn) {
+      engine.setDebugTicks(song.notes.map((n) => n.time));
+    }
+
     // 카운트인 후 오디오 시작 (엔진 내부에서 countIn 만큼 지연 재생)
     await engine.start(COUNT_IN_SEC);
 
     setPhase("playing");
     startLoop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song]);
+  }, [song, debugOn]);
 
   /* ═══════════════════════════════════════════════
    * rAF 루프 : 노트 위치 갱신 · MISS 판정 · 종료 감지
@@ -260,6 +276,11 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
       });
       setNoteViews(views);
 
+      // 디버그 : 현재 곡 시각 표시 갱신
+      if (debugOn) {
+        setDebugSongTime(songTime);
+      }
+
       // ── 종료 감지 ──────────────────────────────
       // 곡 길이 + 여유 지나면 채점.
       if (
@@ -276,7 +297,7 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
 
     rafRef.current = requestAnimationFrame(loop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [song.durationSec, stopRaf]);
+  }, [song.durationSec, stopRaf, debugOn]);
 
   /* ═══════════════════════════════════════════════
    * 판정 플래시 · 캐릭터 점프
@@ -568,6 +589,14 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
 
           {/* 탭 안내 (모바일) */}
           <div className={styles.tapHint}>스페이스바 · 화면 탭</div>
+
+          {/* 디버그 : 현재 곡 시각 (채보 검증) */}
+          {debugOn ? (
+            <div className={styles.debugClock}>
+              ▶ {debugSongTime >= 0 ? debugSongTime.toFixed(2) : "0.00"}s
+              <span className={styles.debugHint}> · 틱 소리로 채보 확인 중</span>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
