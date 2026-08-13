@@ -559,7 +559,7 @@ export default function MyPanel({
             {/* ── 스탯 : 유리병 (레벨제) + 종합 퍼포먼스 ── */}
             <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={secTitle}>🫧 스탯</span>
+                <span style={secTitle}>스탯</span>
                 <span style={secHint}>마우스를 올려 상세 정보를 확인해주십시오</span>
               </div>
 
@@ -639,8 +639,8 @@ export default function MyPanel({
             {/* ── 달력 (26년 · 월 이동) ── */}
             <div style={{ marginTop: 20, borderTop: "2.5px dashed #a8dcf5", paddingTop: 14 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={secTitle}>📅 나의 달력</span>
-                <span style={secHint}>날짜를 눌러 나만의 메모를 남겨요</span>
+                <span style={secTitle}>일정</span>
+                <span style={secHint}>일자를 클릭하면 개인 메모 사용이 가능합니다.</span>
               </div>
 
               {/* 월 이동 헤더 */}
@@ -782,8 +782,7 @@ export default function MyPanel({
             else setTextColor(hex);
           }}
           onConfirm={() => {
-            // 확정 시 현재 두 색을 함께 DB 저장.
-            // 편집 중이던 쪽은 라이브 프리뷰로 이미 state 최신값이라 그대로 넘김.
+
             void persistColors(cardColor, textColor);
             setColorPopupTarget(null);
           }}

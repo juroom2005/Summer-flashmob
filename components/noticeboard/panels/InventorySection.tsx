@@ -161,8 +161,7 @@ export default function InventorySection() {
   return (
     <div style={sectionWrapStyle}>
       <div style={sectionHeaderStyle}>
-        <span style={secTitleStyle}>🧺 인벤토리</span>
-        <span style={secHintStyle}>메모지에 마우스를 올리면 효과가 보여요</span>
+        <span style={secTitleStyle}>인벤토리</span>
       </div>
 
       <div style={corkboardStyle}>

@@ -45,14 +45,11 @@ const K = FRAME_W / FRAME_SVG_W;
 const FRAME_H = FRAME_SVG_H * K;
 
 // ── 내지/덮개의 프레임 내부 상대 위치 (원본 SVG 좌표) ──────
-//   프레임 본체는 원본 y≈65 부터 시작(탭 아래). 좌우 여백 계산:
-//   내지(915) → 프레임(976) 대비 중앙: (976-915)/2 ≈ 30
-//   상단은 프레임 탭 아래 ≈ 65
 const PAPER_OFFSET_X = 30;
-const PAPER_OFFSET_Y = 65;
-//   덮개(968) → 거의 꽉 참. 좌 4, 상 65 (탭이 오른쪽이라 우측 정렬 느낌)
+const PAPER_OFFSET_Y = 90;
+//   덮개(968) 
 const COVER_OFFSET_X = 4;
-const COVER_OFFSET_Y = 65;
+const COVER_OFFSET_Y = 112;
 
 // ── SVG (data-uri 인라인) ──────────────────────────────────
 const FRAME_SVG =

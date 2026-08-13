@@ -49,7 +49,7 @@ export default function AccountInfoCard() {
 
   return (
     <div style={sectionWrapStyle}>
-      <div style={secTitleStyle}>💳 계정 정보</div>
+      <div style={secTitleStyle}>계정 정보</div>
 
       <div style={cardStyle}>
         {/* 이메일 */}

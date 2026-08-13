@@ -60,7 +60,7 @@ const noticeSlotStyle: CSSProperties = {
 
 const attendanceSlotStyle: CSSProperties = {
   position: "absolute",
-  top: 300,
+  top: 280,
   left: 40,      // 공지와 같은 좌측 정렬
   width: 420,
 };

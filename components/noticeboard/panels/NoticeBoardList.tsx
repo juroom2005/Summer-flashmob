@@ -44,7 +44,8 @@ import {
 const JUA  = "'Jua', sans-serif";
 const BODY = "'Gowun Dodum', sans-serif";
 
-const LIST_HEIGHT = 220;   // 고정 → 노트 크기 안 흔들림
+const LIST_HEIGHT = 110;  
+const PAGE_SIZE   = 3;  
 
 type Filter = "all" | NoticeCategory;
 
@@ -76,9 +77,18 @@ export default function NoticeBoardList() {
     return notices.filter((n) => n.category === filter);
   }, [notices, filter]);
 
+  // ── 페이지네이션 ──
+  const [page, setPage] = useState(0);
+
+  useEffect(() => { setPage(0); }, [filter]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage  = Math.min(page, pageCount - 1);   // 범위 밖이면 자동 보정
+  const pageItems = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
   return (
     <div style={noteStyle}>
-      {/* 노트 배경 SVG (img 요소로 렌더 - background-image 는 padding 영역 이슈) */}
+
       <img
         src="/svg/update-note.svg"
         alt=""
@@ -86,7 +96,8 @@ export default function NoticeBoardList() {
       />
 
       {/* 마스킹테이프 (노트 안 상단) */}
-      <div style={tapeStyle} dangerouslySetInnerHTML={{ __html: UPDATE_TAPE_SVG }} />
+      <div style={tapeLeftStyle}  dangerouslySetInnerHTML={{ __html: cropTape("0 9 121 110") }} />
+      <div style={tapeRightStyle} dangerouslySetInnerHTML={{ __html: cropTape("467 0 121 109") }} />
 
       {/* UPDATE 글씨 */}
       <div style={updateTitleStyle}>UPDATE</div>
@@ -110,7 +121,7 @@ export default function NoticeBoardList() {
           />
         ) : (
           <ul style={ulStyle}>
-            {filtered.map((n) => (
+            {pageItems.map((n) => (
               <NoticeRow
                 key={n.id}
                 notice={n}
@@ -120,6 +131,24 @@ export default function NoticeBoardList() {
           </ul>
         )}
       </div>
+
+      {/* 페이지 점 (공지가 페이지당 개수를 넘으면 표시) */}
+      {!loading && pageCount > 1 ? (
+        <div style={dotsStyle}>
+          {Array.from({ length: pageCount }).map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setPage(i)}
+              aria-label={`${i + 1}페이지`}
+              style={{
+                ...dotStyle,
+                background: i === safePage ? "#3f88f9" : "#c5d8ef",
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {/* 상세 팝업 */}
       {selected ? (
@@ -333,44 +362,55 @@ function formatDate(iso: string | null | undefined): string {
   return `${m}/${dd}`;
 }
 
+function cropTape(viewBox: string): string {
+  return UPDATE_TAPE_SVG.replace('viewBox="0 0 588 119"', `viewBox="${viewBox}"`);
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 스타일
 // ────────────────────────────────────────────────────────────────────
 
 // ── 노트 컨테이너 ──
-// 상단 UPDATE·필터 자리를 위해 padding-top 크게.
-// 노트 SVG 는 별도 <img> 로 렌더 → 위치·그림자 통제 쉬움.
+
 const noteStyle: CSSProperties = {
   position: "relative",
   width: "100%",
-  paddingTop: 50,            // UPDATE·필터가 이 영역에 (노트 위에 걸침)
+  paddingTop: 50,          
 };
 
 // ── 노트 배경 SVG (img 요소) ──
-// 노트 그림은 상단 여백(paddingTop) 아래에 위치.
-// filter:drop-shadow 는 img alpha 채널 기준으로 그림자 → 정상 동작.
 const noteBgStyle: CSSProperties = {
   display: "block",
   width: "100%",
-  height: "auto",
+  height: 180,           
+  objectFit: "fill",    
   filter: "drop-shadow(2px 4px 6px rgba(20, 58, 99, 0.18))",
 };
 
 // ── 마스킹테이프 (노트 상단) ──
-const tapeStyle: CSSProperties = {
+const tapeLeftStyle: CSSProperties = {
   position: "absolute",
-  top: 8,
-  left: 90,
-  width: 200,
-  height: 40,
+  top: 34,
+  left: -10,
+  width: 66,
+  height: 60,
+  zIndex: 2,
+};
+
+const tapeRightStyle: CSSProperties = {
+  position: "absolute",
+  top: 34,
+  right: -20,
+  width: 66,
+  height: 60,
   zIndex: 2,
 };
 
 // ── UPDATE 글씨 (Monofett) ──
 const updateTitleStyle: CSSProperties = {
   position: "absolute",
-  top: 14,
-  left: 34,
+  top: 55,
+  left: 38,
   fontFamily: "'Monofett', cursive",
   fontSize: 40,
   lineHeight: "44px",
@@ -386,25 +426,46 @@ const updateTitleStyle: CSSProperties = {
   zIndex: 3,
 };
 
-// ── 필터 슬롯 (UPDATE 옆 우상단, 같은 선상) ──
+// ── 필터 슬롯 ──
 const filterSlotStyle: CSSProperties = {
   position: "absolute",
-  top: 22,
-  right: 24,
+  top: 71,
+  right: 15,
   zIndex: 3,
 };
 
-// ── 리스트 (노트 이미지 위에 얹힘) ──
-// 노트 이미지가 자연 흐름에 있고, 리스트는 그 위 absolute 로 얹혀서
-// 노트 안쪽 영역에만 표시된다. top 은 paddingTop 50 이후부터.
+// ── 리스트 ──
+
 const listContainerStyle: CSSProperties = {
   position: "absolute",
-  top: 66,               // paddingTop 50 + 노트 상단 여백 16
-  left: 22,
+  top: 110,               
+  left: 40,
   right: 22,
   height: LIST_HEIGHT,
-  overflowY: "auto",
+  overflow: "hidden",   
   zIndex: 1,
+};
+
+
+const dotsStyle: CSSProperties = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  top: 210,        
+  display: "flex",
+  justifyContent: "center",
+  gap: 7,
+  zIndex: 2,
+};
+
+const dotStyle: CSSProperties = {
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  border: "none",
+  padding: 0,
+  cursor: "pointer",
+  transition: "background .12s",
 };
 
 const ulStyle: CSSProperties = {
@@ -422,7 +483,7 @@ const rowBtnStyle: CSSProperties = {
   alignItems: "center",
   gap: 10,
   width: "100%",
-  padding: "8px 4px",
+  padding: "4px 4px",    
   background: "transparent",
   border: "none",
   cursor: "pointer",

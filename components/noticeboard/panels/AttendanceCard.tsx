@@ -3,17 +3,15 @@
 // 출석 커맨드 카드 (한마디 게시판 · 날짜 페이지 네비게이션)
 // ═══════════════════════════════════════════════════════════════════
 //
-// 위치: NoticeBoard > NoticePanel > 좌측 하단.
+// 위치: NoticeBoard > BoardCover > 좌측 하단.
 //
-// 구조:
-//   [ 헤더 : 커맨드 안내  ·  오늘 N명 출석 배지 ]
-//   [ textarea + !출석 버튼 (가로 배치) ]
-//   ─────────────────────
-//   [ 리스트 헤더 : 📮 한마디 게시판  ·  선택 날짜 개수 ]
-//   [ 스크롤 리스트 (선택된 날짜의 한마디만) ]
-//   [ 날짜 네비게이션 (알약 형태 · 오늘은 노란색) ]
+// 구조 (2026-08 시안 리뉴얼):
+//   [ 오늘 N명 출석 배지 (우상단, 로그인 시) ]
+//   [ 한 줄 입력(200자) + !출석 버튼 (가로 배치) ]
+//   [ 한마디 리스트 (내부 스크롤만) ]
+//   [ 날짜 네비게이션 (알약 · 오늘은 흰 pill) ]
 //
-// 동작:
+// 동작 (기존과 동일):
 //   - 마운트 시 오늘 출석 여부 + 오늘 인원수 + 이력 날짜 목록 조회
 //   - selectedDate 기본값 : 오늘. 오늘에 이력 없어도 항상 페이지 존재.
 //   - 날짜 알약 클릭 → 해당 날짜 페이지로 이동
@@ -25,7 +23,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useCurrentUser } from "@/components/shared/useCurrentUser";
 import {
   attendToday,
@@ -41,22 +39,19 @@ import {
 // 폰트 상수 (NoticeBoard.tsx 와 일치)
 // ────────────────────────────────────────────────────────────────────
 const JUA = "'Jua', sans-serif";
-const GAEGU = "'Gaegu', cursive";
 const BODY = "'Gowun Dodum', sans-serif";
 
 // ────────────────────────────────────────────────────────────────────
 // 상수
 // ────────────────────────────────────────────────────────────────────
 const MAX_MESSAGE_LEN = 200;
-const LIST_MAX_HEIGHT = 180;      // 리스트 스크롤 영역 최대 높이(px)
+const CARD_HEIGHT = 280;   
 const FALLBACK_DISPLAY_NAME = "운영진";
 
 // ────────────────────────────────────────────────────────────────────
 // 문구 (문어체 · 완료체)
 // ────────────────────────────────────────────────────────────────────
 const MSG = {
-  headerDone:        "오늘 출석은 완료되었습니다. 자정이 지나면 다시 가능합니다.",
-
   placeholderReady:  "오늘의 한마디를 남겨보세요. (선택)",
   placeholderDone:   "오늘 출석은 완료되었습니다.",
   placeholderAnon:   "로그인 후 이용할 수 있습니다.",
@@ -67,7 +62,6 @@ const MSG = {
   btnProcessing:     "처리 중",
   btnLogin:          "로그인 후 출석",
 
-  listHeader:        "한마디 게시판",
   listEmpty:         "아직 남겨진 한마디가 없습니다.",
   listEmptyPast:     "이 날에는 남겨진 한마디가 없습니다.",
   listLoading:       "불러오는 중",
@@ -124,43 +118,12 @@ function parseDate(key: string): DateParts {
 }
 
 // ────────────────────────────────────────────────────────────────────
-// 유틸 : 페이지 라벨 (리스트 헤더 우측에 표시)
-//   "오늘 (7/23)" / "어제 (7/22)" / "7/21 (일)"
+// 유틸 : 네비게이션 알약 라벨 (항상 월/일 표시)
 // ────────────────────────────────────────────────────────────────────
-const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"] as const;
-
-function pageLabel(key: string, todayKey: string, yesterdayKey: string): string {
+function navLabel(key: string, _prevKey?: string | null): string {
   const p = parseDate(key);
   if (!p) return key;
-  if (key === todayKey) return `오늘 (${p.m}/${p.d})`;
-  if (key === yesterdayKey) return `어제 (${p.m}/${p.d})`;
-  const dt = new Date(p.y, p.m - 1, p.d);
-  return `${p.m}/${p.d} (${WEEKDAY_KO[dt.getDay()]})`;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 유틸 : 네비게이션 알약 라벨
-//   앞 페이지와 월이 같으면 D 만, 다르면 M/D 로 표시.
-// ────────────────────────────────────────────────────────────────────
-function navLabel(key: string, prevKey: string | null): string {
-  const p = parseDate(key);
-  if (!p) return key;
-  if (!prevKey) return `${p.m}/${p.d}`;
-  const prev = parseDate(prevKey);
-  if (!prev) return `${p.m}/${p.d}`;
-  return p.m !== prev.m ? `${p.m}/${p.d}` : `${p.d}`;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 유틸 : 어제 KST 날짜 키
-// ────────────────────────────────────────────────────────────────────
-function getYesterdayKey(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return `${p.m}/${p.d}`;   // 항상 월/일 표시
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -347,18 +310,17 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
           ? MSG.btnDone
           : MSG.btnAttend;
 
-  const textareaPlaceholder = !isLoggedIn
+  const inputPlaceholder = !isLoggedIn
     ? MSG.placeholderAnon
     : isDone
       ? MSG.placeholderDone
       : MSG.placeholderReady;
 
-  const textareaDisabled = !isLoggedIn || isDone || processing;
+  const inputDisabled = !isLoggedIn || isDone || processing;
   const remainingChars = MAX_MESSAGE_LEN - message.length;
 
   // ── 파생값 : 날짜 관련 ──────────────────────────────────────
   const todayKey = getTodayKey();
-  const yesterdayKey = getYesterdayKey();
 
   // 네비게이션에 표시할 날짜 목록. 이력 있는 날짜 + 오늘 (없어도 포함).
   const navDates = useMemo<string[]>(() => {
@@ -368,119 +330,33 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
     return Array.from(set).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   }, [availableDates, todayKey]);
 
-  const selectedLabel = pageLabel(selectedDate, todayKey, yesterdayKey);
   const isSelectedPast = selectedDate !== todayKey;
 
   // ── 렌더 ────────────────────────────────────────────────────
   return (
-    <div
-      style={{
-        background: "#e8f7ff",
-        border: "2px solid #a8dcf5",
-        borderRadius: 14,
-        padding: "13px 16px",
-      }}
-    >
-      {/* 헤더 */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          gap: 8,
-          flexWrap: "wrap",
-          marginBottom: 6,
-        }}
-      >
-        <div
-          style={{
-            fontFamily: JUA,
-            fontSize: 15,
-            color: "#0d6fa8",
-            lineHeight: 1.5,
-            flex: 1,
-            minWidth: 0,
-          }}
-        >
-          ⌨️ 출석 커맨드 —{" "}
-          {isDone ? (
-            <span
-              style={{
-                fontFamily: GAEGU,
-                fontWeight: 700,
-                fontSize: 14,
-                color: "#6a97b1",
-              }}
-            >
-              {MSG.headerDone}
-            </span>
-          ) : (
-            <code style={{ background: "#fff2a8", padding: "1px 6px", borderRadius: 4 }}>
-              !출석
-            </code>
-          )}
-        </div>
+    <div style={cardStyle}>
 
-        {isLoggedIn && todayCount !== null ? (
-          <div
-            style={{
-              fontFamily: JUA,
-              fontSize: 13,
-              color: "#0d6fa8",
-              background: "#cdeeff",
-              borderRadius: 999,
-              padding: "3px 10px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            오늘 {todayCount}명 출석
-          </div>
-        ) : null}
-      </div>
-
-      {/* textarea + 버튼 (가로 배치) */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "stretch",
-          gap: 8,
-          marginBottom: 4,
-        }}
-      >
-        <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
-          <textarea
+      {/* 입력 + 버튼 (가로 배치) */}
+      <div style={inputRowStyle}>
+        <div style={inputWrapStyle}>
+          <input
+            type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value.slice(0, MAX_MESSAGE_LEN))}
-            placeholder={textareaPlaceholder}
+            placeholder={inputPlaceholder}
             maxLength={MAX_MESSAGE_LEN}
-            rows={2}
-            disabled={textareaDisabled}
+            disabled={inputDisabled}
             style={{
-              width: "100%",
-              boxSizing: "border-box",
-              border: "2px solid #bfe4f7",
-              borderRadius: 10,
-              padding: "8px 12px",
-              fontFamily: BODY,
-              fontSize: 14,
-              color: "#1e4b6e",
-              outline: "none",
-              background: textareaDisabled ? "#f5f9fc" : "#fff",
-              resize: "none",
-              lineHeight: 1.4,
-              display: "block",
+              ...inputStyle,
+              background: inputDisabled ? "#eef4fb" : "#fff",
+              cursor: inputDisabled ? "not-allowed" : "text",
             }}
           />
-          {!textareaDisabled ? (
+          {!inputDisabled ? (
             <div
               style={{
-                position: "absolute",
-                right: 10,
-                bottom: 6,
-                fontFamily: BODY,
-                fontSize: 11,
-                color: remainingChars <= 20 ? "#c94a4a" : "#8fbdd8",
-                pointerEvents: "none",
+                ...counterStyle,
+                color: remainingChars <= 20 ? "#c94a4a" : "#b6c4d8",
               }}
             >
               {remainingChars}
@@ -493,72 +369,20 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
           onClick={handleAttendClick}
           disabled={isDisabled}
           style={{
-            minWidth: 88,
-            padding: "0 18px",
-            border: 0,
-            borderRadius: 10,
-            background: isDone ? "#8fbdd8" : "#1a9edb",
-            color: "#fff",
-            fontFamily: JUA,
-            fontSize: 15,
+            ...submitBtnStyle,
+            background: isDone ? "#c3ccd9" : "#f5c518",
+            color:      isDone ? "#7d8ba0" : "#6b4e00",
+            boxShadow:  isDone ? "0 3px 0 #a7b2c2" : "0 3px 0 #d9a300",
             cursor: isDisabled ? "not-allowed" : "pointer",
-            boxShadow: isDone ? "0 3px 0 #6a97b1" : "0 3px 0 #0d6fa8",
-            opacity: isChecking ? 0.7 : 1,
-            transition: "background 120ms ease, opacity 120ms ease",
-            alignSelf: "stretch",
+            opacity: isChecking ? 0.75 : 1,
           }}
         >
           {btnLabel}
         </button>
       </div>
 
-      {/* ─── 구분선 ─── */}
-      <div style={{ borderTop: "1.5px dashed #a8dcf5", marginTop: 8, marginBottom: 6 }} />
-
-      {/* 리스트 헤더 */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          gap: 8,
-          marginBottom: 4,
-        }}
-      >
-        <div style={{ fontFamily: JUA, fontSize: 14, color: "#0d6fa8" }}>
-          {MSG.listHeader}
-        </div>
-        {isLoggedIn ? (
-          <div
-            style={{
-              fontFamily: BODY,
-              fontSize: 12,
-              color: isSelectedPast ? "#5a8db8" : "#8a7410",
-              background: isSelectedPast ? "#e8f4fc" : "#fff2a8",
-              borderRadius: 999,
-              padding: "2px 10px",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {selectedLabel}
-            {listInitialized && !listLoading && messages.length > 0
-              ? ` · ${messages.length}`
-              : null}
-          </div>
-        ) : null}
-      </div>
-
-      {/* 리스트 스크롤 영역 */}
-      <div
-        style={{
-          maxHeight: LIST_MAX_HEIGHT,
-          overflowY: "auto",
-          background: "#fff",
-          border: "1.5px solid #d4ecfa",
-          borderRadius: 10,
-          padding: "8px 10px",
-        }}
-      >
+      {/* 한마디 리스트 (내부 스크롤만) */}
+      <div style={listStyle}>
         {!isLoggedIn ? (
           <EmptyLine text={MSG.listAnon} />
         ) : !listInitialized || listLoading ? (
@@ -566,16 +390,7 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
         ) : messages.length === 0 ? (
           <EmptyLine text={isSelectedPast ? MSG.listEmptyPast : MSG.listEmpty} />
         ) : (
-          <ul
-            style={{
-              listStyle: "none",
-              padding: 0,
-              margin: 0,
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-            }}
-          >
+          <ul style={ulStyle}>
             {messages.map((m) => (
               <MessageRow key={m.id} item={m} />
             ))}
@@ -596,7 +411,7 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 서브 : 날짜 네비게이션 (알약 형태)
+// 서브 : 날짜 네비게이션 (알약 형태 · 오늘/선택은 흰 pill)
 // ═══════════════════════════════════════════════════════════════════
 function DateNav({
   dates,
@@ -608,16 +423,7 @@ function DateNav({
   onSelect: (d: string) => void;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 5,
-        marginTop: 10,
-        paddingTop: 8,
-        borderTop: "1px dashed #d4ecfa",
-      }}
-    >
+    <div style={navWrapStyle}>
       {dates.map((d, i) => {
         const label = navLabel(d, i > 0 ? dates[i - 1] : null);
         const isSelected = d === selected;
@@ -627,18 +433,11 @@ function DateNav({
             type="button"
             onClick={() => onSelect(d)}
             style={{
-              minWidth: 26,
-              height: 26,
-              padding: "0 8px",
-              border: 0,
-              borderRadius: 999,
-              background: isSelected ? "#fff2a8" : "#e8f4fc",
-              color: isSelected ? "#8a7410" : "#5a8db8",
-              fontFamily: JUA,
-              fontSize: 12,
-              cursor: isSelected ? "default" : "pointer",
-              boxShadow: isSelected ? "0 1px 0 #d9c565 inset" : "none",
-              transition: "background 120ms ease",
+              ...navPillStyle,
+              background: isSelected ? "#fff" : "transparent",
+              color:      isSelected ? "#2f6cf0" : "rgba(255,255,255,0.72)",
+              boxShadow:  isSelected ? "0 2px 6px rgba(20,58,99,0.25)" : "none",
+              cursor:     isSelected ? "default" : "pointer",
             }}
           >
             {label}
@@ -660,7 +459,7 @@ function EmptyLine({ text }: { text: string }) {
         fontSize: 13,
         color: "#a4b6cc",
         textAlign: "center",
-        padding: "16px 0",
+        padding: "18px 0",
       }}
     >
       {text}
@@ -669,46 +468,167 @@ function EmptyLine({ text }: { text: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// 서브 : 한마디 한 줄
+// 서브 : 한마디 한 줄 (색 사각 · 이름 · 본문 · 시각)
 // ═══════════════════════════════════════════════════════════════════
 function MessageRow({ item }: { item: AttendanceMessage }) {
   const name = item.displayName ?? FALLBACK_DISPLAY_NAME;
   const time = formatTime(item.createdAt);
 
   return (
-    <li
-      style={{
-        borderBottom: "1px dashed #e0f0f9",
-        paddingBottom: 6,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          gap: 8,
-          marginBottom: 2,
-        }}
-      >
-        <span style={{ fontFamily: JUA, fontSize: 13, color: "#1656b8" }}>
-          {name}
-        </span>
-        <span style={{ fontFamily: BODY, fontSize: 11, color: "#8fbdd8" }}>
-          {time}
-        </span>
-      </div>
-      <div
-        style={{
-          fontFamily: BODY,
-          fontSize: 13,
-          color: "#1e4b6e",
-          lineHeight: 1.45,
-          wordBreak: "break-word",
-          whiteSpace: "pre-wrap",
-        }}
-      >
-        {item.message}
-      </div>
+    <li style={rowStyle}>
+      <span style={squareStyle} />
+      <span style={nameColStyle}>{name}</span>
+      <span style={msgColStyle}>{item.message}</span>
+      <span style={timeColStyle}>{time}</span>
     </li>
   );
 }
+
+// ────────────────────────────────────────────────────────────────────
+// 스타일 (시안 톤 · 1366×768 기준 px)
+// ────────────────────────────────────────────────────────────────────
+
+// ── 카드 (파란 컨테이너) ──
+const cardStyle: CSSProperties = {
+  height: CARD_HEIGHT,         
+  boxSizing: "border-box",      
+  display: "flex",
+  flexDirection: "column",      
+  background: "#3f6fe0",
+  borderRadius: 20,
+  padding: 14,
+  boxShadow: "0 6px 16px rgba(20, 58, 99, 0.18)",
+};
+
+
+// ── 입력 + 버튼 줄 ──
+const inputRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "stretch",
+  gap: 10,
+  marginBottom: 10,
+};
+
+const inputWrapStyle: CSSProperties = {
+  position: "relative",
+  flex: 1,
+  minWidth: 0,
+};
+
+const inputStyle: CSSProperties = {
+  width: "100%",
+  height: 46,
+  boxSizing: "border-box",
+  border: "none",
+  borderRadius: 11,
+  padding: "0 44px 0 14px",   // 우측은 글자수 카운터 여백
+  fontFamily: BODY,
+  fontSize: 14,
+  color: "#1e4b6e",
+  outline: "none",
+  display: "block",
+};
+
+const counterStyle: CSSProperties = {
+  position: "absolute",
+  right: 12,
+  top: "50%",
+  transform: "translateY(-50%)",
+  fontFamily: BODY,
+  fontSize: 12,
+  pointerEvents: "none",
+};
+
+const submitBtnStyle: CSSProperties = {
+  minWidth: 74,
+  height: 46,
+  padding: "0 18px",
+  border: 0,
+  borderRadius: 11,
+  fontFamily: JUA,
+  fontSize: 15,
+  transition: "background 120ms ease, opacity 120ms ease",
+};
+
+// ── 한마디 리스트 (내부 스크롤만) ──
+const listStyle: CSSProperties = {
+  flex: 1,                 
+  minHeight: 0,                
+  overflowY: "auto",
+  background: "#fff",
+  borderRadius: 12,
+  padding: "6px 12px",
+};
+
+const ulStyle: CSSProperties = {
+  listStyle: "none",
+  padding: 0,
+  margin: 0,
+};
+
+// ── 한마디 한 줄 ──
+const rowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  gap: 10,
+  padding: "9px 0",
+  borderBottom: "1px dashed #e2edf6",
+};
+
+const squareStyle: CSSProperties = {
+  width: 10,
+  height: 10,
+  borderRadius: 2,
+  background: "#f062c0",
+  flexShrink: 0,
+  marginTop: 4,
+};
+
+const nameColStyle: CSSProperties = {
+  fontFamily: JUA,
+  fontSize: 13,
+  color: "#16357f",
+  width: 96,
+  flexShrink: 0,
+  lineHeight: 1.35,
+  wordBreak: "break-word",
+};
+
+const msgColStyle: CSSProperties = {
+  fontFamily: BODY,
+  fontSize: 12.5,
+  color: "#55617a",
+  flex: 1,
+  minWidth: 0,
+  lineHeight: 1.5,
+  wordBreak: "break-word",
+  whiteSpace: "pre-wrap",
+};
+
+const timeColStyle: CSSProperties = {
+  fontFamily: BODY,
+  fontSize: 11,
+  color: "#9aa7bd",
+  flexShrink: 0,
+  marginTop: 1,
+  whiteSpace: "nowrap",
+};
+
+// ── 날짜 네비게이션 ──
+const navWrapStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 5,
+  marginTop: 12,
+};
+
+const navPillStyle: CSSProperties = {
+  minWidth: 30,
+  height: 27,
+  padding: "0 9px",
+  border: 0,
+  borderRadius: 999,
+  fontFamily: JUA,
+  fontSize: 12,
+  transition: "background 120ms ease",
+};

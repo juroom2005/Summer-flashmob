@@ -136,7 +136,7 @@ export default function PasswordChangePopup({ forced, onClose, onSuccess }: Prop
               onChange={setCurrent}
               show={showCurrent}
               onToggleShow={() => setShowCurrent((v) => !v)}
-              autoComplete="current-password"
+              autoComplete="new-password"
               pending={pending}
             />
             <PasswordField
