@@ -1,0 +1,39 @@
+/* components/noticeboard/panels/StaticDocPanel.module.css
+ *
+ * 정적 문서 패널(NOTICE/SYSTEM/WORLD) 스타일.
+ * 색·폰트·간격은 전부 tokens.css 시안 토큰 참조.
+ */
+
+.doc {
+  max-width: 720px;
+  margin: 0 auto;
+  color: var(--color-text-strong);
+  font-family: var(--font-body);
+  line-height: 1.7;
+}
+
+.heading {
+  margin: 0 0 var(--space-xl);
+  padding-bottom: var(--space-md);
+  border-bottom: 2.5px solid var(--color-primary);
+  color: var(--color-primary-strong);
+  font-family: var(--font-heading);
+  font-size: 26px;
+}
+
+.section {
+  margin-bottom: var(--space-xl);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--space-sm);
+  color: var(--color-primary-mid);
+  font-family: var(--font-heading);
+  font-size: 19px;
+}
+
+.para {
+  margin: 0 0 var(--space-md);
+  font-size: 15px;
+  color: var(--color-text-strong);
+}

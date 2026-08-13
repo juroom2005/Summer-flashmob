@@ -10,23 +10,29 @@
  *   --tab-rot     : 회전 각도
  *   --tab-shadow  : box-shadow 색 (테두리 + alpha)
  *
- * :hover로 회전 초기화 + 살짝 확대 (v1의 onMouseEnter/Leave JS 대체).
+ * :hover로 회전 초기화 + 살짝 확대.
+ *
+ * ── 2026-08 리뉴얼 (Anima 시안) ──
+ *   탭 4개 → 7개로 늘어남. 스테이지(768px) 안에 들어가도록
+ *   top·높이·gap 재계산:
+ *     top 108 + (44 + 12) × 7 − 12 = 108 + 380 = 488px → 여유.
+ *   시안 탭 높이(44px)·간격 반영.
  */
 
 .rail {
   position: absolute;
   left: 40px;
-  top: 150px;
+  top: 108px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 12px;
   z-index: 20;
 }
 
 .tab {
   position: relative;
   width: 146px;
-  height: 50px;
+  height: 44px;
   border: 2.5px solid var(--tab-border);
   border-radius: var(--tab-radius);
   background: #fff;

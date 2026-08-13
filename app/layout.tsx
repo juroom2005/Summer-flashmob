@@ -1,6 +1,14 @@
 // app/layout.tsx
 import type { Metadata } from "next";
-import { Jua, Gaegu, Gowun_Dodum, Nanum_Pen_Script } from "next/font/google";
+import {
+  Jua,
+  Gaegu,
+  Gowun_Dodum,
+  Nanum_Pen_Script,
+  Limelight,
+  Monofett,
+  Hachi_Maru_Pop,
+} from "next/font/google";
 import "./globals.css";
 import { PasswordResetProvider } from "@/components/password-reset/PasswordResetProvider";
 import GmPasswordResetGate from "@/components/password-reset/GmPasswordResetGate";
@@ -28,11 +36,33 @@ const gowunDodum = Gowun_Dodum({
   display: "swap",
 });
 
-// 남겨둠 — 시안 1a에서 사용되던 폰트 (다른 페이지에서 쓸 수 있음)
+
 const nanumPen = Nanum_Pen_Script({
   weight: "400",
   subsets: ["latin"],
   variable: "--font-nanum-pen",
+  display: "swap",
+});
+
+// D-day 숫자
+const limelight = Limelight({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-limelight",
+  display: "swap",
+});
+// UPDATE / EVENT 타이틀
+const monofett = Monofett({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-monofett",
+  display: "swap",
+});
+// 이벤트 배너 날짜
+const hachiMaruPop = Hachi_Maru_Pop({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-hachi-maru-pop",
   display: "swap",
 });
 
@@ -50,7 +80,7 @@ export default function RootLayout({
     <html
       lang="ko"
       translate="no"
-      className={`${jua.variable} ${gaegu.variable} ${gowunDodum.variable} ${nanumPen.variable}`}
+       className={`${jua.variable} ${gaegu.variable} ${gowunDodum.variable} ${nanumPen.variable} ${limelight.variable} ${monofett.variable} ${hachiMaruPop.variable}`}
     >
       <body>
         <PasswordResetProvider>

@@ -2,84 +2,41 @@
  *
  * NoticeBoard 상단 유틸 바 스타일.
  * absolute 배치: 부모 stage(1366×768) 기준.
- *
- * 변경:
- *   - v5: .gmLink 에 position:relative + overflow:visible
- *         .gmBadge 신규 (미처리 mismatch 문의 개수 오버레이)
- *   - v4: .nameBadge div → button, hover 인터랙션 추가
- *         .adminCallButton 삭제
- */
 
 
-/* ── 좌측 로고 ── */
-
-.logo {
-  position: absolute;
-  top: 14px;
-  left: 22px;
-  font-family: var(--font-heading);
-  font-size: 20px;
-  color: var(--color-primary-strong);
-  background: #fff;
-  border: 2px solid var(--color-primary-mid);
-  border-radius: var(--radius-lg);
-  padding: 3px 14px;
-  box-shadow: 2px 3px 0 rgba(46, 163, 221, 0.45);
-  transform: rotate(-2deg);
-}
-
-
-/* ── 우측 유틸 바 ── */
+/* ── 우측 유틸 바 (폴더 우상단) ── */
 
 .utilBar {
   position: absolute;
-  top: 16px;
-  right: 26px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 30;
-}
-
-
-/* ── 코인 뱃지 (노랑 톤) — 로그인 시에만 표시 ── */
-
-.coinBadge {
-  height: 36px;
+  top: 8cqb;        
+  right: 221px;         
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 15px;
-  border: 2px solid var(--color-warning);
-  border-radius: var(--radius-round);
-  background: var(--color-warning-tint);
-  color: var(--color-warning-strong);
-  font-family: var(--font-heading);
-  font-size: 15px;
-  box-shadow: 2px 3px 0 var(--color-warning-shadow);
+  z-index: 30;
 }
 
 
 /* ── 닉네임 뱃지 (button, 클릭 시 MyPanel 토글) ── */
 
 .nameBadge {
-  height: 36px;
+  height: 24px;
   display: flex;
   align-items: center;
-  padding: 0 15px;
-  border: 2px solid var(--color-primary-mid);
+  padding: 0 11px;
+  border: 1.5px solid var(--color-primary-mid);
   border-radius: var(--radius-round);
   background: rgba(255, 255, 255, 0.9);
   color: var(--color-primary-strong);
   font-family: var(--font-heading);
-  font-size: 14px;
-  box-shadow: 2px 3px 0 var(--color-primary-shadow-mid);
+  font-size: 11px;
+  box-shadow: 1px 2px 0 var(--color-primary-shadow-mid);
   cursor: pointer;
   transition: transform 0.12s, box-shadow 0.12s;
 }
 .nameBadge:hover {
   transform: translateY(-1px);
-  box-shadow: 2px 4px 0 var(--color-primary-shadow-mid);
+  box-shadow: 1px 3px 0 var(--color-primary-shadow-mid);
 }
 .nameBadge:active {
   transform: translateY(1px);
@@ -90,73 +47,97 @@
 /* ── GM 관리 링크 (노랑 톤) ── */
 
 .gmLink {
-  position: relative;         /* v5: .gmBadge 오버레이 앵커 */
+  position: relative;
   overflow: visible;
-  height: 36px;
+  height: 24px;
   display: flex;
   align-items: center;
-  padding: 0 15px;
-  border: 2px solid var(--color-warning);
+  padding: 0 11px;
+  border: 1.5px solid var(--color-warning);
   border-radius: var(--radius-round);
   background: var(--color-warning-tint);
   color: var(--color-warning-strong);
   font-family: var(--font-heading);
-  font-size: 14px;
+  font-size: 11px;
   text-decoration: none;
-  box-shadow: 2px 3px 0 var(--color-warning-shadow);
+  box-shadow: 1px 2px 0 var(--color-warning-shadow);
 }
 
 
-/* ── GM 관리 링크 위 미처리 문의 뱃지 (v5 신규) ── */
+/* ── GM 관리 링크 위 미처리 문의 뱃지 ── */
 
 .gmBadge {
   position: absolute;
-  top: -8px;
-  right: -8px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
+  top: -6px;
+  right: -6px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
   border-radius: 999px;
   background: #e2695f;
   color: #fff;
-  border: 2px solid #fff;
+  border: 1.5px solid #fff;
   font-family: var(--font-heading);
-  font-size: 11px;
-  line-height: 20px;
+  font-size: 9px;
+  line-height: 14px;
   text-align: center;
   box-sizing: content-box;
-  box-shadow: 0 2px 4px rgba(226, 105, 95, 0.4);
+  box-shadow: 0 1px 3px rgba(226, 105, 95, 0.4);
   pointer-events: none;
 }
 
 
-/* ── 로그아웃 버튼 (닉네임 뱃지와 같은 톤) ── */
+/* ── 로그아웃 버튼 ── */
 
 .logoutButton {
-  height: 36px;
-  padding: 0 15px;
-  border: 2px solid var(--color-primary-mid);
+  height: 24px;
+  padding: 0 11px;
+  border: 1.5px solid var(--color-primary-mid);
   border-radius: var(--radius-round);
   background: rgba(255, 255, 255, 0.9);
   color: var(--color-primary-strong);
   font-family: var(--font-heading);
-  font-size: 14px;
+  font-size: 11px;
   cursor: pointer;
-  box-shadow: 2px 3px 0 var(--color-primary-shadow-mid);
+  box-shadow: 1px 2px 0 var(--color-primary-shadow-mid);
 }
 
 
 /* ── 로그인 버튼 ── */
 
 .loginButton {
-  height: 36px;
-  padding: 0 18px;
-  border: 2px solid var(--color-primary-mid);
+  height: 24px;
+  padding: 0 11px;
+  border: 1.5px solid var(--color-primary-mid);
   border-radius: var(--radius-round);
   background: rgba(255, 255, 255, 0.9);
   color: var(--color-primary-strong);
   font-family: var(--font-heading);
-  font-size: 15px;
+  font-size: 11px;
   cursor: pointer;
-  box-shadow: 2px 3px 0 var(--color-primary-shadow-mid);
+  box-shadow: 1px 2px 0 var(--color-primary-shadow-mid);
+}
+
+
+/* ── 외부 링크 원형 아이콘 버튼 (X · 마스토돈) ── */
+/* 시안 원형: #CCE3F8 + 검정 테두리 */
+
+.iconButton {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #cce3f8;
+  border: 1px solid #000;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.iconButton:hover {
+  transform: translateY(-2px);
+}
+.iconButton:active {
+  transform: translateY(1px);
 }
