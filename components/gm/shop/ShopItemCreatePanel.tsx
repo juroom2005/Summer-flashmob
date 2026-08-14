@@ -77,6 +77,7 @@ type FormState = {
   slotReward:       boolean;
   slotKind:         SlotKind;
   slotWeight:       string;
+  slotEmoji:        string;
 };
 
 const INITIAL_FORM: FormState = {
@@ -93,6 +94,7 @@ const INITIAL_FORM: FormState = {
   slotReward:       false,
   slotKind:         "junk",
   slotWeight:       "",
+  slotEmoji:        "",
 };
 
 /** 타입 세그먼트 순서 */
@@ -178,6 +180,7 @@ export default function ShopItemCreatePanel({ onCreated, onCancel }: Props) {
     form.itemRef !== "" || form.imageUrl !== "" || form.priceText !== "" ||
     form.markerEmoji !== "" || form.markerDurability !== "" ||
     form.slotReward !== INITIAL_FORM.slotReward || form.slotWeight !== "" ||
+    form.slotEmoji !== "" ||
     form.isActive !== INITIAL_FORM.isActive;
 
   const itemRefMeta = ITEM_REF_META[form.itemType];
@@ -222,6 +225,9 @@ export default function ShopItemCreatePanel({ onCreated, onCancel }: Props) {
       metadata.slot_kind   = form.slotKind;
       const raw = form.slotWeight.trim();
       metadata.weight = raw === "" ? SLOT_WEIGHT_DEFAULT : Number(raw);
+      // 이모지는 선택 — 값이 있을 때만 저장. 표시 우선순위는 이미지 > 이모지 > 종류 기본.
+      const emoji = form.slotEmoji.trim();
+      if (emoji !== "") metadata.emoji = emoji;
     }
 
     const result = await createShopItem({
@@ -572,6 +578,30 @@ export default function ShopItemCreatePanel({ onCreated, onCancel }: Props) {
                     : slotWeightValid
                     ? "적용됩니다."
                     : `${SLOT_WEIGHT_MIN} ~ ${SLOT_WEIGHT_MAX.toLocaleString()} 정수`}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+              <label style={labelStyle}>이모지</label>
+              <input
+                type="text"
+                value={form.slotEmoji}
+                maxLength={10}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setForm((f) => ({ ...f, slotEmoji: e.target.value }))
+                }
+                disabled={isDisabled}
+                placeholder="예: 🧸 (이미지가 없을 때 표시)"
+                style={inputStyle}
+              />
+              <div style={fieldMetaStyle}>
+                <span style={metaOkStyle}>
+                  {form.imageUrl.trim() !== ""
+                    ? "이미지가 있어 이모지 대신 이미지가 표시됩니다."
+                    : form.slotEmoji.trim() !== ""
+                    ? "이미지가 없으므로 이 이모지가 표시됩니다."
+                    : "이미지 · 이모지 모두 없으면 종류 기본 이모지가 표시됩니다."}
                 </span>
               </div>
             </div>

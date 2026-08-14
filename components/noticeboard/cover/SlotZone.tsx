@@ -47,6 +47,18 @@ const KIND_EMOJI: Record<SlotReward["kind"], string> = {
   junk: "🌿",
 };
 
+/**
+ * 보상 표시 우선순위 : 이미지 → 커스텀 이모지 → 종류 기본 이모지.
+ *   · image : imageUrl 이 있으면 이미지로 표시
+ *   · emoji : 이미지가 없고 커스텀 이모지가 있으면 그 이모지
+ *   · 둘 다 없으면 종류 기본 이모지 (KIND_EMOJI)
+ */
+function rewardVisual(it: SlotReward): { mode: "image"; src: string } | { mode: "emoji"; char: string } {
+  if (it.imageUrl) return { mode: "image", src: it.imageUrl };
+  if (it.emoji)    return { mode: "emoji", char: it.emoji };
+  return { mode: "emoji", char: KIND_EMOJI[it.kind] };
+}
+
 type SpinOutcome = { jackpot: boolean } | null;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -240,11 +252,14 @@ export default function SlotZone() {
                 zIndex: reward.items.length - i,        
               }}
             >
-              {it.kind === "doll" && it.imageUrl ? (
-                <img src={it.imageUrl} alt={it.name} style={rewardImgStyle} />
-              ) : (
-                <div style={rewardEmojiStyle}>{KIND_EMOJI[it.kind]}</div>
-              )}
+              {(() => {
+                const v = rewardVisual(it);
+                return v.mode === "image" ? (
+                  <img src={v.src} alt={it.name} style={rewardImgStyle} />
+                ) : (
+                  <div style={rewardEmojiStyle}>{v.char}</div>
+                );
+              })()}
             </div>
           ))}
         </div>
@@ -351,11 +366,14 @@ function RewardPopup({
         <div style={rewardPopupRow}>
           {items.map((it, i) => (
             <div key={i} style={rewardItemStyle}>
-              {it.kind === "doll" && it.imageUrl ? (
-                <img src={it.imageUrl} alt={it.name} style={rewardImgLargeStyle} />
-              ) : (
-                <div style={rewardEmojiLargeStyle}>{KIND_EMOJI[it.kind]}</div>
-              )}
+              {(() => {
+                const v = rewardVisual(it);
+                return v.mode === "image" ? (
+                  <img src={v.src} alt={it.name} style={rewardImgLargeStyle} />
+                ) : (
+                  <div style={rewardEmojiLargeStyle}>{v.char}</div>
+                );
+              })()}
               <div style={rewardNameStyle}>{it.name}</div>
             </div>
           ))}

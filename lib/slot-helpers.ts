@@ -48,6 +48,8 @@ export type SlotReward = {
   itemRef: string;
   name: string;
   imageUrl: string | null;
+  /** 커스텀 이모지 (metadata.emoji). 이미지가 없을 때 종류 기본 이모지 대신 표시. */
+  emoji: string | null;
 };
 
 export type SpinFailReason =
@@ -78,6 +80,7 @@ type SpinRewardRaw = {
   item_ref?: string | null;
   name?: string | null;
   image_url?: string | null;
+  emoji?: string | null;
 };
 
 type SpinSlotRaw = {
@@ -131,11 +134,13 @@ function parseRewards(raw: SpinRewardRaw[] | null | undefined): SlotReward[] {
     const kind = normalizeKind(r?.kind);
     const itemRef = r?.item_ref ?? "";
     if (!kind || !itemRef) continue; // 종류/참조 없는 보상은 무시 (방어)
+    const emojiRaw = (r?.emoji ?? "").trim();
     out.push({
       kind,
       itemRef,
       name: r?.name ?? "",
       imageUrl: r?.image_url ?? null,
+      emoji: emojiRaw === "" ? null : emojiRaw,
     });
   }
   return out;
