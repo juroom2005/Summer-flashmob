@@ -21,6 +21,7 @@ import type { CSSProperties } from "react";
 import NoticeBoardList from "../panels/NoticeBoardList";
 import AttendanceCard from "../panels/AttendanceCard";
 import CoverDecorations from "./CoverDecorations";
+import SlotZone from "./SlotZone";
 
 type Props = {
   onOpenLogin: () => void;
@@ -42,6 +43,7 @@ export default function BoardCover({ onOpenLogin, onToast }: Props) {
 
       {/* ── 우측: 장식 (D-day · 如月 · 이벤트) ── */}
       <CoverDecorations />
+      <SlotZone />
     </div>
   );
 }
@@ -54,13 +56,13 @@ export default function BoardCover({ onOpenLogin, onToast }: Props) {
 const noticeSlotStyle: CSSProperties = {
   position: "absolute",
   top: 20,
-  left: 40,      // 폴더 좌측에서 좀 더 안쪽으로
+  left: 30,      // 폴더 좌측에서 좀 더 안쪽으로
   width: 420,
 };
 
 const attendanceSlotStyle: CSSProperties = {
   position: "absolute",
   top: 280,
-  left: 40,      // 공지와 같은 좌측 정렬
+  left: 30,      // 공지와 같은 좌측 정렬
   width: 420,
 };

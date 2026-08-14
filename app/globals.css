@@ -6,6 +6,15 @@
  */
 
 @import "./styles/tokens.css";
+
+@font-face {
+  font-family: 'LOTTERIA CHAB';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/LOTTERIACHAB.woff2') format('woff2');
+}
+
 * {
   cursor: url('/cursors/heart.ani'), url('/cursors/heart.webp') 0 0, auto;
 }

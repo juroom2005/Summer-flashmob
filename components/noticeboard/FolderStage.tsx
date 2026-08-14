@@ -131,7 +131,7 @@ export default function FolderStage({ isBoard, children }: Props) {
     position: "absolute",
     ...contentBox,
     padding: "28px 34px",
-    overflow: "auto",
+    overflow: isBoard ? "hidden" : "auto",
     zIndex: 2,
   };
 
