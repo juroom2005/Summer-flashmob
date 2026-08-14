@@ -46,14 +46,11 @@ export async function listShopItems(): Promise<ShopItemRow[]> {
     console.error("[listShopItems] failed:", error?.message);
     return [];
   }
-  return data as ShopItemRow[];
+  return (data as ShopItemRow[]).filter(
+    (it) => (it.metadata as Record<string, unknown> | null)?.slot_reward !== true,
+  );
 }
 
-/**
- * 세션 유저가 이미 소지한 스티커 item_ref 목록.
- * 스티커 중복 구매 방지용 UI 표시에 사용.
- * 실패 시 빈 배열 (안전 기본값).
- */
 export async function listMyStickerRefs(): Promise<string[]> {
   const user = (await supabase.auth.getUser()).data.user;
   if (!user) return [];

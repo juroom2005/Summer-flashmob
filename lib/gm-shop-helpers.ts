@@ -152,6 +152,21 @@ export const MARKER_DURABILITY_MIN     = 1;
 export const MARKER_DURABILITY_MAX     = 100_000;
 export const MARKER_DURABILITY_DEFAULT = 100;
 
+/** 슬롯 보상 종류 (metadata.slot_kind) · spin_slot RPC 와 일치 */
+export const SLOT_KINDS = ["doll", "coupon", "junk"] as const;
+export type SlotKind = typeof SLOT_KINDS[number];
+
+export const SLOT_KIND_LABEL: Record<SlotKind, string> = {
+  doll:   "인형",
+  coupon: "쿠폰",
+  junk:   "잡템",
+};
+
+/** 슬롯 추첨 가중치(metadata.weight) 안전 범위. 클수록 자주 나옴. */
+export const SLOT_WEIGHT_MIN     = 1;
+export const SLOT_WEIGHT_MAX     = 10_000;
+export const SLOT_WEIGHT_DEFAULT = 1;
+
 /** GM UI 에서 item_type 필터 · 라벨로 재사용 */
 export const SHOP_ITEM_TYPE_LABEL: Record<ShopItemType, string> = {
   marker:     "사인펜",
@@ -294,6 +309,35 @@ function validateCreateInput(input: CreateShopItemInput): string | null {
       }
       if (n < MARKER_DURABILITY_MIN || n > MARKER_DURABILITY_MAX) {
         return `사인펜 초기 내구도는 ${MARKER_DURABILITY_MIN} 이상 ${MARKER_DURABILITY_MAX.toLocaleString()} 이하여야 합니다.`;
+      }
+    }
+  }
+
+  // 슬롯 보상 태그 검증 : metadata.slot_reward 가 true 이면 종류·가중치 필수.
+  //   · 현재는 other 타입에만 슬롯 보상을 태깅 (spin_slot 이 doll/coupon/junk 로 지급).
+  //   · 인형은 이미지 필수 (image_url). 쿠폰·잡템은 프론트가 이모티콘으로 대체 가능.
+  if (input.metadata?.slot_reward === true) {
+    if (input.itemType !== "other") {
+      return "슬롯 보상은 이벤트(other) 타입으로만 등록할 수 있습니다.";
+    }
+
+    const kind = input.metadata?.slot_kind;
+    if (!(SLOT_KINDS as readonly string[]).includes(kind as string)) {
+      return "슬롯 보상 종류(인형·쿠폰·잡템)를 선택해 주십시오.";
+    }
+
+    const w = Number(input.metadata?.weight);
+    if (!Number.isFinite(w) || !Number.isInteger(w)) {
+      return "슬롯 가중치는 정수여야 합니다.";
+    }
+    if (w < SLOT_WEIGHT_MIN || w > SLOT_WEIGHT_MAX) {
+      return `슬롯 가중치는 ${SLOT_WEIGHT_MIN} 이상 ${SLOT_WEIGHT_MAX.toLocaleString()} 이하여야 합니다.`;
+    }
+
+    if (kind === "doll") {
+      const url = (input.imageUrl ?? "").trim();
+      if (url === "") {
+        return "인형 보상은 이미지 URL이 필수입니다.";
       }
     }
   }

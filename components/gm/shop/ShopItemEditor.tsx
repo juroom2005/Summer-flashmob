@@ -34,6 +34,8 @@ import {
   SHOP_DESC_MAX_LEN,
   SHOP_IMAGE_URL_MAX,
   SHOP_ITEM_TYPE_LABEL,
+  SLOT_KIND_LABEL,
+  type SlotKind,
   SHOP_NAME_MAX_LEN,
   SHOP_PRICE_MAX,
   SHOP_PRICE_MIN,
@@ -339,6 +341,18 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
             <code style={codeMonoInlineStyle}>{item.itemRef}</code>
           </span>
         </div>
+        {item.metadata?.slot_reward === true ? (
+          <div style={lockedRowStyle}>
+            <span style={lockedKeyStyle}>슬롯 보상</span>
+            <span style={lockedValStyle}>
+              {SLOT_KIND_LABEL[item.metadata.slot_kind as SlotKind] ?? "?"}
+              {" · 가중치 "}
+              <code style={codeMonoInlineStyle}>
+                {String(item.metadata.weight ?? "?")}
+              </code>
+            </span>
+          </div>
+        ) : null}
         <div style={lockedNoteStyle}>
           타입 · 참조 · 메타데이터 변경은 아이템 추가 UI 개발 시 함께 다룹니다.
         </div>

@@ -28,6 +28,12 @@ import {
   MARKER_DURABILITY_DEFAULT,
   MARKER_DURABILITY_MAX,
   MARKER_DURABILITY_MIN,
+  SLOT_KINDS,
+  SLOT_KIND_LABEL,
+  SLOT_WEIGHT_DEFAULT,
+  SLOT_WEIGHT_MAX,
+  SLOT_WEIGHT_MIN,
+  type SlotKind,
   SHOP_CODE_MAX_LEN,
   SHOP_CODE_MIN_LEN,
   SHOP_CODE_REGEX,
@@ -67,6 +73,10 @@ type FormState = {
   // marker 전용
   markerEmoji:      string;
   markerDurability: string;
+  // slot 보상 전용 (other 타입에서만)
+  slotReward:       boolean;
+  slotKind:         SlotKind;
+  slotWeight:       string;
 };
 
 const INITIAL_FORM: FormState = {
@@ -80,6 +90,9 @@ const INITIAL_FORM: FormState = {
   isActive:         true,
   markerEmoji:      "",
   markerDurability: "",
+  slotReward:       false,
+  slotKind:         "junk",
+  slotWeight:       "",
 };
 
 /** 타입 세그먼트 순서 */
@@ -141,14 +154,30 @@ export default function ShopItemCreatePanel({ onCreated, onCancel }: Props) {
     return Number.isInteger(n) && n >= MARKER_DURABILITY_MIN && n <= MARKER_DURABILITY_MAX;
   }, [form.itemType, form.markerDurability]);
 
+  // slot 보상 검증 (other + slotReward 체크 시에만 활성)
+  const slotActive = form.itemType === "other" && form.slotReward;
+
+  const slotWeightValid = useMemo(() => {
+    if (!slotActive) return true;
+    const raw = form.slotWeight.trim();
+    if (raw === "") return true; // 비워두면 기본값
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= SLOT_WEIGHT_MIN && n <= SLOT_WEIGHT_MAX;
+  }, [slotActive, form.slotWeight]);
+
+  // 인형은 이미지 필수
+  const slotImageValid = !slotActive || form.slotKind !== "doll" || form.imageUrl.trim() !== "";
+
   const allValid =
     codeValid && nameValid && descValid && urlValid &&
-    itemRefValid && priceValid && durabilityValid;
+    itemRefValid && priceValid && durabilityValid &&
+    slotWeightValid && slotImageValid;
 
   const dirty =
     form.code !== "" || form.name !== "" || form.description !== "" ||
     form.itemRef !== "" || form.imageUrl !== "" || form.priceText !== "" ||
     form.markerEmoji !== "" || form.markerDurability !== "" ||
+    form.slotReward !== INITIAL_FORM.slotReward || form.slotWeight !== "" ||
     form.isActive !== INITIAL_FORM.isActive;
 
   const itemRefMeta = ITEM_REF_META[form.itemType];
@@ -186,6 +215,14 @@ export default function ShopItemCreatePanel({ onCreated, onCancel }: Props) {
       }
     }
     // sticker · other 는 빈 metadata (필요 시 나중에 확장)
+
+    // 슬롯 보상 태깅 (other + 체크 시에만)
+    if (form.itemType === "other" && form.slotReward) {
+      metadata.slot_reward = true;
+      metadata.slot_kind   = form.slotKind;
+      const raw = form.slotWeight.trim();
+      metadata.weight = raw === "" ? SLOT_WEIGHT_DEFAULT : Number(raw);
+    }
 
     const result = await createShopItem({
       code:        form.code.trim(),
@@ -457,6 +494,90 @@ export default function ShopItemCreatePanel({ onCreated, onCancel }: Props) {
           </>
         ) : null}
 
+        {/* ── slot 보상 전용 (other 타입에서만) ── */}
+        {form.itemType === "other" ? (
+          <div style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+            <label style={checkboxRowStyle}>
+              <input
+                type="checkbox"
+                checked={form.slotReward}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setForm((f) => ({ ...f, slotReward: e.target.checked }))
+                }
+                disabled={isDisabled}
+                style={{ margin: 0 }}
+              />
+              <span style={checkboxLabelStyle}>슬롯 전용 보상</span>
+              <span style={checkboxHintStyle}>
+                체크하면 매점에 노출되지 않고, 슬롯머신 보상 풀에만 들어갑니다.
+              </span>
+            </label>
+          </div>
+        ) : null}
+
+        {form.itemType === "other" && form.slotReward ? (
+          <>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>
+                보상 종류 <span style={requiredStyle}>*</span>
+              </label>
+              <div style={slotKindRowStyle}>
+                {SLOT_KINDS.map((k) => {
+                  const active = form.slotKind === k;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, slotKind: k }))}
+                      disabled={isDisabled}
+                      style={{
+                        ...slotKindButtonStyle,
+                        background:  active ? "#1a9edb" : "#fff",
+                        color:       active ? "#fff"    : "#0d6fa8",
+                        borderColor: active ? "#0d6fa8" : "#bfe4f7",
+                      }}
+                    >
+                      {SLOT_KIND_LABEL[k]}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={fieldMetaStyle}>
+                <span style={slotImageValid ? metaOkStyle : metaBadStyle}>
+                  {form.slotKind === "doll"
+                    ? "인형은 잭팟 한정 · 이미지 URL 필수"
+                    : "쿠폰 · 잡템은 이미지 없어도 됩니다"}
+                </span>
+              </div>
+            </div>
+
+            <div style={fieldStyle}>
+              <label style={labelStyle}>가중치</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={form.slotWeight}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                  const v = e.target.value.replace(/[^\d]/g, "");
+                  setForm((f) => ({ ...f, slotWeight: v }));
+                }}
+                disabled={isDisabled}
+                placeholder={`기본 ${SLOT_WEIGHT_DEFAULT}`}
+                style={inputStyle}
+              />
+              <div style={fieldMetaStyle}>
+                <span style={slotWeightValid ? metaOkStyle : metaBadStyle}>
+                  {form.slotWeight === ""
+                    ? `비워두면 기본 ${SLOT_WEIGHT_DEFAULT} · 클수록 자주 나옴`
+                    : slotWeightValid
+                    ? "적용됩니다."
+                    : `${SLOT_WEIGHT_MIN} ~ ${SLOT_WEIGHT_MAX.toLocaleString()} 정수`}
+                </span>
+              </div>
+            </div>
+          </>
+        ) : null}
+
         {/* 판매 시작 여부 */}
         <div style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
           <label style={checkboxRowStyle}>
@@ -656,6 +777,22 @@ const checkboxHintStyle: CSSProperties = {
   fontFamily: BODY,
   fontSize:   11,
   color:      "#7a94a8",
+};
+
+const slotKindRowStyle: CSSProperties = {
+  display: "flex",
+  gap:     6,
+};
+
+const slotKindButtonStyle: CSSProperties = {
+  flex:         1,
+  height:       34,
+  border:       "2px solid",
+  borderRadius: 10,
+  fontFamily:   JUA,
+  fontSize:     13,
+  cursor:       "pointer",
+  transition:   "background .12s, color .12s",
 };
 
 const actionRowStyle: CSSProperties = {
