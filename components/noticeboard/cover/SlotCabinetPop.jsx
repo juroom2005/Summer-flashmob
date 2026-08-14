@@ -3,10 +3,15 @@ import React, { useEffect, useRef, useState } from 'react';
 /**
  * SlotCabinetPop — 팝/스크린프린트 스타일 슬롯머신 (시안 2A · 화이트/블루)
  *
- * 단독 사용 컴포넌트. React만 필요, 외부 의존성 없음.
- * 폰트는 앱 전역에서 로드해 두면 동일하게 보입니다: Bungee / Baloo 2 / Silkscreen
+ * ── 2026-08 서버 연동 리팩터 ──
+ *   판정·차감·지급은 전부 서버(spin_slot RPC)가 한다. 이 컴포넌트는 "연출"만.
+ *   - 내부 크레딧/랜덤 판정 제거.
+ *   - 버튼 클릭 → onSpin() (부모=SlotZone 이 락 판단·서버 호출) → 결과 반환
+ *     · { jackpot } 이면 릴을 그 결과에 맞춰 멈춤 (잭팟=3릴 동일, 논잭팟=불일치)
+ *     · null 이면 아무 연출 안 함 (락→모달 대기 / 부족 / 처리중)
+ *   - CREDIT 자리에는 1회 비용(spinCost)을 표시.
  *
- * 인터랙션: 레버 또는 양옆 버튼 클릭 → 3릴 스핀 → 매칭 배당, 잭팟 시 페이라인 하이라이트.
+ * 폰트: Bungee / Baloo 2 / Silkscreen (전역 로드 시 동일하게 보임)
  */
 
 const CELL = 84;
@@ -21,7 +26,6 @@ const SYMS = {
   bell:    { glyph: '♣',   color: '#1868E9', size: 44, stroke: '3px' },
 };
 const KEYS = Object.keys(SYMS);
-const PAYOUT = { seven: 100, heart: 60, star: 50, diamond: 40, bell: 30, bar: 20 };
 
 const OUTLINE_CSS = `
 @keyframes slot-pop{from{transform:translateY(0)}to{transform:translateY(-1008px)}}
@@ -46,13 +50,21 @@ const outline = (color, stroke) => ({
   paintOrder: 'stroke',
 });
 
-export default function SlotCabinetPop({ onSpinStart }) {
+/**
+ * @param {object}   props
+ * @param {() => Promise<{jackpot: boolean} | null>} props.onSpin
+ *        클릭 시 호출. 부모가 락 판단·서버 호출까지 하고,
+ *        돌려도 되면 { jackpot } 반환, 막히면 null.
+ * @param {number}   props.spinCost   1회 비용 (CREDIT 자리 표시용)
+ * @param {boolean}  props.disabled   모빌 부족 등으로 아예 못 돌릴 때
+ * @param {string=}  props.hint       하단 문구를 부모가 제어하고 싶을 때(옵션)
+ */
+export default function SlotCabinetPop({ onSpin, spinCost = 0, disabled = false, hint }) {
   const reelRefs = [useRef(null), useRef(null), useRef(null)];
   const leverRef = useRef(null);
   const timers = useRef([]);
   const reelKeys = useRef([0, 1, 2].map(() => [...KEYS, ...KEYS]));
 
-  const [credits, setCredits] = useState(20);
   const [spinning, setSpinning] = useState(false);
   const [message, setMessage] = useState('PULL TO WIN');
   const [win, setWin] = useState(false);
@@ -67,8 +79,9 @@ export default function SlotCabinetPop({ onSpinStart }) {
     document.head.appendChild(el);
   }, []);
 
-  // 초기 릴 위치 랜덤
+  // 마운트 후(클라이언트)에만: 릴 심볼 셔플 + 초기 위치 랜덤 (hydration 안전)
   useEffect(() => {
+    reelKeys.current = [0, 1, 2].map(() => shuffle([...KEYS, ...KEYS]));
     reelRefs.forEach((r) => {
       if (!r.current) return;
       const top = Math.floor(Math.random() * L);
@@ -92,38 +105,32 @@ export default function SlotCabinetPop({ onSpinStart }) {
     );
   };
 
-  const evaluate = (targets) => {
-    const res = targets.map((T, i) => reelKeys.current[i][T]);
-    const [a, b, c] = res;
-    let w = 0;
-    let msg = 'TRY AGAIN';
-    if (a === b && b === c) {
-      w = PAYOUT[a];
-      msg = a === 'seven' ? `JACKPOT! +${w}` : `BIG WIN +${w}`;
-      setJackpot(true);          // 3개 매칭 → 돔 반짝 연출 ON
-    } else if (a === b || b === c || a === c) {
-      w = 5;
-      msg = 'PAIR! +5';
+  // 서버 결과(jackpot)에 맞춰 각 릴의 목표 정지 인덱스를 계산
+  const resolveTargets = (isJackpot) => {
+    const reels = reelKeys.current;
+    if (isJackpot) {
+      // 세 릴 모두 같은 심볼이 창에 오게. (각 릴에 모든 심볼이 최소 1개 존재)
+      const sym = KEYS[Math.floor(Math.random() * KEYS.length)];
+      return reels.map((keys) => {
+        const idx = keys.indexOf(sym);
+        return idx >= 0 ? idx : Math.floor(Math.random() * L);
+      });
     }
-    setCredits((c2) => c2 + w);
-    setSpinning(false);
-    setMessage(msg);
-    setWin(w > 0);
+    // 논잭팟: 3개 일치가 안 나올 때까지 다시 뽑기
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const t = [0, 1, 2].map(() => Math.floor(Math.random() * L));
+      const s = t.map((idx, i) => reels[i][idx]);
+      if (!(s[0] === s[1] && s[1] === s[2])) return t;
+    }
+    // 극히 드문 폴백: 마지막 릴만 강제로 다르게
+    const t = [0, 1, 2].map(() => Math.floor(Math.random() * L));
+    const s0 = reels[0][t[0]];
+    if (reels[2][t[2]] === s0) t[2] = (t[2] + 1) % L;
+    return t;
   };
 
-  const spin = () => {
-    if (spinning || credits <= 0) return;
-    timers.current.forEach(clearTimeout);
-    timers.current = [];
-    pullLever();
-    setCredits((c) => c - 1);
-    setSpinning(true);
-    setMessage('GOOD LUCK!');
-    setWin(false);
-    setJackpot(false);     
-    onSpinStart?.();
-
-    const targets = [0, 1, 2].map(() => Math.floor(Math.random() * L));
+  const runReels = (targets, isJackpot) => {
+    // 회전 시작
     reelRefs.forEach((r, i) => {
       const el = r.current;
       if (!el) return;
@@ -144,14 +151,50 @@ export default function SlotCabinetPop({ onSpinStart }) {
         }, stopAt[i])
       );
     });
-    timers.current.push(setTimeout(() => evaluate(targets), stopAt[2] + 560));
+
+    // 정지 후 결과 세팅
+    timers.current.push(
+      setTimeout(() => {
+        setSpinning(false);
+        setWin(true);              // 서버가 돌렸다는 건 유효 스핀 → 링 켜기
+        setJackpot(isJackpot);
+        setMessage(isJackpot ? 'JACKPOT!' : 'NICE!');
+      }, stopAt[2] + 560)
+    );
   };
 
-  const canSpin = !spinning && credits > 0;
-  const twinkleDur = spinning ? 0.5 : 1.6; 
+  const handleSpinClick = async () => {
+    if (spinning || disabled) return;
+
+    // 부모(SlotZone)에 스핀 요청. 락이면 모달을 부모가 띄우고 null 반환.
+    let outcome = null;
+    try {
+      outcome = await onSpin?.();
+    } catch (e) {
+      console.warn('[slot] onSpin threw:', e);
+      outcome = null;
+    }
+    if (!outcome) return; // 막힘(락 대기/부족/처리중) — 연출 안 함
+
+    // 유효 스핀 → 연출 시작
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    pullLever();
+    setSpinning(true);
+    setWin(false);
+    setJackpot(false);
+    setMessage('GOOD LUCK!');
+
+    const targets = resolveTargets(outcome.jackpot);
+    runReels(targets, outcome.jackpot);
+  };
+
+  const canSpin = !spinning && !disabled;
+  const twinkleDur = spinning ? 0.5 : 1.6;
   const cursor = canSpin ? 'pointer' : 'not-allowed';
-  const creditsPad = String(credits).padStart(3, '0');
+  const costPad = String(spinCost).padStart(3, '0');
   const stars = Array.from({ length: 9 }, (_, i) => i);
+  const shownMessage = hint ?? message;
 
   const reels = reelKeys.current.map((keys, i) => {
     const strip = keys.concat(keys.slice(0, 1));
@@ -252,6 +295,7 @@ export default function SlotCabinetPop({ onSpinStart }) {
               {/* payline arrows */}
               <div style={{ position: 'absolute', left: -13, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '9px solid transparent', borderBottom: '9px solid transparent', borderLeft: '12px solid #111' }} />
               <div style={{ position: 'absolute', right: -13, top: '50%', transform: 'translateY(-50%)', width: 0, height: 0, borderTop: '9px solid transparent', borderBottom: '9px solid transparent', borderRight: '12px solid #111' }} />
+              {/* win ring */}
               <div style={{
                 position: 'absolute', left: -6, right: -6, top: -2, bottom: -2,
                 borderRadius: 10, boxShadow: '0 0 0 3px #ffe14d inset',
@@ -281,18 +325,18 @@ export default function SlotCabinetPop({ onSpinStart }) {
             letterSpacing: 1, height: 14,
             color: win ? '#ffe14d' : '#8a9bb5',
             WebkitTextStroke: win ? '1px #111' : '0 #111', paintOrder: 'stroke',
-          }}>{message}</div>
+          }}>{shownMessage}</div>
 
           {/* bottom plates */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', marginTop: 10 }}>
-            <div onClick={spin} style={{ width: 56, borderRadius: 10, border: '4px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor, backgroundColor: '#1868E9' }}>
+            <div onClick={handleSpinClick} style={{ width: 56, borderRadius: 10, border: '4px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor, backgroundColor: '#1868E9', opacity: disabled ? 0.5 : 1 }}>
               <span style={{ fontFamily: "'Bungee',cursive", fontSize: 22, ...outline('#fff', '2.5px') }}>7</span>
             </div>
             <div style={{ flex: 1, borderRadius: 10, background: '#111', border: '4px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 14px' }}>
-              <span style={{ fontFamily: "'Silkscreen',monospace", fontSize: 8, letterSpacing: 2, color: '#5fc6e3' }}>CREDIT</span>
-              <span style={{ fontFamily: "'Silkscreen',monospace", fontSize: 22, color: '#ffe14d' }}>{creditsPad}</span>
+              <span style={{ fontFamily: "'Silkscreen',monospace", fontSize: 8, letterSpacing: 2, color: '#5fc6e3' }}>COST</span>
+              <span style={{ fontFamily: "'Silkscreen',monospace", fontSize: 22, color: '#ffe14d' }}>{costPad}</span>
             </div>
-            <div onClick={spin} style={{ width: 56, borderRadius: 10, border: '4px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor, backgroundColor: '#1868E9' }}>
+            <div onClick={handleSpinClick} style={{ width: 56, borderRadius: 10, border: '4px solid #111', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor, backgroundColor: '#1868E9', opacity: disabled ? 0.5 : 1 }}>
               <span style={{ fontSize: 24, ...outline('#fff', '2.5px') }}>♥</span>
             </div>
           </div>
@@ -306,7 +350,7 @@ export default function SlotCabinetPop({ onSpinStart }) {
       </div>
 
       {/* side lever */}
-      <div onClick={spin} style={{ position: 'absolute', right: 0, top: 150, width: 64, height: 180, cursor, zIndex: 3 }}>
+      <div onClick={handleSpinClick} style={{ position: 'absolute', right: 0, top: 150, width: 64, height: 180, cursor, zIndex: 3 }}>
         <div style={{ position: 'absolute', left: 0, top: 60, width: 26, height: 22, borderRadius: 6, background: '#e8402c', border: '4px solid #111' }} />
         <div ref={leverRef} style={{ position: 'absolute', left: 16, bottom: 100, transformOrigin: 'bottom center', willChange: 'transform' }}>
           <div style={{ width: 11, height: 100, margin: '0 auto', borderRadius: 6, background: '#c9c9c9', border: '3px solid #111' }} />
