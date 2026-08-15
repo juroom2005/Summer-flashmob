@@ -1,8 +1,15 @@
 // components/noticeboard/panels/InventorySection.tsx
 //
-// 마이패널 내 인벤토리 섹션 (실 데이터 연동, v4).
+// 마이패널 내 인벤토리 섹션 (실 데이터 연동, v5).
 //
-// v3 → v4 변경:
+// v4 → v5 변경:
+//   · 모든 타입 라벨을 metadata.name 우선으로 통일 (개별 아이템 이름 표시).
+//     - marker : metadata.name > MARKER_LABEL[ref] > "사인펜"
+//     - sticker: metadata.name > "스티커"
+//     - slot/other : metadata.name > 종류 기본/ref 변환
+//     지급 RPC 스냅샷 + 백필로 metadata.name 이 채워진다.
+//
+// v4 변경:
 //   · 슬롯 보상 타입(doll·coupon·junk) 렌더 신설.
 //     - doll  : 이미지(metadata.image_url) 우선 → emoji → 🧸. 클릭 시 큰 이미지 팝업.
 //     - coupon: 이미지 → emoji → 🎟️.
@@ -74,7 +81,7 @@ const SLOT_EMOJI: Record<"doll" | "coupon" | "junk", string> = {
 const SLOT_LABEL: Record<"doll" | "coupon" | "junk", string> = {
   doll:   "인형",
   coupon: "쿠폰",
-  junk:   "기타",
+  junk:   "잡템",
 };
 
 type Displayable = {
@@ -123,13 +130,13 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
     // ── marker (행 단위) ──
     if (row.item_type === "marker" && ref) {
       const emoji = readStr(row.metadata, "emoji") ?? MARKER_EMOJI[ref] ?? "🖊️";
-      const label = MARKER_LABEL[ref] ?? "사인펜";
+      const label = readStr(row.metadata, "name") ?? MARKER_LABEL[ref] ?? "사인펜";
       const cur   = row.durability ?? 0;
       const maxRaw = row.metadata?.["initial_durability"];
       const max   = typeof maxRaw === "number" ? maxRaw : 100;
       out.push({
         key: row.id, itemType: "marker", itemRef: ref,
-        emoji, imageUrl: null, label,
+        emoji, imageUrl: readStr(row.metadata, "image_url"), label,
         badge: `${cur}/${max}`,
         tooltip: `일지에 그림을 그릴 수 있습니다. 남은 획 ${cur}/${max}`,
         quantity: row.quantity ?? 1,
@@ -142,7 +149,7 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
     if (row.item_type === "sticker" && ref) {
       out.push({
         key: row.id, itemType: "sticker", itemRef: ref,
-        emoji: ref, imageUrl: null, label: "스티커",
+        emoji: ref, imageUrl: readStr(row.metadata, "image_url"), label: readStr(row.metadata, "name") ?? "스티커",
         badge: "∞",
         tooltip: "일지에 자유롭게 붙일 수 있습니다. 무제한 사용",
         quantity: row.quantity ?? 1,
