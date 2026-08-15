@@ -44,6 +44,7 @@ import FolderStage from "./noticeboard/FolderStage";
 import BoardCover from "./noticeboard/cover/BoardCover";
 import SideWidgets from "./noticeboard/widgets/SideWidgets";
 import NowPlayingDock from "./noticeboard/widgets/NowPlayingDock";
+import DailyBoardOverlay from "./noticeboard/daily-board/DailyBoardOverlay";
 
 // ── 폰트 상수 ──────────────────────────────────────────────
 const JUA = "'Jua', sans-serif";
@@ -62,7 +63,7 @@ const MIN_SUPPORTED_VIEWPORT_W = 640;
 const INTEGRATED_DOC_URL = "#";
 
 // ── 타입 ──────────────────────────────────────────────────
-type Overlay = null | "login" | "register" | "admin" | "mypanel";
+type Overlay = null | "login" | "register" | "admin" | "mypanel" | "dailyboard";
 
 type Member = {
   name: string;
@@ -274,11 +275,8 @@ export default function NoticeBoard({
           </FolderStage>
 
           {/* ── 좌측 사이드 위젯 (연습일지·날씨) ── */}
-          <SideWidgets />
-
+          <SideWidgets onPracticeLog={() => setOverlay("dailyboard")} />
           {/* ── 관리자호출(채팅 문의) 버튼 (좌하단) ── */}
-          {/* 미로그인 시: 오버레이 대신 로그인 모달을 열어 진입 통제 */}
-          {/* 뱃지: 유저=미읽음 메시지 수 / GM=미읽음 방 수 */}
           <AdminCallButton
             unread={adminChatUnread}
             onClick={() => {
@@ -333,6 +331,14 @@ export default function NoticeBoard({
 
       {/* ── 마이 패널 (뷰포트 우측 서랍, 스테이지 밖) ── */}
       <MyPanel open={overlay === "mypanel"} onClose={() => setOverlay(null)} />
+
+      {/* ── 연습일지 (공용 데일리 보드) 오버레이 ── */}
+      <DailyBoardOverlay
+        open={overlay === "dailyboard"}
+        onClose={() => setOverlay(null)}
+        onOpenLogin={() => setOverlay("login")}
+        isLoggedIn={!!currentUser}
+      />
 
       {/* ── Now Playing 도크 (뷰포트 오른쪽 아래 고정, hover 슬라이드) ──
           스테이지 밖 = 스케일 영향 안 받고 항상 화면 오른쪽 아래에 붙음.

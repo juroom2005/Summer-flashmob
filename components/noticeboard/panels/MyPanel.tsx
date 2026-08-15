@@ -235,6 +235,7 @@ export default function MyPanel({
     grade:      profileRow.grade,
     gender:     profileRow.gender,
     mobil:      profileRow.mobil,
+    avatarUrl:  profileRow.avatar_url ?? undefined,
   } : {
     familyName: null, givenName: null, schoolName: null, grade: null, gender: null, mobil: 0,
   };

@@ -80,6 +80,7 @@ const RPC_ERROR_MESSAGES: Record<string, string> = {
   invalid_amount:       "지급 수량이 올바르지 않습니다.",
   insufficient_mobil:   "차감 후 잔액이 음수가 됩니다.",
   cannot_deactivate_gm: "GM 계정은 비활성화할 수 없습니다.",
+  invalid_avatar_data:  "이미지 형식이 올바르지 않습니다.",
 };
 
 /**
@@ -175,6 +176,78 @@ export async function updateGmUserProfile(
     console.error("[updateGmUserProfile] failed:", error.message);
     return { ok: false, ...n };
   }
+ return { ok: true, data: undefined };
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 학생증 두상 이미지 (GM 이 넣어줌)
+ * ─────────────────────────────────────────────────────────── */
+
+/**
+ * 대상 유저의 학생증 두상(avatar) 조회.
+ *
+ * gm_list_users 반환에 avatar_url 을 넣지 않고 별도 단건 조회로 격리한 이유:
+ *   - 목록 RPC 시그니처(RETURNS TABLE) 변경은 파급이 크고 위험.
+ *   - 두상은 dataURL 이라 용량이 커, 목록 전체에 실으면 목록 조회가 무거워짐.
+ * 관리 UI 가 유저를 선택했을 때만 이 함수로 현재 두상을 불러온다.
+ *
+ * 반환:
+ *   · 두상 있으면 dataURL(또는 URL) 문자열
+ *   · 미설정이면 null
+ *   · 조회 실패면 null (미리보기라 조용히 없음 처리가 안전)
+ */
+export async function getGmUserAvatar(
+  profileId: string
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("gm_get_user_avatar", {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    console.error("[getGmUserAvatar] failed:", error.message);
+    return null;
+  }
+  return (data as string | null) ?? null;
+}
+
+/**
+ * 대상 유저의 학생증 두상(avatar) 설정/삭제.
+ *
+ * @param avatarUrl  dataURL(또는 http URL) 문자열. null 이면 두상 삭제.
+ *
+ * - GM 전용 RPC(gm_set_user_avatar, SECURITY DEFINER)로 남의 행을 UPDATE.
+ *   (본인 UPDATE RLS 로는 남의 프로필을 못 건드리므로 RPC 경유가 필수)
+ * - 형식은 서버(RPC·컬럼 CHECK)와 클라 양쪽에서 방어. 여기서도 명백히
+ *   이상한 값은 호출 전에 걸러 불필요한 왕복/오염을 예방.
+ * - 대용량 방지를 위한 리사이즈·압축은 호출부(업로드 UI)에서 수행한다.
+ */
+export async function setGmUserAvatar(
+  profileId: string,
+  avatarUrl: string | null
+): Promise<RpcResult> {
+  if (
+    avatarUrl !== null &&
+    !avatarUrl.startsWith("data:image/") &&
+    !avatarUrl.startsWith("http")
+  ) {
+    return {
+      ok:      false,
+      reason:  "invalid_avatar_data",
+      message: RPC_ERROR_MESSAGES.invalid_avatar_data,
+    };
+  }
+
+  const { error } = await supabase.rpc("gm_set_user_avatar", {
+    p_profile_id: profileId,
+    p_avatar_url: avatarUrl,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[setGmUserAvatar] failed:", error.message);
+    return { ok: false, ...n };
+  }
   return { ok: true, data: undefined };
 }
 
@@ -182,7 +255,6 @@ export async function updateGmUserProfile(
 /* ═══════════════════════════════════════════════════════════
  * 스탯 조정 (증감)
  * ─────────────────────────────────────────────────────────── */
-
 /**
  * 스탯 증감 델타.
  * 필드명은 "스탯 종류" 를 가리키므로 유지. 실제 값은 exp 델타이다.

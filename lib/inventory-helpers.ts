@@ -20,7 +20,8 @@ export type InventoryItemType =
   | "other"
   | "doll"
   | "coupon"
-  | "junk";
+  | "junk"
+  | "camera";
 
 export type InventoryItemRow = {
   id:          string;

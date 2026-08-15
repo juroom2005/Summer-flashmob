@@ -100,6 +100,7 @@ export type MyPanelProfileRow = {
   card_bg_color:    string | null;   // '#RRGGBB' (DB CHECK: 6자리 HEX만)
   card_text_color:  string | null;   // '#RRGGBB' (DB CHECK: 6자리 HEX만)
   signature_data:   string | null;   // 서명 PNG dataURL
+  avatar_url:       string | null;   // 학생증 두상 dataURL/URL (GM 이 설정, 본인 수정 불가)
 };
 
 /**
@@ -135,7 +136,7 @@ export async function getMyPanelProfile(): Promise<MyPanelProfileRow | null> {
       "physical_exp, physical_level, " +
       "expression_exp, expression_level, " +
       "mobil, " +
-      "card_bg_color, card_text_color, signature_data"
+      "card_bg_color, card_text_color, signature_data, avatar_url"
     )
     .eq("user_id", user.id)
     .maybeSingle<MyPanelProfileRow>();
