@@ -120,7 +120,7 @@ export async function discardInventoryItem(
   itemRef: string,
   count: number,
 ): Promise<DiscardResult> {
-  
+  // 클라 선방어 (서버도 재검증)
   if (!isDiscardable(itemType)) {
     return { ok: false, reason: "discard_forbidden" };
   }
@@ -158,4 +158,89 @@ export async function discardInventoryItem(
   }
 
   return { ok: true, discarded: row.discarded, remaining: row.remaining };
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 인형 교환권 사용 : redeem_doll_coupon RPC 래퍼
+// ────────────────────────────────────────────────────────────────────
+//
+// 서버가 쿠폰 1개 차감 + 인형 풀에서 균등 랜덤 1개 지급을 원자 처리한다.
+// 재화성이므로 애매한 실패는 성공으로 처리하지 않는다.
+
+export type RedeemedDoll = {
+  itemRef: string;
+  name: string;
+  imageUrl: string | null;
+  emoji: string | null;
+  remainingCoupons: number;
+};
+
+export type RedeemResult =
+  | { ok: true; doll: RedeemedDoll }
+  | {
+      ok: false;
+      reason:
+        | "auth_required"
+        | "profile_not_found"
+        | "no_coupon"
+        | "doll_pool_empty"
+        | "unknown";
+    };
+
+const REDEEM_REASONS = [
+  "auth_required",
+  "profile_not_found",
+  "no_coupon",
+  "doll_pool_empty",
+] as const;
+
+function normalizeRedeemError(
+  message: string | null | undefined,
+): Exclude<RedeemResult & { ok: false }, { ok: true }>["reason"] {
+  const msg = (message ?? "").toLowerCase();
+  for (const r of REDEEM_REASONS) {
+    if (msg.includes(r)) return r;
+  }
+  return "unknown";
+}
+
+export async function redeemDollCoupon(): Promise<RedeemResult> {
+  const { data, error } = await supabase.rpc("redeem_doll_coupon");
+
+  if (error) {
+    const reason = normalizeRedeemError(error.message);
+    console.warn("[inventory] redeem doll coupon failed:", reason, error.message);
+    return { ok: false, reason };
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | {
+        ok?: boolean;
+        item_ref?: string;
+        name?: string;
+        image_url?: string | null;
+        emoji?: string | null;
+        remaining_coupons?: number;
+      }
+    | null
+    | undefined;
+
+  if (!row || row.ok !== true || !row.item_ref) {
+    return { ok: false, reason: "unknown" };
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("profile-changed"));
+  }
+
+  return {
+    ok: true,
+    doll: {
+      itemRef: row.item_ref,
+      name: row.name ?? "인형",
+      imageUrl: row.image_url ?? null,
+      emoji: (row.emoji ?? "").trim() === "" ? null : (row.emoji ?? null),
+      remainingCoupons: typeof row.remaining_coupons === "number" ? row.remaining_coupons : 0,
+    },
+  };
 }

@@ -24,6 +24,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import useModalKeys from "@/components/shared/useModalKeys";
 import { useCurrentUser } from "@/components/shared/useCurrentUser";
 import { getSlotConfig, spinSlot, type SlotReward } from "@/lib/slot-helpers";
 import SlotCabinetPop from "./SlotCabinetPop";
@@ -339,11 +340,7 @@ function ConfirmModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onCancel(); }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  useModalKeys({ onConfirm, onCancel, confirmOnEnterInInput: true });
 
   if (typeof document === "undefined") return null;
 
@@ -377,11 +374,7 @@ function RewardPopup({
   items: SlotReward[];
   onClose: () => void;
 }) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  useModalKeys({ onConfirm: onClose, onCancel: onClose, confirmOnEnterInInput: true });
 
   if (typeof document === "undefined") return null;
 
@@ -449,8 +442,8 @@ const slotWrapStyle: CSSProperties = {
 
 const lockBadgeStyle: CSSProperties = {
   position: "absolute",
-  top: 190,
-  left: "55%",
+  top: 14,
+  left: "50%",
   transform: "translateX(-50%)",
   zIndex: 6,
   maxWidth: "82%",

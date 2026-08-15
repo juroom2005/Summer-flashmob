@@ -1,6 +1,11 @@
 // components/noticeboard/panels/InventorySection.tsx
 //
-// 마이패널 내 인벤토리 섹션 (실 데이터 연동, v5).
+// 마이패널 내 인벤토리 섹션 (실 데이터 연동, v6).
+//
+// v5 → v6 변경:
+//   · 인형 교환권(coupon · item_ref='doll_coupon') 클릭 → 사용/파기 선택 팝업.
+//     사용 시 redeem_doll_coupon 으로 인형 풀에서 균등 랜덤 1개 지급 + 결과 팝업.
+//   · 그 외 쿠폰은 기존대로 파기.
 //
 // v4 → v5 변경:
 //   · 모든 타입 라벨을 metadata.name 우선으로 통일 (개별 아이템 이름 표시).
@@ -39,12 +44,15 @@ import {
   type CSSProperties,
 } from "react";
 import { createPortal } from "react-dom";
+import useModalKeys from "@/components/shared/useModalKeys";
 import {
   listMyInventoryItems,
   discardInventoryItem,
+  redeemDollCoupon,
   isDiscardable,
   type InventoryItemRow,
   type InventoryItemType,
+  type RedeemedDoll,
 } from "@/lib/inventory-helpers";
 import styles from "./InventorySection.module.css";
 
@@ -84,6 +92,9 @@ const SLOT_LABEL: Record<"doll" | "coupon" | "junk", string> = {
   junk:   "잡템",
 };
 
+/** 인형 교환권 item_ref. 이 쿠폰만 클릭 시 "사용(교환)"이 가능하다. */
+const DOLL_COUPON_REF = "doll_coupon";
+
 type Displayable = {
   key:       string;             // React key (합침 기준 = type:ref)
   itemType:  InventoryItemType;
@@ -94,7 +105,7 @@ type Displayable = {
   badge:     string;             // 우하단 배지 (×N · 78/100 · ∞)
   tooltip:   string;
   quantity:  number;             // 합계 수량 (파기 상한)
-  clickMode: "none" | "discard" | "dollView";
+  clickMode: "none" | "discard" | "dollView" | "coupon";
 };
 
 /** metadata 에서 문자열 필드 안전 추출. */
@@ -175,7 +186,7 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
         out[existing].quantity += qty;
         out[existing].badge = `×${out[existing].quantity}`;
         // tooltip 수량도 갱신
-        out[existing].tooltip = tooltipFor(out[existing].itemType, out[existing].label, out[existing].quantity);
+        out[existing].tooltip = tooltipFor(out[existing].itemType, out[existing].itemRef, out[existing].label, out[existing].quantity);
         continue;
       }
 
@@ -193,7 +204,7 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
       } else if (row.item_type === "coupon") {
         emoji = emojiMeta ?? SLOT_EMOJI.coupon;
         label = readStr(row.metadata, "name") ?? SLOT_LABEL.coupon;
-        clickMode = "discard";
+        clickMode = ref === DOLL_COUPON_REF ? "coupon" : "discard";
       } else if (row.item_type === "junk") {
         emoji = emojiMeta ?? SLOT_EMOJI.junk;
         label = readStr(row.metadata, "name") ?? SLOT_LABEL.junk;
@@ -210,7 +221,7 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
         key: mapKey, itemType: row.item_type, itemRef: ref,
         emoji, imageUrl, label,
         badge: `×${qty}`,
-        tooltip: tooltipFor(row.item_type, label, qty),
+        tooltip: tooltipFor(row.item_type, ref, label, qty),
         quantity: qty,
         clickMode,
       });
@@ -224,9 +235,13 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
   return out;
 }
 
-function tooltipFor(itemType: InventoryItemType, label: string, qty: number): string {
+function tooltipFor(itemType: InventoryItemType, itemRef: string, label: string, qty: number): string {
   if (itemType === "doll")   return `${label} · 소지 ${qty}개 · 클릭하면 크게 볼 수 있습니다`;
-  if (itemType === "coupon") return `${label} · 소지 ${qty}개 · 클릭하면 파기할 수 있습니다`;
+  if (itemType === "coupon") {
+    return itemRef === DOLL_COUPON_REF
+      ? `${label} · 소지 ${qty}개 · 클릭하면 인형으로 교환할 수 있습니다`
+      : `${label} · 소지 ${qty}개 · 클릭하면 파기할 수 있습니다`;
+  }
   if (itemType === "junk")   return `${label} · 소지 ${qty}개 · 클릭하면 파기할 수 있습니다`;
   return `이벤트 아이템 · 소지 ${qty}개 · 클릭하면 파기할 수 있습니다`;
 }
@@ -240,6 +255,8 @@ export default function InventorySection() {
   // 팝업 상태
   const [dollView, setDollView] = useState<Displayable | null>(null);
   const [discardTarget, setDiscardTarget] = useState<Displayable | null>(null);
+  const [couponTarget, setCouponTarget] = useState<Displayable | null>(null);
+  const [redeemedDoll, setRedeemedDoll] = useState<RedeemedDoll | null>(null);
 
   const refresh = useCallback(async () => {
     const rows = await listMyInventoryItems();
@@ -276,6 +293,8 @@ export default function InventorySection() {
       setDollView(it);
     } else if (it.clickMode === "discard") {
       setDiscardTarget(it);
+    } else if (it.clickMode === "coupon") {
+      setCouponTarget(it);
     }
     // "none" 은 무동작
   }, []);
@@ -376,6 +395,21 @@ export default function InventorySection() {
           onDone={() => { setDiscardTarget(null); void refresh(); }}
         />
       ) : null}
+
+      {/* 인형 교환권 : 사용 / 파기 선택 팝업 */}
+      {couponTarget ? (
+        <CouponActionPopup
+          item={couponTarget}
+          onClose={() => setCouponTarget(null)}
+          onDiscard={() => { const t = couponTarget; setCouponTarget(null); setDiscardTarget(t); }}
+          onRedeemed={(doll) => { setCouponTarget(null); setRedeemedDoll(doll); void refresh(); }}
+        />
+      ) : null}
+
+      {/* 인형 교환 결과 팝업 */}
+      {redeemedDoll ? (
+        <RedeemResultPopup doll={redeemedDoll} onClose={() => setRedeemedDoll(null)} />
+      ) : null}
     </div>
   );
 }
@@ -383,6 +417,7 @@ export default function InventorySection() {
 /* ═════════════════════════ 인형 큰 이미지 팝업 ═════════════════════════ */
 
 function DollViewPopup({ item, onClose }: { item: Displayable; onClose: () => void }) {
+  useModalKeys({ onConfirm: onClose, onCancel: onClose, confirmOnEnterInInput: true });
   if (typeof document === "undefined") return null;
   return createPortal(
     <div style={overlayStyle} onClick={onClose}>
@@ -395,6 +430,111 @@ function DollViewPopup({ item, onClose }: { item: Displayable; onClose: () => vo
         <div style={dollNameStyle}>{item.label}</div>
         <div style={dollQtyStyle}>소지 {item.quantity}개</div>
         <button type="button" onClick={onClose} style={modalConfirmBtn}>닫기</button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ═══════════════════════ 인형 교환권 : 사용/파기 선택 ═══════════════════════ */
+
+function CouponActionPopup({
+  item, onClose, onDiscard, onRedeemed,
+}: {
+  item: Displayable;
+  onClose: () => void;
+  onDiscard: () => void;
+  onRedeemed: (doll: RedeemedDoll) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const redeem = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+    const res = await redeemDollCoupon();
+    setBusy(false);
+    if (!res.ok) {
+      setErr(redeemErrorMessage(res.reason));
+      return;
+    }
+    onRedeemed(res.doll);
+  }, [busy, onRedeemed]);
+
+  useModalKeys({
+    onConfirm: () => { void redeem(); },
+    onCancel: onClose,
+    enabled: !busy,
+    confirmOnEnterInInput: true,
+  });
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div style={overlayStyle} onClick={busy ? undefined : onClose}>
+      <div style={dollModalStyle} onClick={(e) => e.stopPropagation()}>
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt={item.label} style={dollImgLargeStyle} />
+        ) : (
+          <div style={dollEmojiLargeStyle}>{item.emoji}</div>
+        )}
+        <div style={dollNameStyle}>{item.label}</div>
+        <div style={dollQtyStyle}>소지 {item.quantity}개</div>
+        <div style={couponHintStyle}>
+          사용하면 인형 하나를 무작위로 받습니다.
+        </div>
+        {err ? <div style={discardErrRow}>{err}</div> : null}
+        <div style={modalBtnRowStyle}>
+          <button
+            type="button"
+            onClick={() => void redeem()}
+            disabled={busy}
+            style={{ ...modalConfirmBtn, opacity: busy ? 0.5 : 1 }}
+          >
+            {busy ? "교환 중…" : "사용하기"}
+          </button>
+          <button type="button" onClick={onDiscard} disabled={busy} style={couponDiscardBtn}>파기</button>
+          <button type="button" onClick={onClose} disabled={busy} style={modalCancelBtn}>취소</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function redeemErrorMessage(reason: string): string {
+  switch (reason) {
+    case "no_coupon":       return "교환권이 없습니다. 새로고침 후 다시 시도해 주십시오.";
+    case "doll_pool_empty": return "지금은 교환할 수 있는 인형이 없습니다.";
+    case "auth_required":   return "로그인이 필요합니다.";
+    default:                return "교환에 실패했습니다. 잠시 후 다시 시도해 주십시오.";
+  }
+}
+
+/* ═══════════════════════ 인형 교환 결과 ═══════════════════════ */
+
+function RedeemResultPopup({ doll, onClose }: { doll: RedeemedDoll; onClose: () => void }) {
+  useModalKeys({ onConfirm: onClose, onCancel: onClose, confirmOnEnterInInput: true });
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={dollModalStyle} onClick={(e) => e.stopPropagation()}>
+        <div style={redeemHeadStyle}>인형을 받았습니다!</div>
+        <div style={redeemStageStyle}>
+          {/* 별 세 개 뿅 */}
+          <span className={`${styles.redeemStar} ${styles.redeemStar1}`}>⭐</span>
+          <span className={`${styles.redeemStar} ${styles.redeemStar2}`}>⭐</span>
+          <span className={`${styles.redeemStar} ${styles.redeemStar3}`}>⭐</span>
+          {doll.imageUrl ? (
+            <img src={doll.imageUrl} alt={doll.name} className={styles.redeemDollPop} style={dollImgLargeStyle} />
+          ) : (
+            <div className={styles.redeemDollPop} style={dollEmojiLargeStyle}>{doll.emoji ?? "🧸"}</div>
+          )}
+        </div>
+        <div style={dollNameStyle}>{doll.name}</div>
+        <div style={dollQtyStyle}>남은 교환권 {doll.remainingCoupons}개</div>
+        <button type="button" onClick={onClose} style={modalConfirmBtn}>확인</button>
       </div>
     </div>,
     document.body,
@@ -435,6 +575,24 @@ function DiscardPopup({
     }
     onDone();
   }, [countValid, busy, item, count, onDone]);
+
+  // 단계별 키 매핑:
+  //   입력 단계 : Enter → 다음(확인 단계, 유효할 때만) · Esc → 닫기
+  //   확인 단계 : Enter → 파기 확정 · Esc → 뒤로
+  useModalKeys({
+    onConfirm: () => {
+      if (busy) return;
+      if (confirming) { void run(); }
+      else if (countValid) { setConfirming(true); }
+    },
+    onCancel: () => {
+      if (busy) return;
+      if (confirming) setConfirming(false);
+      else onClose();
+    },
+    enabled: !busy,
+    confirmOnEnterInInput: true,   // 개수 입력창에서도 Enter 로 진행
+  });
 
   if (typeof document === "undefined") return null;
 
@@ -804,6 +962,40 @@ const dollQtyStyle: CSSProperties = {
   color:      "#5a7488",
   marginTop:  2,
   marginBottom: 8,
+};
+
+const couponHintStyle: CSSProperties = {
+  fontFamily: BODY,
+  fontSize:   12.5,
+  color:      "#5a7488",
+  marginBottom: 4,
+};
+
+const couponDiscardBtn: CSSProperties = {
+  height:       38,
+  padding:      "0 18px",
+  border:       "1.5px solid #e0b6ae",
+  borderRadius: 999,
+  background:   "#fff",
+  color:        "#c0503f",
+  fontFamily:   JUA,
+  fontSize:     13,
+  cursor:       "pointer",
+};
+
+const redeemHeadStyle: CSSProperties = {
+  fontFamily:   JUA,
+  fontSize:     16,
+  color:        "#0d6fa8",
+  marginBottom: 10,
+};
+
+const redeemStageStyle: CSSProperties = {
+  position: "relative",
+  display:  "inline-block",
+  margin:   "0 auto",
+  // 별이 이미지 밖으로 튀어도 잘리지 않게
+  overflow: "visible",
 };
 
 /* ── 파기 모달 ── */

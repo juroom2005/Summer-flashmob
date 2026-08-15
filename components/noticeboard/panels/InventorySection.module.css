@@ -32,3 +32,52 @@
   70%  { transform: scale(.98); }
   100% { transform: scale(1);   opacity: 1; }
 }
+
+/* ─────────────────────────────────────────────────────────────
+ * 인형 교환 결과 : 별 세 개가 뿅 터지는 연출
+ *   .redeemStar        - 공통 (절대배치·transform-origin 중앙)
+ *   .redeemStar1/2/3   - 방향·딜레이 각각 (좌상 · 우상 · 위)
+ *   .redeemDollPop     - 인형 이미지 등장 (통통 튀는 pop)
+ *   @keyframes starBurst / starTwinkle / dollBounce
+ * ───────────────────────────────────────────────────────────── */
+
+.redeemDollPop {
+  animation: dollBounce .5s cubic-bezier(.34, 1.56, .64, 1) both;
+}
+
+.redeemStar {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  font-size: 30px;
+  line-height: 1;
+  /* 등장(튀어나가기) 후 → 제자리에서 반짝임 반복 */
+  animation:
+    starBurst .55s cubic-bezier(.22, 1, .36, 1) both,
+    starTwinkle 1.4s ease-in-out .55s infinite;
+}
+
+/* 세 별의 최종 위치(–-tx/–-ty)와 등장 딜레이만 다르게 */
+.redeemStar1 { --tx: -78px; --ty: -60px; animation-delay: .04s, .59s; font-size: 34px; }
+.redeemStar2 { --tx:  74px; --ty: -52px; animation-delay: .12s, .67s; font-size: 26px; }
+.redeemStar3 { --tx:   2px; --ty: -92px; animation-delay: .20s, .75s; font-size: 30px; }
+
+@keyframes starBurst {
+  0%   { transform: translate(-50%, -50%) scale(.2) rotate(-30deg); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1) rotate(12deg); opacity: 1; }
+}
+
+/* 최종 위치를 유지한 채 살짝 커졌다 작아지며 반짝 */
+@keyframes starTwinkle {
+  0%, 100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1)    rotate(12deg); }
+  50%      { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.22) rotate(-6deg); }
+}
+
+@keyframes dollBounce {
+  0%   { transform: scale(.3);  opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  80%  { transform: scale(.96); }
+  100% { transform: scale(1); }
+}
