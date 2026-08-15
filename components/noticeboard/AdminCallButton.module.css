@@ -1,0 +1,106 @@
+/* components/noticeboard/AdminCallButton.module.css
+ *
+ * Uiverse.io (vinodjangid07) 확장 버튼.
+ *   평소 원형(45px) → hover 시 가로로 늘어나며(125px) "채팅 문의" 노출.
+ *
+ * 구조: wrap(위치·뱃지 기준, overflow 없음) > btn(확장·overflow:hidden).
+ *   뱃지가 버튼 밖으로 나와야 해서 overflow 는 버튼에만 준다.
+ *
+ * 위치: 좌하단 절대배치(스테이지 기준). wrap 의 left/bottom 을 화면 보며 조정.
+ *   hover 시 오른쪽으로 늘어나므로 left 기준이 자연스럽다.
+ */
+
+.wrap {
+  position: absolute;
+  left:  10px;      /* 좌측 사이드 위젯과 정렬. 화면 보며 조정. */
+  bottom: 10px;
+  z-index: 20;
+  width: 45px;     /* 평소 버튼 크기(뱃지 기준). 버튼은 hover 시 이보다 넓어짐. */
+  height: 45px;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 45px;
+  height: 45px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
+  transition-duration: 0.3s;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+  background-color: var(--color-primary, #3f88f9);   /* 브랜드 파랑 */
+}
+
+/* 아이콘 영역 */
+.sign {
+  width: 100%;
+  transition-duration: 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sign svg {
+  width: 18px;
+}
+.sign svg path {
+  fill: #ffffff;
+}
+
+/* 문구 */
+.text {
+  position: absolute;
+  right: 0%;
+  width: 0%;
+  opacity: 0;
+  color: #ffffff;
+  font-family: var(--font-heading, 'Jua', sans-serif);
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition-duration: 0.3s;
+}
+
+/* hover: 버튼 가로 확장 */
+.btn:hover {
+  width: 120px;
+  border-radius: 40px;
+  transition-duration: 0.3s;
+}
+.btn:hover .sign {
+  width: 38%;
+  transition-duration: 0.3s;
+  padding-left: 16px;
+}
+.btn:hover .text {
+  opacity: 1;
+  width: 62%;
+  transition-duration: 0.3s;
+  padding-left: 130px;
+}
+
+/* 클릭 효과 */
+.btn:active {
+  transform: translate(2px, 2px);
+}
+
+/* 미읽음 뱃지 (wrap 기준 우상단, 버튼 밖) */
+.badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-danger, #ff6f7f);
+  color: #ffffff;
+  font-family: var(--font-heading, 'Jua', sans-serif);
+  font-size: 11px;
+  line-height: 19px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  pointer-events: none;   /* 뱃지가 버튼 클릭 막지 않게 */
+}

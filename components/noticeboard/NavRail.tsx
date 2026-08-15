@@ -43,25 +43,25 @@ export type Tab =
 type NavItem = {
   key:   Tab;
   label: string;
-  fill:  string;   // 탭 전체 채움 색 (시안: 탭이 색으로 꽉 참)
+  fill:  string;    // 탭 배경색 (시안 CSS)
+  text:  string;    // 글씨색 (시안 CSS: STORE만 검정, 나머지 흰색)
+  dots?: boolean;   // STORE 전용 흰 도트 패턴 배경(SVG)
 };
 
-// 색은 tokens.css 시안 팔레트 기준. 탭 전체를 이 색으로 채우고 글씨는 흰색.
-//   board  : 시안 주 파랑    #3f88f9
-//   notice : 시안 NOTICE 파랑 #2563eb
-//   system : 시안 SYSTEM 핑크 #ec4899
-//   world  : 시안 WORLD  노랑 #facc15
-//   member : 시안 MEMBER 청록 #06b6d4
-//   store  : 시안 STORE  연노랑 #f8e31a
-//   daily  : 시안 남색     #1a335e
+// 색·글씨색은 시안(Anima) CSS 값 그대로.
+//   notice #2563EB / 흰   ·  world  #FACC15 / 흰
+//   system #EC4899 / 흰   ·  member #06B6D4 / 흰
+//   store  #FEF08A / 검정 + 흰 도트 패턴(store-tab-bg.svg)
+//   board·daily 는 시안 CSS에 없음 → 외부 스타일(폰트·규격)만 맞추고 색 유지.
+//     (board 는 기본 파랑, daily 는 남색. 둘 다 흰 글씨.)
 const NAV: NavItem[] = [
-  { key: "board",  label: "BOARD",  fill: "#3f88f9" },
-  { key: "notice", label: "NOTICE", fill: "#2563eb" },
-  { key: "system", label: "SYSTEM", fill: "#ec4899" },
-  { key: "world",  label: "WORLD",  fill: "#facc15" },
-  { key: "member", label: "MEMBER", fill: "#06b6d4" },
-  { key: "store",  label: "STORE",  fill: "#f8e31a" },
-  { key: "daily",  label: "DAILY",  fill: "#1a335e" },
+  { key: "board",  label: "BOARD",  fill: "#3f88f9", text: "#ffffff" },
+  { key: "notice", label: "NOTICE", fill: "#2563eb", text: "#ffffff" },
+  { key: "system", label: "SYSTEM", fill: "#ec4899", text: "#ffffff" },
+  { key: "world",  label: "WORLD",  fill: "#facc15", text: "#ffffff" },
+  { key: "member", label: "MEMBER", fill: "#06b6d4", text: "#ffffff" },
+  { key: "store",  label: "STORE",  fill: "#fef08a", text: "#000000", dots: true },
+  { key: "daily",  label: "DAILY",  fill: "#1a335e", text: "#ffffff" },
 ];
 
 type Props = {
@@ -75,13 +75,10 @@ export default function NavRail({ activeTab, onTabClick }: Props) {
       {NAV.map((n) => {
         const active = activeTab === n.key;
 
-        // 밝은 노랑 계열(world/store)은 흰 글씨가 안 보임 → 어두운 글씨.
-        const darkText = n.key === "world" || n.key === "store";
-
-        // 탭 전체 채움 색·글씨색·그림자를 CSS variable로 인젝션
+        // 탭 배경색·글씨색·그림자를 CSS variable로 인젝션
         const cssVars = {
           "--tab-fill":   n.fill,
-          "--tab-text":   darkText ? "#1a335e" : "#ffffff",
+          "--tab-text":   n.text,
           "--tab-shadow": `${n.fill}66`, // hex + alpha 40%
         } as CSSProperties;
 
@@ -89,7 +86,7 @@ export default function NavRail({ activeTab, onTabClick }: Props) {
           <button
             key={n.key}
             onClick={() => onTabClick(n.key)}
-            className={`${styles.tab} ${active ? styles.active : ""}`}
+            className={`${styles.tab} ${active ? styles.active : ""} ${n.dots ? styles.dots : ""}`}
             style={cssVars}
             aria-current={active ? "page" : undefined}
           >

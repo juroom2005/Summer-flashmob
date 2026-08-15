@@ -168,10 +168,14 @@ export default function ChatRoomBody({
           onClick={handleSend}
           disabled={sending || text.trim().length === 0}
           className={styles.sendButton}
+          aria-label="전송"
           // 클릭 시 입력창에서 포커스가 떠나는 것 자체를 차단
           onMouseDown={(e: ReactMouseEvent<HTMLButtonElement>) => e.preventDefault()}
         >
-          {sending ? "전송 중" : "전송"}
+          {/* 종이비행기(전송) 아이콘 — 텍스트 대신 원형 버튼에 맞춤 */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M3.4 20.4l17.45-7.48a1 1 0 0 0 0-1.84L3.4 3.6a1 1 0 0 0-1.39 1.15L4.1 11.5 12 12l-7.9.5-2.09 6.75a1 1 0 0 0 1.39 1.15Z" />
+          </svg>
         </button>
       </div>
     </>

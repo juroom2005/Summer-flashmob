@@ -35,12 +35,15 @@ import { useAdminChatBadge } from "./admin-chat/useAdminChatBadge";
 import AuthModal from "./auth/AuthModal";
 import { useCurrentUser } from "./shared/useCurrentUser";
 import Header from "./noticeboard/Header";
-import NavRail, { type Tab } from "./noticeboard/NavRail";
+import { type Tab } from "./noticeboard/NavRail";
+import AdminCallButton from "./noticeboard/AdminCallButton";
 import MyPanel from "./noticeboard/panels/MyPanel";
 import DailyPanel from "./noticeboard/panels/DailyPanel";
 import StaticDocPanel from "./noticeboard/panels/StaticDocPanel";
 import FolderStage from "./noticeboard/FolderStage";
 import BoardCover from "./noticeboard/cover/BoardCover";
+import SideWidgets from "./noticeboard/widgets/SideWidgets";
+import NowPlayingDock from "./noticeboard/widgets/NowPlayingDock";
 
 // ── 폰트 상수 ──────────────────────────────────────────────
 const JUA = "'Jua', sans-serif";
@@ -102,11 +105,6 @@ export default function NoticeBoard({
 
   // 시안 상태 — 상점은 실 재화 연동 전까지 시각적 인터랙션만 유지.
   const [flipped, setFlipped] = useState<string | null>(null);
-  const [playing, setPlaying] = useState(true);
-
-  // 참여명단 위젯 시안 데이터. 이 위젯은 추후 다른 요소로 교체 예정이며,
-  // 그 전까지는 하드코딩된 표시만 유지한다.
-  const [attendees] = useState<string[]>(["새벽", "라임", "도토"]);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -145,21 +143,29 @@ export default function NoticeBoard({
   };
 
   // ── 애니메이션 헬퍼 ──────────────────────────────────────
-  // 탭 전환 시 콘텐츠가 우측에서 슬라이드 인 (+ 페이드). 간결·깔끔.
-  const doSlide = () => {
-    slideRef.current?.animate?.(
-      [
-        { transform: "translateX(24px)", opacity: 0 },
-        { transform: "translateX(0)",    opacity: 1 },
-      ],
-      { duration: 260, easing: "cubic-bezier(.25,.8,.3,1)", fill: "backwards" }
-    );
+  // 탭 전환 시 콘텐츠 전환 효과.
+  //   · board 로 갈 때  : 페이드만(opacity). board 는 덮개 영역이 내지보다
+  //     넓어(left/width 가 다름) 가로 슬라이드를 걸면 그 좌우 점프와 겹쳐
+  //     "아래-오른쪽 대각선으로 쑥 몰렸다 퍼지는" 덜컹거림이 났음. 페이드로 회피.
+  //   · 그 외 탭        : 우측에서 슬라이드 인(+페이드). 문서 전환에 자연스러움.
+  const runTransition = (toBoard: boolean) => {
+    const keyframes = toBoard
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [
+          { transform: "translateX(24px)", opacity: 0 },
+          { transform: "translateX(0)",    opacity: 1 },
+        ];
+    slideRef.current?.animate?.(keyframes, {
+      duration: 260,
+      easing: "cubic-bezier(.25,.8,.3,1)",
+      fill: "backwards",
+    });
   };
   // ── 액션 ─────────────────────────────────────────────────
   const openTab = (key: Tab) => {
     if (tab === key) return;
     setTab(key);
-    requestAnimationFrame(doSlide);
+    requestAnimationFrame(() => runTransition(key === "board"));
   };
 
   // ── 스테이지 실제 렌더 크기 (스케일 적용 후) ───────────
@@ -237,11 +243,10 @@ export default function NoticeBoard({
             }
           />
 
-          {/* ── 좌측 nav rail (스티커 탭) ── */}
-          <NavRail activeTab={tab} onTabClick={openTab} />
-
-          {/* ── 폴더 (프레임 + 덮개/내지 + 콘텐츠) ── */}
-          <FolderStage isBoard={isBoard}>
+          {/* ── 폴더 (프레임 + 북마크 + 덮개/내지 + 콘텐츠) ──
+              좌측 북마크(NavRail)는 FolderStage 안으로 이동:
+              프레임 앞·내지 뒤(시안 겹침)에 껴야 하므로 같은 쌓임 맥락 필요. */}
+          <FolderStage isBoard={isBoard} activeTab={tab} onTabClick={openTab}>
             <div ref={slideRef} style={{ height: "100%" }}>
               {tab === "board" ? (
                 <BoardCover
@@ -268,70 +273,14 @@ export default function NoticeBoard({
             </div>
           </FolderStage>
 
-          {/* ── 위젯: 참여 명단 스티키 ── */}
-          <div
-            style={{
-              position: "absolute",
-              left: 24,
-              bottom: 34,
-              width: 150,
-              background: "#dff4ff",
-              border: "2px solid #a8dcf5",
-              borderRadius: "4px 4px 12px 12px",
-              padding: "14px 13px",
-              boxShadow: "3px 5px 12px rgba(20,58,99,.22)",
-              animation: "nb-floaty 6s ease-in-out infinite",
-              zIndex: 8,
-              transform: "rotate(-1.5deg)",
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                top: -9,
-                left: 38,
-                width: 64,
-                height: 18,
-                background: "rgba(255,239,62,.8)",
-                border: "1px solid rgba(216,207,106,.6)",
-                transform: "rotate(-3deg)",
-              }}
-            />
-            <div style={{ fontFamily: JUA, fontSize: 13, color: "#0d6fa8", marginBottom: 6 }}>〈 참여 명단 〉</div>
-            <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, lineHeight: 1.3, color: "#2a5878" }}>
-              안무 · 하루, 소이, 진<br />보컬 · 유나, 물결<br />영상 · 케이
-            </div>
-            <div
-              style={{
-                marginTop: 7,
-                paddingTop: 6,
-                borderTop: "1.5px dashed #a8dcf5",
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
-              }}
-            >
-              {attendees.map((nm, i) => (
-                <div
-                  key={`${nm}-${i}`}
-                  style={{
-                    fontFamily: GAEGU,
-                    fontWeight: 700,
-                    fontSize: 15,
-                    color: "#2ea3dd",
-                    animation: "nb-pixelPop .35s both",
-                  }}
-                >
-                  {nm} 출석!
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* ── 좌측 사이드 위젯 (연습일지·날씨) ── */}
+          <SideWidgets />
 
-          {/* ── 관리자호출 버튼 (좌하단) ── */}
+          {/* ── 관리자호출(채팅 문의) 버튼 (좌하단) ── */}
           {/* 미로그인 시: 오버레이 대신 로그인 모달을 열어 진입 통제 */}
           {/* 뱃지: 유저=미읽음 메시지 수 / GM=미읽음 방 수 */}
-          <button
+          <AdminCallButton
+            unread={adminChatUnread}
             onClick={() => {
               if (!currentUser) {
                 setOverlay("login");
@@ -339,80 +288,7 @@ export default function NoticeBoard({
               }
               setOverlay((prev) => (prev === "admin" ? null : "admin"));
             }}
-            style={{
-              position: "absolute",
-              left: 24,
-              bottom: 26,
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              background: "#1a9edb",
-              border: "2px solid #fff",
-              color: "#fff",
-              fontFamily: JUA,
-              fontSize: 15,
-              padding: "9px 18px",
-              borderRadius: 999,
-              boxShadow: "2px 3px 0 rgba(20,40,90,.25)",
-              zIndex: 20,
-              cursor: "pointer",
-              transition: "transform .15s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-          >
-            관리자호출
-            {adminChatUnread > 0 ? (
-              <span
-                style={{
-                  minWidth: 19,
-                  height: 19,
-                  padding: "0 6px",
-                  borderRadius: 999,
-                  background: "#e5484d",
-                  color: "#fff",
-                  fontFamily: JUA,
-                  fontSize: 11,
-                  lineHeight: "19px",
-                  textAlign: "center",
-                  boxShadow: "0 1px 3px rgba(0,0,0,.25)",
-                }}
-              >
-                {adminChatUnread > 99 ? "99+" : adminChatUnread}
-              </span>
-            ) : null}
-          </button>
-
-          {/* ── NOW PLAYING (재생 토글) ── */}
-          <button
-            onClick={() => setPlaying((p) => !p)}
-            style={{
-              position: "absolute",
-              right: 26,
-              bottom: 26,
-              display: "flex",
-              alignItems: "center",
-              gap: 9,
-              background: "#1a9edb",
-              border: "2px solid #fff",
-              color: "#fff",
-              fontFamily: JUA,
-              fontSize: 15,
-              padding: "9px 18px",
-              borderRadius: 999,
-              boxShadow: "2px 3px 0 rgba(20,40,90,.25)",
-              zIndex: 15,
-              cursor: "pointer",
-              transition: "transform .15s",
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.04)")}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-          >
-            <span style={{ animation: playing ? "nb-blink 1.4s infinite" : "none" }}>
-              {playing ? "♪" : "▶"}
-            </span>{" "}
-            {playing ? "NOW PLAYING — 여름날 (2025 ver.)" : "PAUSED — 눌러서 재생"}
-          </button>
+          />
 
           {/* ── 관리자 호출 채팅 ── */}
           <AdminChatOverlay
@@ -457,6 +333,11 @@ export default function NoticeBoard({
 
       {/* ── 마이 패널 (뷰포트 우측 서랍, 스테이지 밖) ── */}
       <MyPanel open={overlay === "mypanel"} onClose={() => setOverlay(null)} />
+
+      {/* ── Now Playing 도크 (뷰포트 오른쪽 아래 고정, hover 슬라이드) ──
+          스테이지 밖 = 스케일 영향 안 받고 항상 화면 오른쪽 아래에 붙음.
+          파묻힌 부분은 화면 바닥 밖으로 나감. */}
+      <NowPlayingDock />
 
       {/* ── 로그인·가입 모달 ── */}
       <AuthModal

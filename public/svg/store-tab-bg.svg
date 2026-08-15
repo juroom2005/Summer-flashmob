@@ -1,0 +1,18 @@
+<svg width="193" height="44" viewBox="0 0 193 44" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect width="193" height="44" fill="#FEF08A"/>
+<rect width="193" height="44" fill="url(#pattern0_store_bg)"/>
+<defs>
+<pattern id="pattern0_store_bg" patternUnits="userSpaceOnUse" patternTransform="matrix(200 0 0 400 -3.5 -78)" preserveAspectRatio="none" viewBox="0 0 200 400" width="1" height="1">
+<use xlink:href="#pattern0_store_bg_inner" transform="translate(-200 0)"/>
+<g id="pattern0_store_bg_inner">
+<rect width="200" height="200" fill="url(#pattern1_store_bg)"/>
+</g>
+<use xlink:href="#pattern0_store_bg_inner" transform="translate(-100 200)"/>
+<use xlink:href="#pattern0_store_bg_inner" transform="translate(100 200)"/>
+</pattern>
+<pattern id="pattern1_store_bg" patternContentUnits="objectBoundingBox" width="0.045" height="0.045">
+<use xlink:href="#image0_store_bg" transform="scale(0.005)"/>
+</pattern>
+<image id="image0_store_bg" width="9" height="9" preserveAspectRatio="none" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAkAAAAJCAYAAADgkQYQAAAAAXNSR0IArs4c6QAAAB5JREFUGBlj+A8FDITAsFXIiM/nIF+D5eEMHKpB8gAME0O+liA7XQAAAABJRU5ErkJggg=="/>
+</defs>
+</svg>

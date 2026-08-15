@@ -58,6 +58,14 @@ function displayNameOf(conv: GmConversationForGm): string {
   return full.length > 0 ? full : "(이름 미등록)";
 }
 
+/** 이니셜 아바타용 첫 글자. 이름이 없거나 괄호 표기면 물음표. */
+function initialOf(name: string): string {
+  const t = name.trim();
+  if (!t || t.startsWith("(")) return "?";
+  // 공백 제거 후 첫 글자(한글·영문 등)
+  return Array.from(t.replace(/\s/g, ""))[0] ?? "?";
+}
+
 /** 목록 우측 시각 표기. 오늘이면 HH:mm, 아니면 MM-DD. */
 function shortStamp(iso: string | null): string {
   if (!iso) return "";
@@ -267,6 +275,10 @@ export default function GmChatView({ myProfileId }: Props) {
                 onClick={() => setActiveId(c.id)}
                 className={`${styles.listItem} ${isActive ? styles.listItemActive : ""}`}
               >
+                {/* 이니셜 아바타 (유저 이미지 기능 추가 시 이 자리를 사진으로 대체) */}
+                <span className={styles.itemAvatar} aria-hidden="true">
+                  {initialOf(displayNameOf(c))}
+                </span>
                 <span className={styles.itemName}>{displayNameOf(c)}</span>
                 <span className={styles.itemMeta}>
                   <span className={styles.itemTime}>

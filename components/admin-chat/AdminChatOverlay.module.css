@@ -25,12 +25,14 @@
   position: absolute;
   left: 24px;
   bottom: 76px;
-  width: 334px;
-  height: 436px;
-  background: var(--color-bg-page-top);
-  border: 2.5px solid var(--color-primary-mid);
-  border-radius: var(--radius-xl);
-  box-shadow: 0 18px 44px rgba(8, 60, 105, 0.38);
+  width: 340px;
+  height: 460px;
+  background: #ffffff;
+  border: none;
+  border-radius: 20px;
+  box-shadow:
+    0 0 80px rgba(8, 60, 105, 0.12),
+    0 26px 44px -18px rgba(8, 60, 105, 0.42);
   z-index: 40;
   transform-origin: bottom left;
   display: flex;
@@ -40,9 +42,9 @@
   animation: overlayEnter 0.4s cubic-bezier(0.2, 0.85, 0.25, 1.1) both;
 }
 
-/* GM 모드: 좌측 방 목록(168px) + 우측 방 = 2단 레이아웃이라 폭 확장 */
+/* GM 모드: 좌측 방 목록(188px) + 우측 방 = 2단 레이아웃이라 폭 확장 */
 .overlayWide {
-  width: 560px;
+  width: 580px;
 }
 
 /* 닫기 상태: enter 애니메이션을 덮어씀 */

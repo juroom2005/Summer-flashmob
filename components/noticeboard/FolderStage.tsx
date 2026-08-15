@@ -5,25 +5,25 @@
 //
 // 쌓임 순서는 z-index 를 쓰지 않고 DOM 순서로만 만든다(원본 방식 유지).
 // 뒤 → 앞(DOM 순서):
-//   1) 북마크(NavRail)  ← 맨 먼저 = 맨 뒤. 프레임에 오른쪽이 가려짐.
-//   2) 프레임           ← 북마크를 덮는 폴더 겉면
-//   3) 내지            ← 프레임 위. 항상 표시(흰 종이).
+//   1) 프레임           ← 맨 뒤. 폴더 겉면.
+//   2) 북마크(NavRail)  ← 프레임 앞으로 나옴(탭이 프레임 위에 얹혀 보임).
+//   3) 내지            ← 북마크 앞. 북마크 오른쪽을 덮음(북마크는 내지 뒤로).
 //   3') 덮개           ← board 일 때만 내지 위에 얹음.
-//   4) 콘텐츠           ← 내지/덮개 위 실제 내용
+//   4) 콘텐츠           ← 내지/덮개 위 실제 내용(맨 앞).
 //
-//   시안 요구(겹침): "프레임 > 북마크", "내지/덮개 > 프레임". 위 DOM 순서가
-//   두 관계를 동시에 만족. 북마크(폴더 왼쪽 밖)와 내지(폴더 안쪽)는 서로
-//   안 겹치므로 사이에 프레임이 껴도 시각 충돌 없음.
+//   시안 요구(겹침): 탭은 폴더 프레임보다 "앞"으로 나오되, 내지(안쪽 종이)
+//   보다는 "뒤"에 있어 탭 오른쪽이 내지에 가려진다. 즉 프레임 < 북마크 < 내지.
+//   DOM 순서(프레임 → 북마크 → 내지)가 이 관계를 그대로 만든다.
 //
 //   ※ z-index 를 섞지 않는 이유: 자식 일부에만 z-index 를 주면 stacking
-//     context 가 갈려 예기치 않게 내지가 프레임 뒤로 숨는 문제가 났었음.
-//     DOM 순서 단일 규칙이 가장 안전. 프레임 img 는 pointerEvents:none 이라
-//     뒤 북마크의 삐져나온 부분 클릭이 통과해 정상 동작.
+//     context 가 갈려 예기치 않게 내지가 숨는 문제가 났었음. DOM 순서 단일
+//     규칙이 가장 안전. 프레임 img 는 pointerEvents:none 이라 그 위(앞) 북마크
+//     클릭에도 영향 없음.
 //
 // 동작:
 //   내지는 항상 그림(board 에서도 흰 종이가 보여야 함).
-//   tab === "board"  → 북마크 + 프레임 + 내지 + 덮개(내지 위) + children(대시보드)
-//   tab !== "board"  → 북마크 + 프레임 + 내지 + children(문서)
+//   tab === "board"  → 프레임 + 북마크 + 내지 + 덮개(내지 위) + children(대시보드)
+//   tab !== "board"  → 프레임 + 북마크 + 내지 + children(문서)
 //
 // ── 세로 점프(덜컹거림) 방지 ──
 //   콘텐츠 슬롯의 top/height 를 board/내지 공통 고정값으로 둔다.
@@ -72,17 +72,20 @@ const COVER_OFFSET_X = 4;
 const COVER_OFFSET_Y = 112;
 
 // ── 북마크(NavRail) 프레임 내부 상대 위치 ──────────────────
-//   프레임 왼쪽 모서리(렌더상 상대 x≈3.6)에 탭 오른쪽이 물리도록
-//   왼쪽 밖으로 삐져나오게 둔다. 탭 폭 132 기준 겹침 약 19px.
-//   음수 = 프레임 왼쪽 경계보다 바깥.
-const RAIL_LEFT = -113;
-const RAIL_TOP  = 58;
+//   탭은 프레임보다 앞(위)으로 나오고, 오른쪽 일부가 내지 뒤로 들어간다.
+//   내지 왼쪽 경계는 상대 x = PAPER_OFFSET_X*K ≈ 24. 탭 오른쪽 끝이 이 값을
+//   넘어야 내지에 물린다. 탭 폭 132 기준 아래 RAIL_LEFT 면 오른쪽 끝 ≈ 44
+//   → 내지에 약 20px 물리고 라벨은 온전히 보인다.
+//   음수 = 프레임 왼쪽 경계보다 바깥. 값을 키우면(덜 음수) 내지에 더 깊이 물림.
+//   ※ 화면 보며 미세조정: 내지에 덜 물리면 덜 음수로, 라벨이 잘리면 더 음수로.
+const RAIL_LEFT = -88;
+const RAIL_TOP  = 80;
 
-// ── 콘텐츠 슬롯 세로 고정값 (덜컹거림 방지) ────────────────
-//   덮개 기준으로 고정(대시보드가 실제로 놓이는 영역).
-//   내지 문서는 top 이 약 17px 위로 올라오지만 문서 자체 여백으로 흡수됨.
-const CONTENT_TOP = COVER_OFFSET_Y * K;
-const CONTENT_H   = COVER_SVG_H * K;
+// ── (참고) 콘텐츠 슬롯 영역은 아래 컴포넌트 본문에서 board/내지 각각 잡는다.
+//   예전엔 세로를 덮개 기준으로 고정해 board 진입 시 세로 점프를 막았으나,
+//   이제 board 진입은 페이드 전환(NoticeBoard runTransition)이라 점프가 안 보임.
+//   대신 세로를 고정하면 내지 탭에서 스크롤 영역이 내지보다 커져 콘텐츠가
+//   프레임 밖으로 흘러넘치는 문제가 있어, 각 탭 실제 영역으로 잡는다.
 
 // ── SVG (data-uri 인라인) ──────────────────────────────────
 const FRAME_SVG =
@@ -128,8 +131,8 @@ export default function FolderStage({
     zIndex: 10,
   };
 
-  // 프레임 배경 이미지 — 북마크(앞서 렌더=뒤)를 덮음.
-  //   pointerEvents:none → 뒤 북마크의 삐져나온 부분 클릭을 막지 않음.
+  // 프레임 배경 이미지 — 맨 뒤. z-index 없음(DOM 순서).
+  //   pointerEvents:none → 그 위(앞) 북마크 클릭에 영향 없음.
   const frameImgStyle: CSSProperties = {
     position: "absolute",
     inset: 0,
@@ -139,14 +142,14 @@ export default function FolderStage({
     pointerEvents: "none",
   };
 
-  // 북마크(NavRail) 래퍼 — DOM 상 맨 먼저 = 맨 뒤. z-index 없음.
+  // 북마크(NavRail) 래퍼 — 프레임 앞·내지 뒤. z-index 없음(DOM 순서).
   const railWrapStyle: CSSProperties = {
     position: "absolute",
     left: RAIL_LEFT,
     top: RAIL_TOP,
   };
 
-  // 내지 (흰 종이) — board 아닐 때. z-index 없음(DOM 순서로 프레임 위).
+  // 내지 (흰 종이) — 북마크 앞(북마크 오른쪽을 덮음). z-index 없음(DOM 순서).
   const paperStyle: CSSProperties = {
     position: "absolute",
     left: PAPER_OFFSET_X * K,
@@ -170,33 +173,31 @@ export default function FolderStage({
     backgroundRepeat: "no-repeat",
   };
 
-  // 콘텐츠 슬롯 — 내지/덮개 위에 얹힘(DOM 상 맨 마지막 = 맨 앞).
-  //   세로(top/height)는 고정 → board↔내지 전환 시 세로 점프 없음.
-  //   좌우(left/width)만 board/내지 각각 → 가로 슬라이드 애니메이션 유지.
-  const contentBoxX = isBoard
-    ? { left: COVER_OFFSET_X * K, width: COVER_SVG_W * K }
-    : { left: PAPER_OFFSET_X * K, width: PAPER_SVG_W * K };
+
+  const contentBox = isBoard
+    ? { left: COVER_OFFSET_X * K, top: COVER_OFFSET_Y * K, width: COVER_SVG_W * K, height: COVER_SVG_H * K }
+    : { left: PAPER_OFFSET_X * K, top: PAPER_OFFSET_Y * K, width: PAPER_SVG_W * K, height: PAPER_SVG_H * K };
 
   const contentStyle: CSSProperties = {
     position: "absolute",
-    top: CONTENT_TOP,
-    height: CONTENT_H,
-    ...contentBoxX,
+    ...contentBox,
     padding: "28px 34px",
     overflow: isBoard ? "hidden" : "auto",
+
+    boxSizing: isBoard ? undefined : "border-box",
   };
 
   return (
     <div style={frameStyle}>
-      {/* 1) 북마크 (맨 뒤) — 프레임에 오른쪽이 가려짐 */}
+      {/* 1) 프레임 (맨 뒤) — 폴더 겉면 */}
+      <div style={frameImgStyle} />
+
+      {/* 2) 북마크 — 프레임 앞으로 나옴(탭이 프레임 위에 얹혀 보임) */}
       <div style={railWrapStyle}>
         <NavRail activeTab={activeTab} onTabClick={onTabClick} />
       </div>
 
-      {/* 2) 프레임 — 북마크를 덮는 폴더 겉면 */}
-      <div style={frameImgStyle} />
-
-      {/* 3) 내지 — 항상 그림(board 에서도 흰 종이가 보여야 함) */}
+      {/* 3) 내지 — 북마크 앞(북마크 오른쪽을 덮음 = 북마크는 내지 뒤로) */}
       <div style={paperStyle} />
 
       {/* 3') 덮개 — board 일 때만 내지 위에 얹음 */}

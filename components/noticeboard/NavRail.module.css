@@ -32,17 +32,24 @@
   width: 132px;
   height: 40px;
   border: none;
-  border-radius: 0;        
+  border-radius: 0;
   background: var(--tab-fill);
   color: var(--tab-text);
-  font-family: var(--font-heading);
+  /* 시안: KoPubWorld Dotum Bold, uppercase, letter-spacing -0.03em */
+  font-family: 'KoPubWorld Dotum Bold', var(--font-heading);
   font-size: 17px;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
   text-align: left;
   padding-left: 16px;
   cursor: pointer;
   box-shadow: -2px 2px 0 var(--tab-shadow);
   transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+/* STORE 전용: 흰 도트 패턴 배경(SVG). 배경색은 SVG에 포함(#FEF08A). */
+.tab.dots {
+  background: var(--tab-fill) url("/svg/store-tab-bg.svg") center / cover no-repeat;
 }
 
 

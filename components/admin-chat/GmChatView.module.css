@@ -16,10 +16,10 @@
 /* ── 좌측 · 방 목록 ── */
 
 .listPane {
-  width: 168px;
+  width: 188px;
   flex-shrink: 0;
   overflow-y: auto;
-  border-right: 2px solid var(--color-primary-border-soft);
+  border-right: 1px solid var(--color-primary-border-soft);
   background: #fff;
   display: flex;
   flex-direction: column;
@@ -37,15 +37,16 @@
 .listItem {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
-  padding: 10px 10px;
+  padding: 10px 12px;
   border: 0;
   border-bottom: 1px solid var(--color-primary-border-soft);
   background: transparent;
   cursor: pointer;
   text-align: left;
   font-family: var(--font-body);
+  transition: background 0.15s ease;
 }
 
 .listItem:hover {
@@ -60,11 +61,30 @@
   background: var(--color-bg-input);
 }
 
+/* 이니셜 원형 아바타 (유저 이미지 기능 추가 시 사진으로 대체) */
+.itemAvatar {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px -5px rgba(63, 136, 249, 0.6);
+  /* 이미지 대체 대비: background-size 등은 이미지 넣을 때 인라인으로 */
+}
+
 .itemName {
   flex: 1;
   min-width: 0;
   font-size: 13px;
   color: var(--color-text-mid);
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -72,8 +92,9 @@
 
 .itemMeta {
   display: flex;
-  align-items: center;
-  gap: 5px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -87,7 +108,7 @@
   height: 17px;
   padding: 0 5px;
   border-radius: var(--radius-round);
-  background: #e5484d;
+  background: var(--color-danger, #ff6f7f);
   color: #fff;
   font-family: var(--font-heading);
   font-size: 10px;
