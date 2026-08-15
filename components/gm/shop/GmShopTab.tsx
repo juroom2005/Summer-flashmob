@@ -37,6 +37,7 @@ import {
 import ShopItemList          from "./ShopItemList";
 import ShopItemEditor        from "./ShopItemEditor";
 import ShopItemCreatePanel   from "./ShopItemCreatePanel";
+import SlotConfigPanel       from "./SlotConfigPanel";
 
 const JUA  = "'Jua', sans-serif";
 const BODY = "'Gowun Dodum', sans-serif";
@@ -150,7 +151,9 @@ export default function GmShopTab() {
   }, [items]);
 
   return (
-    <div style={splitStyle}>
+    <>
+      <SlotConfigPanel />
+      <div style={splitStyle}>
       {/* ═════ 좌측 목록 pane ═════ */}
       <ShopItemList
         items={visible}
@@ -200,6 +203,7 @@ export default function GmShopTab() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

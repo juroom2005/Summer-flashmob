@@ -81,6 +81,8 @@ export default function SlotZone() {
   // 설정(비용·락)
   const [spinCost, setSpinCost] = useState(400);
   const [lockSeconds, setLockSeconds] = useState(50);
+  const [slotLocked, setSlotLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState("");
 
   // 락 : now < lockUntil 이면 모달 없이 바로 스핀
   const lockUntilRef = useRef(0);
@@ -136,6 +138,8 @@ export default function SlotZone() {
       if (cancelled || !alive.current) return;
       setSpinCost(cfg.spinCost);
       setLockSeconds(cfg.lockSeconds);
+      setSlotLocked(cfg.isLocked);
+      setLockMessage(cfg.lockMessage);
     });
     return () => { cancelled = true; };
   }, []);
@@ -163,6 +167,19 @@ export default function SlotZone() {
       const res = await spinSlot();
 
       if (!res.ok) {
+        if (res.reason === "slot_locked") {
+          // GM 이 도중에 잠갔을 수 있으니 상태 동기화 + 안내 (최신 문구 반영)
+          if (alive.current) {
+            setSlotLocked(true);
+            getSlotConfig().then((cfg) => {
+              if (alive.current) {
+                setLockMessage(cfg.lockMessage);
+                setHint(cfg.lockMessage.trim() !== "" ? cfg.lockMessage : "지금은 슬롯을 이용할 수 없습니다");
+              }
+            });
+          }
+          return null;
+        }
         const msg =
           res.reason === "insufficient_mobil" ? "모빌이 부족합니다"
           : res.reason === "slot_pool_empty"  ? "지금은 뽑을 수 없습니다"
@@ -193,6 +210,10 @@ export default function SlotZone() {
 
   const handleSpinRequest = useCallback(async (): Promise<SpinOutcome> => {
     if (!user) { setHint("로그인이 필요합니다"); return null; }
+    if (slotLocked) {
+      setHint(lockMessage.trim() !== "" ? lockMessage : "지금은 슬롯을 이용할 수 없습니다");
+      return null;
+    }
     if (notEnough) { setHint("모빌이 부족합니다"); return null; }
     if (inFlightRef.current || confirmOpen) return null;
 
@@ -206,7 +227,7 @@ export default function SlotZone() {
       pendingResolveRef.current = resolve;
       setConfirmOpen(true);
     });
-  }, [user, notEnough, confirmOpen, doSpin]);
+  }, [user, notEnough, confirmOpen, doSpin, slotLocked, lockMessage]);
 
   // 모달 확인 
   const handleConfirm = useCallback(async () => {
@@ -265,12 +286,19 @@ export default function SlotZone() {
         </div>
       ) : null}
 
+      {/* 슬롯 잠금 안내 배지 (scale 영향 밖) */}
+      {slotLocked ? (
+        <div style={lockBadgeStyle}>
+          🔒 {lockMessage.trim() !== "" ? lockMessage : "점검 중입니다"}
+        </div>
+      ) : null}
+
       {/* 슬롯머신 (동적) */}
       <div style={slotWrapStyle}>
         <SlotCabinetPop
           onSpin={handleSpinRequest}
           spinCost={spinCost}
-          disabled={notEnough}
+          disabled={notEnough || slotLocked}
           hint={hint}
         />
       </div>
@@ -417,6 +445,25 @@ const slotWrapStyle: CSSProperties = {
   transformOrigin: "top right",
   zIndex: 4,
   pointerEvents: "auto",
+};
+
+const lockBadgeStyle: CSSProperties = {
+  position: "absolute",
+  top: 190,
+  left: "55%",
+  transform: "translateX(-50%)",
+  zIndex: 6,
+  maxWidth: "82%",
+  background: "rgba(20,51,94,.92)",
+  color: "#fff",
+  fontFamily: "'Jua', sans-serif",
+  fontSize: 12.5,
+  lineHeight: 1.4,
+  padding: "6px 14px",
+  borderRadius: 999,
+  textAlign: "center",
+  boxShadow: "0 6px 16px rgba(8,40,80,.32)",
+  pointerEvents: "none",
 };
 
 const faceStyle: CSSProperties = {

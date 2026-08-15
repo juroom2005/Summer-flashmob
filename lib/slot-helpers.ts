@@ -30,6 +30,8 @@ import { supabase } from "./supabase";
 const DEFAULT_SPIN_COST = 400;
 const DEFAULT_LOCK_SECONDS = 50;
 const DEFAULT_JACKPOT_RATE = 0.02;
+const DEFAULT_IS_LOCKED = false;
+const DEFAULT_LOCK_MESSAGE = "";
 
 // ────────────────────────────────────────────────────────────────────
 // 타입
@@ -38,6 +40,8 @@ export type SlotConfig = {
   spinCost: number;
   lockSeconds: number;
   jackpotRate: number;
+  isLocked: boolean;
+  lockMessage: string;
 };
 
 /** 슬롯 보상 종류 */
@@ -58,6 +62,7 @@ export type SpinFailReason =
   | "profile_not_found"   // 프로필 없음
   | "slot_pool_empty"     // 지급할 보상 풀이 비어 있음 (차감되지 않음)
   | "slot_config_missing" // 설정 행 없음
+  | "slot_locked"         // GM 이 슬롯을 잠금 (차감되지 않음)
   | "unknown";
 
 export type SpinSuccess = {
@@ -94,6 +99,8 @@ type SlotConfigRow = {
   spin_cost: number | null;
   lock_seconds: number | null;
   jackpot_rate: number | string | null;
+  is_locked: boolean | null;
+  lock_message: string | null;
 };
 
 const ALLOWED_REASONS: readonly SpinFailReason[] = [
@@ -102,6 +109,7 @@ const ALLOWED_REASONS: readonly SpinFailReason[] = [
   "profile_not_found",
   "slot_pool_empty",
   "slot_config_missing",
+  "slot_locked",
   "unknown",
 ] as const;
 
@@ -157,7 +165,7 @@ function parseRewards(raw: SpinRewardRaw[] | null | undefined): SlotReward[] {
 export async function getSlotConfig(): Promise<SlotConfig> {
   const { data, error } = await supabase
     .from("slot_config")
-    .select("spin_cost, lock_seconds, jackpot_rate")
+    .select("spin_cost, lock_seconds, jackpot_rate, is_locked, lock_message")
     .eq("id", 1)
     .maybeSingle<SlotConfigRow>();
 
@@ -167,6 +175,8 @@ export async function getSlotConfig(): Promise<SlotConfig> {
       spinCost: DEFAULT_SPIN_COST,
       lockSeconds: DEFAULT_LOCK_SECONDS,
       jackpotRate: DEFAULT_JACKPOT_RATE,
+      isLocked: DEFAULT_IS_LOCKED,
+      lockMessage: DEFAULT_LOCK_MESSAGE,
     };
   }
 
@@ -175,6 +185,97 @@ export async function getSlotConfig(): Promise<SlotConfig> {
     lockSeconds: data.lock_seconds ?? DEFAULT_LOCK_SECONDS,
     jackpotRate:
       data.jackpot_rate !== null ? Number(data.jackpot_rate) : DEFAULT_JACKPOT_RATE,
+    isLocked: data.is_locked ?? DEFAULT_IS_LOCKED,
+    lockMessage: data.lock_message ?? DEFAULT_LOCK_MESSAGE,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────
+// GM : 슬롯 설정 갱신
+// ────────────────────────────────────────────────────────────────────
+//
+// slot_config 는 RLS 로 UPDATE 가 GM 에게만 허용된다(2026-08-14). 이 함수는
+// 부분 갱신(patch)을 받아 전달된 필드만 바꾼다. 값 범위는 서버 CHECK 제약이
+// 최종 방어하지만, 클라에서도 상식 범위를 선검증해 잘못된 저장을 줄인다.
+//
+// 반환 : 성공/실패. 실패 사유는 대략적으로만 구분(권한·범위·기타).
+
+export const SLOT_COST_MAX     = 100_000;
+export const SLOT_LOCK_SEC_MAX = 3_600;   // 진입 오클릭 방지 초 상한 (1시간)
+export const SLOT_RATE_MIN     = 0;
+export const SLOT_RATE_MAX     = 1;
+
+export type SlotConfigPatch = {
+  spinCost?: number;
+  lockSeconds?: number;
+  jackpotRate?: number;
+  isLocked?: boolean;
+  lockMessage?: string;
+};
+
+export type UpdateConfigResult =
+  | { ok: true; config: SlotConfig }
+  | { ok: false; reason: "invalid_value" | "permission_denied" | "unknown" };
+
+export async function updateSlotConfig(patch: SlotConfigPatch): Promise<UpdateConfigResult> {
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  if (patch.spinCost !== undefined) {
+    if (!Number.isInteger(patch.spinCost) || patch.spinCost < 0 || patch.spinCost > SLOT_COST_MAX) {
+      return { ok: false, reason: "invalid_value" };
+    }
+    row.spin_cost = patch.spinCost;
+  }
+  if (patch.lockSeconds !== undefined) {
+    if (!Number.isInteger(patch.lockSeconds) || patch.lockSeconds < 0 || patch.lockSeconds > SLOT_LOCK_SEC_MAX) {
+      return { ok: false, reason: "invalid_value" };
+    }
+    row.lock_seconds = patch.lockSeconds;
+  }
+  if (patch.jackpotRate !== undefined) {
+    if (!Number.isFinite(patch.jackpotRate) || patch.jackpotRate < SLOT_RATE_MIN || patch.jackpotRate > SLOT_RATE_MAX) {
+      return { ok: false, reason: "invalid_value" };
+    }
+    row.jackpot_rate = patch.jackpotRate;
+  }
+  if (patch.isLocked !== undefined) {
+    row.is_locked = patch.isLocked;
+  }
+  if (patch.lockMessage !== undefined) {
+    row.lock_message = patch.lockMessage;
+  }
+
+  const { data, error } = await supabase
+    .from("slot_config")
+    .update(row)
+    .eq("id", 1)
+    .select("spin_cost, lock_seconds, jackpot_rate, is_locked, lock_message")
+    .maybeSingle<SlotConfigRow>();
+
+  if (error) {
+    // RLS 위반(비GM)이면 permission 계열로 실패
+    const msg = (error.message ?? "").toLowerCase();
+    const reason = msg.includes("row-level") || msg.includes("policy") || msg.includes("permission")
+      ? "permission_denied"
+      : "unknown";
+    console.warn("[slot] updateSlotConfig failed:", reason, error.message);
+    return { ok: false, reason };
+  }
+
+  if (!data) {
+    // 업데이트가 0행(권한 없어 필터로 걸러진 경우 포함)
+    return { ok: false, reason: "permission_denied" };
+  }
+
+  return {
+    ok: true,
+    config: {
+      spinCost: data.spin_cost ?? DEFAULT_SPIN_COST,
+      lockSeconds: data.lock_seconds ?? DEFAULT_LOCK_SECONDS,
+      jackpotRate: data.jackpot_rate !== null ? Number(data.jackpot_rate) : DEFAULT_JACKPOT_RATE,
+      isLocked: data.is_locked ?? DEFAULT_IS_LOCKED,
+      lockMessage: data.lock_message ?? DEFAULT_LOCK_MESSAGE,
+    },
   };
 }
 
