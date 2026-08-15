@@ -1,0 +1,216 @@
+/* components/noticeboard/panels/WorldDocPanel.module.css
+ *
+ * WORLD 탭 본문. notice 와 톤 통일 + world 고유 요소
+ * (말풍선·형광 손글씨·해시태그·학년 라벨).
+ */
+
+.root {
+  --w-blue: #3f88f9;
+  --w-yellow: #f8e31a;
+  --w-ink: #000000;
+  --w-gray-bubble: #e9ebee;
+  --w-gray-text: #707579;
+
+  position: relative;
+  color: var(--w-ink);
+  font-family: 'KoPubWorld Dotum', var(--font-body);
+}
+
+.section {
+  scroll-margin-top: 12px;
+  padding: 8px 0 56px;
+  max-width: 800px;
+}
+
+/* ── 타이틀 ─────────────────────────────────────────────── */
+.title {
+  position: relative;
+  display: block;
+  text-align: center;
+  margin: 0 0 26px;
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-weight: 400;
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+  color: var(--w-ink);
+}
+/* 한자 제목(如月學院): Pretendard JP Bold */
+.titleKanji {
+  font-family: 'Pretendard JP', 'KoPubWorld Dotum', var(--font-heading);
+  font-weight: 700;
+  text-align: left;
+  letter-spacing: 2px;
+}
+.titlePlain {
+  display: inline-block;
+}
+/* 노란 형광 블록 타이틀 (MAP 등) — 좌측정렬 */
+.titleLeft {
+  text-align: left;
+}
+/* 헤딩 중앙정렬 (WORLD, Who Is Mob?) */
+.titleCenter {
+  text-align: center;
+}
+/* 헤딩 아래 얇은 구분선 (모든 섹션) */
+.titleDivider {
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+}
+.titleHi {
+  position: relative;
+  display: inline-block;
+  padding: 6px 16px 8px;
+}
+.titleHi::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: skewX(-11deg);
+  clip-path: polygon(2% 6%, 100% 0%, 98% 96%, 0% 100%);
+}
+.titleHiYellow::before {
+  background: var(--w-yellow);
+}
+
+/* ── 본문 ───────────────────────────────────────────────── */
+.body {
+  font-size: 16px;
+  line-height: 1.62;
+}
+.para {
+  margin: 0 0 16px;
+  color: var(--w-ink);
+  white-space: pre-line;
+}
+
+/* 노란 형광 소제목 (Who Is Mob? 인라인) */
+.subhiWrap {
+  margin: 22px 0 10px;
+}
+.subhi {
+  position: relative;
+  display: inline-block;
+  padding: 3px 12px 4px;
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-size: 18px;
+  color: var(--w-ink);
+  z-index: 0;
+}
+.subhi::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--w-yellow);
+  transform: skewX(-11deg);
+}
+
+/* 불릿 (• 검정) */
+.dots {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+.dotItem {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 5px;
+}
+.dotItem::before {
+  content: "\2022";
+  position: absolute;
+  left: 3px;
+  top: -0.02em;
+  color: var(--w-ink);
+}
+
+/* 단독 줄 (띠롱-) */
+.line {
+  margin: 0 0 4px;
+  color: var(--w-ink);
+}
+
+/* ── 말풍선 ─────────────────────────────────────────────── */
+.bubbleRow {
+  display: flex;
+  justify-content: flex-start;
+  margin: 8px 0;
+}
+.bubble {
+  display: inline-block;
+  max-width: 78%;
+  padding: 9px 15px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.bubbleGray {
+  background: var(--w-gray-bubble);
+  color: #222;
+  border-bottom-left-radius: 5px;
+}
+.bubbleBlue {
+  background: var(--w-blue);
+  color: #fff;
+  border-bottom-left-radius: 5px;
+  font-weight: 500;
+}
+
+/* ── 하단 형광 손글씨풍 문구 (우측정렬) ───────────────── */
+.markerWrap {
+  margin: 30px 0 4px;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.markerLine {
+  position: relative;
+  display: inline-block;
+  padding: 2px 8px;
+  font-family: 'Ongleaf Beomjun', var(--font-accent, cursive);
+  font-size: 22px;
+  color: var(--w-ink);
+  z-index: 0;
+  transform: rotate(-2deg);
+}
+.markerLine::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  height: 62%;
+  z-index: -1;
+  background: var(--w-yellow);
+  transform: skewX(-8deg);
+}
+
+/* ── 해시태그 줄 ────────────────────────────────────────── */
+.tags {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: var(--w-ink);
+}
+.tag {
+  margin-right: 14px;
+  white-space: nowrap;
+}
+
+/* ── 학년 라벨 항목 ─────────────────────────────────────── */
+.labeled {
+  margin: 0 0 6px;
+}
+.labeledLabel {
+  font-weight: 700;
+  margin-right: 8px;
+}
+.labeledText {
+  color: var(--w-ink);
+}

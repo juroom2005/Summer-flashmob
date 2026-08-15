@@ -1,0 +1,187 @@
+/* components/noticeboard/panels/MemberPanel.module.css
+ *
+ * MEMBER 탭. 빈 카드 격자 + 상세 프로필 오버레이(시안 2).
+ */
+
+.root {
+  position: relative;
+  width: 100%;
+  padding: 8px 0 40px;
+  font-family: 'KoPubWorld Dotum', var(--font-body);
+}
+
+/* MEMBER 헤딩 (중앙) */
+.heading {
+  text-align: center;
+  margin: 0 0 30px;
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+  color: #000;
+}
+
+/* ── 카드 격자 ─────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, 137px);
+  gap: 20px 18px;
+  justify-content: center;
+}
+.slot {
+  width: 137px;
+  height: 81px;
+  background: #d9d9d9;
+  border: none;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s;
+  padding: 0;
+}
+.slot:hover {
+  background: #cfcfcf;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* ── 상세 오버레이 ─────────────────────────────────────── */
+.detailBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 40, 70, 0.28);
+  border-radius: 8px;
+  animation: mp-fade 0.18s ease both;
+}
+@keyframes mp-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.detailCard {
+  position: relative;
+  width: min(640px, 92%);
+  background: #fff;
+  border: 1.5px solid rgba(0, 0, 0, 0.5);
+  border-radius: 22px;
+  padding: 30px 34px 34px;
+  animation: mp-pop 0.2s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes mp-pop {
+  from { opacity: 0; transform: scale(0.97) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* 헤딩 */
+.detailHead {
+  position: relative;
+  margin-bottom: 10px;
+}
+.detailTitle {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.titleSm {
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-size: 24px;
+  color: #000;
+}
+.titleLg {
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-size: 40px;
+  color: #000;
+  margin-top: 2px;
+}
+.detailClose {
+  position: absolute;
+  top: 4px;
+  right: 0;
+  font-size: 20px;
+  line-height: 1;
+  color: #000;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* 사진 (우상단, 클립 꽂힌 폴라로이드) */
+.photoWrap {
+  position: absolute;
+  top: 24px;
+  right: 34px;
+  width: 150px;
+  height: 165px;
+  transform: rotate(3deg);
+}
+.photo {
+  width: 100%;
+  height: 100%;
+  background: #d9d9d9;
+  border: 5px solid #fff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+}
+.photoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.clip {
+  position: absolute;
+  top: -14px;
+  right: 18px;
+  width: 18px;
+  height: 40px;
+  border: 2.5px solid #333;
+  border-radius: 9px;
+  transform: rotate(12deg);
+  z-index: 2;
+}
+
+/* ── 필드 표 ───────────────────────────────────────────── */
+.fields {
+  margin-top: 44px;
+}
+.fieldRow {
+  display: flex;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.55);
+}
+.field {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 12px 4px 8px;
+  border-right: 1px solid rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 46px;
+}
+.field:last-child {
+  border-right: none;
+}
+.fieldWide {
+  flex: 2 1 0;
+}
+.fieldLabel {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: #000;
+  font-family: 'Roboto', var(--font-body), sans-serif;
+}
+.fieldValue {
+  font-size: 13px;
+  color: #000;
+  min-height: 16px;
+  white-space: pre-line;
+}
+
+/* 마지막 두 행(personality/etc)은 아래로 넓게 */
+.fieldRow:last-child .field {
+  min-height: 120px;
+}

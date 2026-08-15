@@ -1,0 +1,209 @@
+/* components/noticeboard/panels/SystemPanel.module.css
+ *
+ * SYSTEM 탭 폴더 5개. Uiverse(Cobp) Tailwind 폴더를 CSS 로 변환.
+ *
+ * 색 대응:
+ *   amber-600 #d97706 (뒤판)  amber-500 #f59e0b · amber-400 #fbbf24 (앞면 그라데)
+ *   zinc-200 #e4e4e7 · zinc-300 #d4d4d8 · zinc-400 #a1a1aa (안쪽 종이)
+ *
+ * 원본 크기 w-60/h-40(240×160). 시안 폴더가 작아 스케일 축소(--fw/--fh).
+ * 호버 시 안쪽 종이 rotateX + 앞면 크게 열림.
+ */
+
+.root {
+  width: 100%;
+  padding: 8px 0 40px;
+  overflow: hidden; /* 슬라이드 진입 시 가로 넘침 숨김 */
+}
+
+/* 슬라이드 인 (상세·메뉴 전환 공통) */
+.slideIn,
+.menu {
+  animation: sys-slide-in 0.32s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+@keyframes sys-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(48px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* SYSTEM 헤딩 (notice/world 와 톤 통일: Stretch Pro 중앙 + 구분선) */
+.heading {
+  display: block;
+  text-align: center;
+  margin: 0 auto 34px;
+  padding-bottom: 20px;
+  max-width: 800px;
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-weight: 400;
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+  color: #000;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+/* 2줄 (3개 / 2개) 중앙정렬 */
+.rows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  margin-top: 50px;
+}
+.row {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+}
+
+/* 폴더 한 칸 (폴더 + 라벨) */
+.item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* group (호버 기준점) */
+.folderGroup {
+  --fw: 100px; /* 폴더 너비 (살짝 축소) */
+  --fh: 66px; /* 폴더 높이 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* .file: 원근 컨테이너 */
+.file {
+  position: relative;
+  width: var(--fw);
+  height: var(--fh);
+  cursor: pointer;
+  transform-origin: bottom;
+  perspective: 1500px;
+  z-index: 5;
+}
+
+/* 뒤판 (work-5) : 탭 달린 몸통 */
+.back {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #d97706; /* amber-600 */
+  border-radius: 12px;
+  border-top-left-radius: 0; /* rounded-tl-none */
+  transform-origin: top;
+  transition: all 0.3s ease;
+}
+/* 탭 (after: 좌상단 튀어나온 부분) */
+.back::after {
+  content: "";
+  position: absolute;
+  bottom: 99%;
+  left: 0;
+  width: calc(var(--fw) * 0.33); /* 원본 80/240 비율 */
+  height: 8px; /* h-4 축소 */
+  background: #d97706;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+/* 탭 경사 조각 (before: clip-path 삼각) */
+.back::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: calc(var(--fw) * 0.33 - 3px);
+  width: 8px;
+  height: 8px;
+  background: #d97706;
+  clip-path: polygon(0 35%, 0% 100%, 50% 100%);
+}
+/* 호버 시 그림자 */
+.file:hover .back {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* 안쪽 종이 공통 (work-2/3/4) */
+.paper {
+  position: absolute;
+  inset: 3px; /* inset-1 축소 */
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  transform-origin: bottom;
+}
+.paper4 {
+  background: #a1a1aa; /* zinc-400 */
+}
+.paper3 {
+  background: #d4d4d8; /* zinc-300 */
+}
+.paper2 {
+  background: #e4e4e7; /* zinc-200 */
+}
+/* 호버 시 각각 다른 각도로 젖혀짐 */
+.file:hover .paper4 {
+  transform: rotateX(-20deg);
+}
+.file:hover .paper3 {
+  transform: rotateX(-30deg);
+}
+.file:hover .paper2 {
+  transform: rotateX(-38deg);
+}
+
+/* 앞면 (work-1) : 그라데이션, 호버 시 크게 열림 */
+.front {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: calc(var(--fh) - 2px); /* h-[156px] 비율 */
+  background: linear-gradient(to top, #f59e0b, #fbbf24); /* amber-500→400 */
+  border-radius: 12px;
+  border-top-right-radius: 0; /* rounded-tr-none */
+  transform-origin: bottom;
+  transition: all 0.3s ease;
+}
+/* 앞면 상단 탭 (after) */
+.front::after {
+  content: "";
+  position: absolute;
+  bottom: 99%;
+  right: 0;
+  width: calc(var(--fw) * 0.61); /* 원본 146/240 비율 */
+  height: 8px;
+  background: #fbbf24;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+/* 앞면 탭 경사 조각 (before) */
+.front::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  right: calc(var(--fw) * 0.61 - 2px);
+  width: 6px;
+  height: 6px;
+  background: #fbbf24;
+  clip-path: polygon(100% 14%, 50% 100%, 100% 100%);
+}
+.file:hover .front {
+  box-shadow: inset 0 20px 40px #fbbf24, inset 0 -20px 40px #d97706;
+  transform: rotateX(-46deg) translateY(1px);
+}
+
+/* 라벨 */
+.label {
+  margin: 0;
+  font-family: 'KoPubWorld Dotum', var(--font-body);
+  font-size: 13px;
+  color: #1a335e;
+}

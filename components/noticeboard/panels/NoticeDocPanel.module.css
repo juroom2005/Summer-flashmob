@@ -1,0 +1,183 @@
+/* components/noticeboard/panels/NoticeDocPanel.module.css
+ *
+ * NOTICE 탭 전용 (4섹션 + 우측 세로 바 내비게이터).
+ * 시안 4장(NOTICE / Comunity / Warning·Expulsion / After) 재현.
+ *
+ * 폰트:
+ *   타이틀 'Stretch Pro' 48px  (globals.css @font-face 등록됨)
+ *   본문  'KoPubWorld Dotum' 16px
+ */
+
+.root {
+  --nd-blue: #3f88f9;      /* 시안 파랑 */
+  --nd-blue-strong: #2f6fe0;
+  --nd-yellow: #f8e31a;    /* 시안 노랑 형광 */
+  --nd-ink: #000000;
+
+  position: relative;
+  color: var(--nd-ink);
+  font-family: 'KoPubWorld Dotum', var(--font-body);
+}
+
+/* ── 각 섹션 ─────────────────────────────────────────────── */
+.section {
+  scroll-margin-top: 12px;
+  padding: 8px 0 56px;
+  max-width: 800px;
+}
+
+/* Warning/Expulsion 은 한 섹션 안에서 2단 나란히 */
+.twoCol {
+  display: flex;
+  gap: 48px;
+  max-width: 860px;
+}
+.col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* ── 타이틀 (형광 블록이 글자를 덮음) ───────────────────── */
+.title {
+  position: relative;
+  display: inline-block;
+  margin: 0 0 26px;
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-weight: 400;
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+  color: var(--nd-ink);
+  isolation: isolate;
+}
+/* 형광 블록: 글자 뒤 전체를 비스듬히 덮음 (시안) */
+.titleHi {
+  position: relative;
+  display: inline-block;
+  padding: 6px 16px 8px;
+}
+.titleHi::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: skewX(-11deg);
+  /* 아래로 살짝 삐뚤게 잘린 시안 느낌 */
+  clip-path: polygon(2% 6%, 100% 0%, 98% 96%, 0% 100%);
+}
+.titleHiYellow::before { background: var(--nd-yellow); }
+.titleHiBlue::before   { background: var(--nd-blue); }
+
+/* 타이틀 텍스트만 (하이라이트 없음 — NOTICE) */
+.titlePlain {
+  padding: 0;
+}
+
+/* 해시 접두 (#Warning, #Expulsion) */
+.hash { }
+
+/* 작은 타이틀 변형 (2단용) */
+.titleSm {
+  font-size: 34px;
+  margin-bottom: 18px;
+}
+
+/* NOTICE(plain) 전용: 중앙정렬 + 아래 얇은 구분선.
+   .title 은 inline-block 이라 중앙정렬용으로 block 화한다.
+   구분선은 타이틀과 본문 사이에 얇게 한 줄. */
+.titleCenter {
+  display: block;
+  text-align: center;
+  margin: 0 0 22px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(26, 51, 94, 0.18);
+}
+
+/* ── 본문 블록 ───────────────────────────────────────────── */
+.body {
+  font-size: 16px;
+  line-height: 1.62;
+}
+.para {
+  margin: 0 0 16px;
+  color: var(--nd-ink);
+  white-space: pre-line;
+}
+/* 파란 강조 텍스트 (문단) */
+.paraBlue {
+  color: var(--nd-blue);
+}
+
+/* 불릿 리스트 — 사각(■) / 꺾쇠(〉) 두 마커 */
+.list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+.li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 6px;
+  line-height: 1.6;
+}
+/* ■ 검정 사각 */
+.liSquare::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.6em;
+  width: 7px;
+  height: 7px;
+  background: var(--nd-ink);
+}
+/* 〉 꺾쇠 */
+.liChevron::before {
+  content: "\203A"; /* › */
+  position: absolute;
+  left: 3px;
+  top: -0.02em;
+  font-size: 15px;
+  color: var(--nd-ink);
+}
+/* 파란 불릿 텍스트 (After 세부) — • 점 */
+.liDot {
+  padding-left: 16px;
+}
+.liDot::before {
+  content: "\2022";
+  position: absolute;
+  left: 2px;
+  top: -0.05em;
+  color: var(--nd-blue);
+}
+.liBlue { color: var(--nd-blue); }
+
+/* 파란 보조문 (오타 예외 등) */
+.note {
+  margin: 4px 0 16px;
+  color: var(--nd-blue);
+  font-size: 15px;
+}
+
+/* 파란 강조 박스 (After 하단, Comunity 없음) */
+.callout {
+  margin: 26px 0 0;
+  padding: 20px 26px;
+  background: var(--nd-blue);
+  border-radius: 4px;
+  text-align: center;
+  max-width: 640px;
+}
+.calloutLine {
+  margin: 0;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+/* 리스트 뒤 꼬리 문단(상기 내용 외 …) */
+.tail {
+  margin-top: 18px;
+  white-space: pre-line;
+}

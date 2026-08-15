@@ -15,6 +15,38 @@
   src: url('/fonts/LOTTERIACHAB.woff2') format('woff2');
 }
 
+@font-face {
+  font-family: 'Stretch Pro';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/StretchPro.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'KoPubWorld Dotum';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/KoPubWorldDotum-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Ongleaf Beomjun';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/OngleafBeomjun.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Pretendard JP';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/PretendardJP-Bold.woff2') format('woff2');
+}
+
 * {
   cursor: url('/cursors/heart.ani'), url('/cursors/heart.webp') 0 0, auto;
 }
@@ -103,4 +135,49 @@ select {
 @keyframes nb-blink {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.25; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   미니멀 스크롤바 (전역)
+
+   스크롤이 필요한 모든 영역에 얇고 은은한 스크롤바를 적용한다.
+   · WebKit(Chrome/Safari/Edge) : ::-webkit-scrollbar
+   · Firefox                     : scrollbar-width / scrollbar-color
+   트랙·버튼·코너는 투명, thumb 만 반투명 남색. hover 시 살짝 진해짐.
+   overlay 처럼 겹쳐 떠서 레이아웃 폭을 잡아먹지 않는다.
+   ═══════════════════════════════════════════════════════ */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 51, 94, 0.28) transparent;
+}
+
+/* WebKit */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(26, 51, 94, 0.25);
+  border-radius: 999px;
+  /* 트랙과 살짝 띄워 더 얇아 보이게 */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 51, 94, 0.45);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* 위/아래 화살표 버튼 제거 */
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
 }

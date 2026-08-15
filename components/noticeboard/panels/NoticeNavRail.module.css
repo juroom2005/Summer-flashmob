@@ -1,0 +1,78 @@
+/* components/noticeboard/panels/NoticeNavRail.module.css
+ *
+ * NOTICE 탭 내비게이터 (폴더 오른쪽 바깥, 세로 바).
+ * 위치(top/left)는 NoticeBoard 에서 style prop 으로 절대좌표 주입.
+ */
+
+.nav {
+  position: absolute;
+  z-index: 11; /* 폴더(z-index:10) 위 */
+  font-family: 'KoPubWorld Dotum', var(--font-body);
+}
+
+.inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: 6px 0;
+}
+
+/* 세로 연결선 (점들을 관통) */
+.inner::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 5px; /* 점 중심에 맞춤 (dot 10px → 중심 5px) */
+  width: 2px;
+  transform: translateX(-50%);
+  background: rgba(26, 51, 94, 0.22);
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* 점 */
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(26, 51, 94, 0.3);
+  flex: 0 0 auto;
+  transition: all 0.16s;
+  z-index: 1;
+}
+.itemActive .dot {
+  border-color: #3f88f9;
+  background: #3f88f9;
+  box-shadow: 0 0 0 4px rgba(63, 136, 249, 0.18);
+}
+.item:hover .dot {
+  border-color: #3f88f9;
+}
+
+/* 라벨 (점 오른쪽) */
+.label {
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1;
+  color: #7089a6;
+  transition: color 0.16s, font-weight 0.16s;
+}
+.item:hover .label {
+  color: #1a335e;
+}
+.itemActive .label {
+  color: #3f88f9;
+  font-weight: 700;
+}

@@ -39,7 +39,12 @@ import { type Tab } from "./noticeboard/NavRail";
 import AdminCallButton from "./noticeboard/AdminCallButton";
 import MyPanel from "./noticeboard/panels/MyPanel";
 import DailyPanel from "./noticeboard/panels/DailyPanel";
-import StaticDocPanel from "./noticeboard/panels/StaticDocPanel";
+import NoticeDocPanel from "./noticeboard/panels/NoticeDocPanel";
+import NoticeNavRail from "./noticeboard/panels/NoticeNavRail";
+import WorldDocPanel from "./noticeboard/panels/WorldDocPanel";
+import WorldNavRail from "./noticeboard/panels/WorldNavRail";
+import SystemPanel from "./noticeboard/panels/SystemPanel";
+import MemberPanel from "./noticeboard/panels/MemberPanel";
 import FolderStage from "./noticeboard/FolderStage";
 import BoardCover from "./noticeboard/cover/BoardCover";
 import SideWidgets from "./noticeboard/widgets/SideWidgets";
@@ -65,26 +70,6 @@ const INTEGRATED_DOC_URL = "#";
 // ── 타입 ──────────────────────────────────────────────────
 type Overlay = null | "login" | "register" | "admin" | "mypanel" | "dailyboard";
 
-type Member = {
-  name: string;
-  emoji: string;
-  role: string;
-  rc: string;
-  border: string;
-  back: string;
-};
-
-// ── 정적 데이터 ────────────────────────────────────────────
-
-const MEMBERS: Member[] = [
-  { name: "하루", emoji: "🌻", role: "안무 리더", rc: "#2ea3dd", border: "#cdeeff", back: "파도 위를 달리는 리더 유령 🌊" },
-  { name: "소이", emoji: "🍑", role: "안무",     rc: "#4db6a0", border: "#c9f2e6", back: "모래성 짓기 담당 · 낮잠 요정" },
-  { name: "진",   emoji: "🐚", role: "안무",     rc: "#b09a20", border: "#fff3a6", back: "소라껍데기로 노래를 모으는 중" },
-  { name: "유나", emoji: "🎤", role: "보컬",     rc: "#4a7fe0", border: "#d8e5fc", back: "등대 위 하이노트 담당" },
-  { name: "물결", emoji: "🌊", role: "보컬",     rc: "#4a90d9", border: "#cfe6ff", back: "6월에 합류한 신입 파도" },
-  { name: "케이", emoji: "📼", role: "영상",     rc: "#2ea3dd", border: "#cdeeff", back: "해변의 순간을 필름에 담는 중" },
-];
-
 // ═══════════════════════════════════════════════════════════
 // 메인 컴포넌트
 // ═══════════════════════════════════════════════════════════
@@ -105,7 +90,6 @@ export default function NoticeBoard({
   });
 
   // 시안 상태 — 상점은 실 재화 연동 전까지 시각적 인터랙션만 유지.
-  const [flipped, setFlipped] = useState<string | null>(null);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -255,15 +239,10 @@ export default function NoticeBoard({
                   onToast={showToast}
                 />
               ) : null}
-              {tab === "notice" ? <StaticDocPanel docKey="notice" /> : null}
-              {tab === "system" ? <StaticDocPanel docKey="system" /> : null}
-              {tab === "world"  ? <StaticDocPanel docKey="world"  /> : null}
-              {tab === "member" ? (
-                <MemberPanel
-                  flipped={flipped}
-                  onFlip={(name) => setFlipped((f) => (f === name ? null : name))}
-                />
-              ) : null}
+              {tab === "notice" ? <NoticeDocPanel /> : null}
+              {tab === "system" ? <SystemPanel /> : null}
+              {tab === "world"  ? <WorldDocPanel /> : null}
+              {tab === "member" ? <MemberPanel /> : null}
               {tab === "daily" ? (
                 <DailyPanel
                   isLoggedIn={!!currentUser}
@@ -273,6 +252,18 @@ export default function NoticeBoard({
               {tab === "store" ? <ShopPanel /> : null}
             </div>
           </FolderStage>
+
+          {/* ── NOTICE 탭 내비게이터 (폴더 오른쪽 바깥) ──
+              폴더는 left:365 + width:780 = 오른쪽 끝 1145.
+              그 바깥 여유(1145~1366)에 세로 바를 띄운다.
+              본문(폴더 안)과 DOM 분리되어 있어 NoticeNavRail 이
+              섹션 id 로 직접 스크롤·관찰한다. */}
+          {tab === "notice" ? (
+            <NoticeNavRail style={{ left: 1160, top: 300 }} />
+          ) : null}
+          {tab === "world" ? (
+            <WorldNavRail style={{ left: 1160, top: 280 }} />
+          ) : null}
 
           {/* ── 좌측 사이드 위젯 (연습일지·날씨) ── */}
           <SideWidgets onPracticeLog={() => setOverlay("dailyboard")} />
@@ -387,93 +378,3 @@ const narrowNoticeCardStyle: CSSProperties = {
   textAlign: "center",
   boxShadow: "0 20px 40px rgba(0,0,0,.35)",
 };
-
-// ═══════════════════════════════════════════════════════════
-// 서브 패널
-// ═══════════════════════════════════════════════════════════
-
-
-
-function MemberPanel({
-  flipped,
-  onFlip,
-}: {
-  flipped: string | null;
-  onFlip: (name: string) => void;
-}) {
-  return (
-    <div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}>
-        <span style={{ fontFamily: JUA, fontSize: 24, color: "#0d6fa8" }}>멤버</span>
-        <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 18, color: "#2ea3dd" }}>
-          카드를 누르면 캐릭터 시트가 홱- 뒤집혀요!
-        </span>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,208px)", gap: 12 }}>
-        {MEMBERS.map((mb) => {
-          const isFlipped = flipped === mb.name;
-          return (
-            <div
-              key={mb.name}
-              onClick={() => onFlip(mb.name)}
-              style={{ position: "relative", height: 92, cursor: "pointer", perspective: 900 }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  transition: "transform .55s cubic-bezier(.3,.8,.3,1)",
-                  transformStyle: "preserve-3d",
-                  transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    backfaceVisibility: "hidden",
-                    background: "#fff",
-                    border: `2px solid ${mb.border}`,
-                    borderRadius: 16,
-                    padding: "12px 14px",
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "center",
-                  }}
-                >
-                  <span style={{ fontSize: 26 }}>{mb.emoji}</span>
-                  <span style={{ display: "flex", flexDirection: "column" }}>
-                    <span style={{ fontFamily: JUA, color: "#1656b8" }}>{mb.name}</span>
-                    <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 15, color: mb.rc }}>{mb.role}</span>
-                  </span>
-                  <span style={{ marginLeft: "auto", fontFamily: JUA, fontSize: 12, color: "#a4b6cc" }}>↻ 시트</span>
-                </div>
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    backfaceVisibility: "hidden",
-                    transform: "rotateY(180deg)",
-                    background: "#14406f",
-                    border: `2px solid ${mb.border}`,
-                    borderRadius: 16,
-                    padding: "11px 14px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "center",
-                    gap: 3,
-                  }}
-                >
-                  <span style={{ fontFamily: JUA, fontSize: 12, color: "#7fd0f0" }}>{mb.name} · 캐릭터 시트</span>
-                  <span style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 16, lineHeight: 1.25, color: "#fff" }}>
-                    {mb.back}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}

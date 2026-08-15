@@ -1,0 +1,282 @@
+/* components/noticeboard/panels/SystemDetailView.module.css
+ *
+ * SYSTEM 상세 페이지. 상단 흰 + 하단 회색(바코드·설명·카드).
+ */
+
+.detail {
+  position: relative;
+  color: #000;
+  font-family: 'KoPubWorld Dotum', var(--font-body);
+}
+
+/* 뒤로가기 */
+.back {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  z-index: 3;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  color: #1a335e;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.back:hover {
+  background: #f0f5ff;
+  border-color: #3f88f9;
+  color: #3f88f9;
+}
+
+/* ── 상단 (흰) ─────────────────────────────────────────── */
+.top {
+  padding: 4px 0 24px;
+}
+.heading {
+  margin: 0 0 8px;
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-weight: 400;
+  font-size: 48px;
+  line-height: 1.1;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+  color: #000;
+}
+
+.topBody {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 150px;
+}
+
+/* 왼쪽 반투명 메뉴 */
+.sideMenu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-end;
+  min-width: 90px;
+}
+.sideItem {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: 'KoPubWorld Dotum', var(--font-body);
+  font-size: 15px;
+  color: #000;
+  opacity: 0.42;
+  transition: opacity 0.15s;
+}
+.sideItem:hover {
+  opacity: 0.85;
+}
+
+/* 중앙 큰 폴더 */
+.folderWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-left: 24px;
+}
+.folderImg {
+  display: block;
+  width: 150px;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.folderLabel {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #000;
+}
+
+/* ── 하단 (회색) ───────────────────────────────────────── */
+.bottom {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 30px 20px 40px;
+  background: #ececec;
+  border-radius: 10px;
+}
+.barcode {
+  flex: 0 0 auto;
+  width: 44px;
+  height: auto;
+  margin-top: 4px;
+}
+.bottomInner {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.blocks {
+  margin-bottom: 26px;
+}
+.para {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #000;
+}
+.grade {
+  margin: 0 0 6px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #000;
+}
+.note {
+  margin: 0;
+  font-size: 14px;
+  color: #3f88f9;
+}
+
+/* 하위 카드 3열 */
+.cards {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+}
+.card {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+.cardTitle {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #000;
+}
+.cardDesc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #222;
+}
+
+.placeholder {
+  margin: 0;
+  padding: 20px 0;
+  text-align: center;
+  color: #888;
+  font-size: 14px;
+}
+
+/* ── 상단 안내 박스 (일일활동 callout) ─────────────────── */
+.callout {
+  flex: 0 1 auto;
+  max-width: 400px;
+  margin-left: auto;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 18px 22px;
+  background: #fff;
+  border: 1.5px solid rgba(0, 0, 0, 0.45);
+  border-radius: 18px;
+}
+.calloutLine {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #000;
+}
+
+/* ── 불릿 리스트 (일지) ────────────────────────────────── */
+.list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.listItem {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #000;
+}
+.listItem::before {
+  content: "\2022";
+  position: absolute;
+  left: 2px;
+  top: -0.02em;
+  color: #000;
+}
+
+/* ── 말풍선 (매점 Ex.) ─────────────────────────────────── */
+.exLabel {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #000;
+}
+.bubbleWrap {
+  margin-top: 6px;
+}
+.bubble {
+  display: inline-block;
+  position: relative;
+  padding: 9px 16px;
+  background: #111;
+  color: #fff;
+  border-radius: 16px;
+  border-bottom-left-radius: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* ── 아이콘 그룹 (뱃지·일일활동) ──────────────────────── */
+.iconGroups {
+  display: flex;
+  justify-content: center;
+  gap: 90px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.iconGroup {
+  text-align: center;
+}
+.groupTitle {
+  margin: 0 0 2px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #000;
+}
+.groupSub {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #3f88f9;
+}
+.iconRow {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+}
+.iconItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.icon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+.iconLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: #000;
+}
