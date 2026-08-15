@@ -141,8 +141,9 @@ export default function ShopPanel() {
   const grouped = useMemo(() => {
     const markers  = items.filter((i) => i.item_type === "marker");
     const stickers = items.filter((i) => i.item_type === "sticker");
+    const cameras  = items.filter((i) => i.item_type === "camera");
     const others   = items.filter((i) => i.item_type === "other");
-    return { markers, stickers, others };
+    return { markers, stickers, cameras, others };
   }, [items]);
 
   return (
@@ -191,6 +192,24 @@ export default function ShopPanel() {
                     pending={pendingId === item.id}
                     affordable={mobil >= item.price}
                     owned={ownedStickers.has(item.item_ref)}
+                    onBuy={() => handleBuy(item)}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
+
+          {/* ── 사진기 섹션 (camera) ── */}
+          {grouped.cameras.length > 0 ? (
+            <>
+              <div style={sectionTitleStyle}>📷 사진기</div>
+              <div style={gridStyle}>
+                {grouped.cameras.map((item) => (
+                  <OtherCard
+                    key={item.id}
+                    item={item}
+                    pending={pendingId === item.id}
+                    affordable={mobil >= item.price}
                     onBuy={() => handleBuy(item)}
                   />
                 ))}

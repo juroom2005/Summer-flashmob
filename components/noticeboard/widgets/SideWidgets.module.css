@@ -22,10 +22,44 @@
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(255, 111, 127, 0.35);
   transition: transform 0.15s ease, filter 0.15s ease;
+  /* 텍스트 슬라이드 애니메이션용 */
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .practiceBtn:hover {
   transform: translateY(-2px);
   filter: brightness(1.05);
+}
+
+/* 텍스트 2겹 슬라이드 (hover 시 위로 밀리고 아래에서 올라옴) */
+.practiceBtnInner {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  height: 1em;
+  line-height: 1em;
+}
+.practiceBtnText,
+.practiceBtnTextClone {
+  display: block;
+  transition: transform 1.125s cubic-bezier(0.19, 1, 0.22, 1);
+}
+/* 아래에 숨겨둔 복제본 (제자리 한 칸 아래) */
+.practiceBtnTextClone {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+}
+/* hover: 원본은 위로 사라지고, 복제본이 제자리로 */
+.practiceBtn:hover .practiceBtnText {
+  transform: translateY(-100%);
+}
+.practiceBtn:hover .practiceBtnTextClone {
+  transform: translateY(-100%);
 }
 
 /* ═══ 날씨 (파랑 카드) ═══ */

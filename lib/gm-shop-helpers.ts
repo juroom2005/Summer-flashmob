@@ -56,10 +56,11 @@ export type ShopItemType =
   | "sticker"
   | "wallpaper"
   | "refill_ink"
-  | "other";
+  | "other"
+  | "camera";
 
 /** GM UI 에서 신규 생성 가능한 타입 (RPC 지원 기준) */
-export const SHOP_CREATABLE_TYPES = ["marker", "sticker", "other"] as const;
+export const SHOP_CREATABLE_TYPES = ["marker", "sticker", "camera", "other"] as const;
 export type ShopCreatableType = typeof SHOP_CREATABLE_TYPES[number];
 
 /**
@@ -174,6 +175,7 @@ export const SHOP_ITEM_TYPE_LABEL: Record<ShopItemType, string> = {
   wallpaper:  "배경지",
   refill_ink: "잉크 리필",
   other:      "이벤트",
+  camera:     "사진기",
 };
 
 // ────────────────────────────────────────────────────────────────────
@@ -185,7 +187,7 @@ function toGmShopItem(row: GmShopItemRow | null | undefined): GmShopItem | null 
 
   // item_type 은 DB CHECK 로 방어되지만, 앱에서도 화이트리스트 검증.
   const validTypes: readonly ShopItemType[] = [
-    "marker", "sticker", "wallpaper", "refill_ink", "other",
+    "marker", "sticker", "wallpaper", "refill_ink", "other", "camera",
   ] as const;
   const itemType = (validTypes as readonly string[]).includes(row.item_type)
     ? (row.item_type as ShopItemType)

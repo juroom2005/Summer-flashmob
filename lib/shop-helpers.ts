@@ -19,7 +19,7 @@ export type ShopItemRow = {
   code:        string;
   name:        string;
   description: string | null;
-  item_type:   "marker" | "sticker" | "wallpaper" | "refill_ink" | "other";
+  item_type:   "marker" | "sticker" | "wallpaper" | "refill_ink" | "other" | "camera";
   item_ref:    string;
   price:       number;
   metadata:    Record<string, unknown>;
@@ -92,6 +92,7 @@ const PURCHASE_ERROR_MESSAGES: Record<string, string> = {
   item_inactive:            "판매하지 않는 상품입니다.",
   insufficient_mobil:       "잔액이 부족합니다.",
   duplicate_sticker:        "이미 소지한 스티커입니다.",
+  duplicate_camera:         "이미 사진기를 가지고 있습니다.",
   unsupported_item_type:    "구매할 수 없는 상품 유형입니다.",
   // 세션 I 추가 : purchase_shop_item RPC 의 other 분기가 item_ref 를 요구.
   // shop_items.item_ref 는 NOT NULL 이지만 이중 방어 차원의 예외이므로

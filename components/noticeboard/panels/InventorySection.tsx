@@ -169,6 +169,21 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
       continue;
     }
 
+    // ── camera (행 단위) : 사진기. 보유 시 일지 폴라로이드 사용 가능 ──
+    if (row.item_type === "camera" && ref) {
+      out.push({
+        key: row.id, itemType: "camera", itemRef: ref,
+        emoji: readStr(row.metadata, "emoji") ?? "📷",
+        imageUrl: readStr(row.metadata, "image_url"),
+        label: readStr(row.metadata, "name") ?? "사진기",
+        badge: "∞",
+        tooltip: "일지에 폴라로이드 사진을 붙일 수 있습니다. 무제한 사용",
+        quantity: row.quantity ?? 1,
+        clickMode: "none",
+      });
+      continue;
+    }
+
     // ── other · doll · coupon · junk (type:ref 로 합산) ──
     const mergeable =
       row.item_type === "other" ||

@@ -142,6 +142,33 @@ export async function getBoardCapabilities(): Promise<BoardCapabilities> {
   };
 }
 
+/**
+ * 사인펜 잉크 소모.
+ * @param inventoryId  소모할 사인펜 inventory_items.id
+ * @param amount       소모량(양의 정수). 선 길이 기반으로 호출부가 산출.
+ *
+ * 서버 RPC(consume_marker_ink, SECURITY DEFINER)로 본인 소유 확인 + 0 하한
+ * 차감. 반환은 차감 후 남은 잉크(number) 또는 null(무한/미설정 펜).
+ * 실패해도 그리기 자체는 이미 저장됐으므로, 호출부는 잔량 갱신만 시도한다.
+ */
+export async function consumeMarkerInk(
+  inventoryId: string,
+  amount:      number
+): Promise<{ ok: true; remaining: number | null } | { ok: false; reason: string }> {
+  const amt = Math.max(1, Math.round(amount));
+  const { data, error } = await supabase.rpc("consume_marker_ink", {
+    p_inventory_id: inventoryId,
+    p_amount:       amt,
+  });
+
+  if (error) {
+    console.error("[consumeMarkerInk] failed:", error.message);
+    return { ok: false, reason: error.message };
+  }
+  // data 는 남은 잉크(integer) 또는 null(무한)
+  return { ok: true, remaining: (data as number | null) };
+}
+
 /* ═══════════════════════════════════════════════════════════
  * 타입
  * ─────────────────────────────────────────────────────────── */

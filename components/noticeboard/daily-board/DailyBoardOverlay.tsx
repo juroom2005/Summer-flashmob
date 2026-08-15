@@ -46,6 +46,7 @@ import {
   gmDeleteBoardItem,
   gmUpdateBoardItemContent,
   getBoardCapabilities,
+  consumeMarkerInk,
   kstDateString,
   type BoardItemRow,
   type BoardItemKind,
@@ -104,7 +105,7 @@ type LocalItem = {
   pending?: boolean;     // 서버 반영 대기중
 };
 
-type Tool = "select" | "draw" | "sticker";
+type Tool = "select" | "draw" | "sticker" | "eraser";
 
 type Props = {
   open: boolean;
@@ -285,7 +286,17 @@ export default function DailyBoardOverlay({
     const ctx = c.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, c.width, c.height);
-    const paint = (s: Stroke) => {
+    const paint = (s: Stroke, highlight?: "select" | "erase") => {
+      // 선택/지우기 강조: 원래 선 밑에 반투명 굵은 선을 깔아 하이라이트
+      if (highlight) {
+        ctx.strokeStyle = highlight === "erase" ? "rgba(229,72,77,.45)" : "rgba(30,99,233,.35)";
+        ctx.lineWidth = s.size + 10;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        s.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+        ctx.stroke();
+      }
       ctx.strokeStyle = s.color;
       ctx.lineWidth = s.size;
       ctx.lineCap = "round";
@@ -295,7 +306,15 @@ export default function DailyBoardOverlay({
       ctx.stroke();
     };
     for (const it of items) {
-      if (it.kind === "drawing" && it.stroke) paint(it.stroke);
+      if (it.kind === "drawing" && it.stroke) {
+        const hl =
+          tool === "eraser" && hoveredId === it.id && canEdit(it)
+            ? "erase"
+            : sel === it.id
+              ? "select"
+              : undefined;
+        paint(it.stroke, hl);
+      }
     }
     if (strokeRef.current) paint(strokeRef.current);
   };
@@ -355,6 +374,39 @@ export default function DailyBoardOverlay({
     });
     if (res.ok) {
       setItems((prev) => [...prev, rowToLocal(res.data)]);
+
+      // ── 잉크 소모 (선 길이 비례) ──
+      // 그리기 자체는 이미 저장됨. 잉크는 별도로 차감 시도하며, 실패해도
+      // 그림은 유지한다(잉크 정합은 다음 조회 때 재동기화됨).
+      const pen = pickedPen;
+      if (pen && pen.durability != null) {
+        // 획(stroke) 하나당 잉크 1 소모. (선 길이 비례는 너무 빨리 닳아 획 단위로)
+        const cost = 1;
+        const r = await consumeMarkerInk(pen.inventoryId, cost);
+        if (r.ok) {
+          const remaining = r.remaining; // null=무한
+          setCaps((prev) => {
+            const nextPens = prev.pens
+              .map((p) =>
+                p.inventoryId === pen.inventoryId
+                  ? { ...p, durability: remaining }
+                  : p
+              )
+              // 잔량 0 이하인 펜은 팔레트에서 제거 (행은 DB 에 durability=0 으로 남음)
+              .filter((p) => p.durability == null || p.durability > 0);
+            return { ...prev, pens: nextPens, canDraw: nextPens.length > 0 };
+          });
+          // 방금 쓰던 펜이 다 떨어졌으면 선택을 다른 펜으로 옮기거나 해제
+          if (remaining != null && remaining <= 0) {
+            // 아직 잉크 남은 다른 펜으로 자동 전환 (없으면 해제)
+            const alt = caps.pens.find(
+              (p) => p.inventoryId !== pen.inventoryId && (p.durability == null || p.durability > 0)
+            );
+            setPickedPen(alt ?? null);
+            setBanner("사인펜 잉크를 다 썼어요. 리필하거나 다른 펜을 사용해주세요.");
+          }
+        }
+      }
     } else {
       setBanner(res.message);
       draw();
@@ -417,6 +469,21 @@ export default function DailyBoardOverlay({
   const onLayerDown = async (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.target !== layerRef.current) return;
 
+    // 지우개: hover 중인 drawing 을 바로 삭제 (권한 있는 것만)
+    if (tool === "eraser") {
+      if (hoveredId) {
+        const h = items.find((i) => i.id === hoveredId);
+        if (h && h.kind === "drawing") {
+          if (canEdit(h)) {
+            void deleteById(h.id);
+          } else {
+            setBanner("다른 사람이 그린 것이라 지울 수 없어요.");
+          }
+        }
+      }
+      return;
+    }
+
     // 타이핑 배치
     if (placing && draft.trim() && myProfileId) {
       const p = localPt(e);
@@ -464,10 +531,18 @@ export default function DailyBoardOverlay({
       return;
     }
 
+    // 드로잉 선택: select 모드에서 stroke 근처를 클릭하면 그 drawing 을 선택.
+    // (drawing 은 canvas 에 그려져 클릭 대상이 없으므로 hover 감지 결과를 사용)
+    if (tool === "select" && hoveredId) {
+      const h = items.find((i) => i.id === hoveredId);
+      if (h && h.kind === "drawing") {
+        setSel(h.id);
+        return;
+      }
+    }
+
     setSel(null);
   };
-
-  // ── 아이템 드래그 시작 (권한 있는 것만) ──
   const onItemDown = (e: ReactPointerEvent<HTMLDivElement>, it: LocalItem) => {
     if (tool === "draw") return;
     e.stopPropagation();
@@ -492,8 +567,8 @@ export default function DailyBoardOverlay({
       );
       return;
     }
-    // 드래그 아님: drawing stroke hover 감지 (select 모드에서만)
-    if (tool !== "select") {
+    // 드래그 아님: drawing stroke hover 감지 (select·eraser 모드에서)
+    if (tool !== "select" && tool !== "eraser") {
       if (hoverPt) setHoverPt(null);
       return;
     }
@@ -553,21 +628,26 @@ export default function DailyBoardOverlay({
     if (!res.ok) setBanner(res.message);
   };
 
-  const deleteSel = async () => {
-    const it = items.find((i) => i.id === sel);
+  // id 로 아이템 삭제 (본인=직접, GM 이 남의 것=RPC). 권한 없으면 무시.
+  const deleteById = async (id: string) => {
+    const it = items.find((i) => i.id === id);
     if (!it) return;
     if (!canEdit(it)) return;
     const mine = myProfileId != null && it.ownerId === myProfileId;
     // 낙관적 제거
-    setItems((prev) => prev.filter((i) => i.id !== it.id));
-    setSel(null);
-    const res = mine ? await deleteBoardItem(it.id) : await gmDeleteBoardItem(it.id);
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    if (sel === id) setSel(null);
+    const res = mine ? await deleteBoardItem(id) : await gmDeleteBoardItem(id);
     if (!res.ok) {
       setBanner(res.message);
-      // 실패 시 재조회로 복구
       const rows = await listBoardItems(boardDate);
       setItems(rows.map(rowToLocal));
     }
+  };
+
+  const deleteSel = async () => {
+    if (!sel) return;
+    await deleteById(sel);
   };
 
   // ── 파생값 ──
@@ -584,6 +664,7 @@ export default function DailyBoardOverlay({
   const drawableTools = [
     { label: "SELECT", k: "select" as const, enabled: true },
     { label: "DRAW", k: "draw" as const, enabled: caps.canDraw },
+    { label: "ERASER", k: "eraser" as const, enabled: true },
     { label: "PHOTO", k: "photo" as const, enabled: caps.canPhoto },
   ];
 
@@ -746,6 +827,9 @@ export default function DailyBoardOverlay({
             {!loading && tool === "sticker" && pickedSticker && (
               <div style={placingHint}>보드를 클릭해 {pickedSticker.emoji} 스티커를 붙이세요</div>
             )}
+            {!loading && tool === "eraser" && (
+              <div style={{ ...placingHint, background: "#e5484d" }}>지우개 · 그린 선 위를 클릭하면 지워져요</div>
+            )}
             {!loading && isEmpty && !placing && (
               <div style={centerGhost}>— 아직 비어있는 보드 —</div>
             )}
@@ -754,7 +838,10 @@ export default function DailyBoardOverlay({
           {/* right tool tabs */}
           <div style={toolRail}>
             {drawableTools.map((t) => {
-              const active = (t.k === "draw" && tool === "draw") || (t.k === "select" && tool === "select");
+              const active =
+                (t.k === "draw" && tool === "draw") ||
+                (t.k === "select" && tool === "select") ||
+                (t.k === "eraser" && tool === "eraser");
               return (
                 <div
                   key={t.label}
@@ -771,6 +858,10 @@ export default function DailyBoardOverlay({
                     else if (t.k === "draw") {
                       if (!requireLogin()) return;
                       setTool((x) => (x === "draw" ? "select" : "draw"));
+                      setPlacing(false); setSel(null);
+                    } else if (t.k === "eraser") {
+                      if (!requireLogin()) return;
+                      setTool((x) => (x === "eraser" ? "select" : "eraser"));
                       setPlacing(false); setSel(null);
                     } else {
                       setTool("select"); setPlacing(false);
@@ -805,7 +896,12 @@ export default function DailyBoardOverlay({
                       >
                         {/* 색 스와치 */}
                         <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.color, display: "block", border: "1px solid rgba(0,0,0,.15)" }} />
-                        <span style={{ fontFamily: mono, fontSize: 10, color: S.chromeInk }}>{p.name}</span>
+                        <span style={{ fontFamily: mono, fontSize: 10, color: S.chromeInk }}>
+                          {p.name}
+                          {p.durability != null && (
+                            <span style={{ opacity: 0.6 }}> · {p.durability}</span>
+                          )}
+                        </span>
                       </div>
                     );
                   })}
@@ -895,15 +991,22 @@ export default function DailyBoardOverlay({
                     <div onClick={deleteSel} style={delBtn}>삭제</div>
                   </>
                 ) : (
-                  <span style={{ fontFamily: mono, fontSize: 12, color: S.chromeInk, opacity: 0.7 }}>
-                    {selEditable ? "드로잉은 조정할 수 없어요." : "다른 사람이 올린 항목이라 열람만 가능해요."}
-                  </span>
+                  <>
+                    <span style={{ fontFamily: mono, fontSize: 12, color: S.chromeInk, opacity: 0.7 }}>
+                      {selEditable
+                        ? "드로잉은 위치·크기 조정은 안 되고 삭제만 가능해요."
+                        : "다른 사람이 올린 항목이라 열람만 가능해요."}
+                    </span>
+                    {selEditable && (
+                      <div onClick={deleteSel} style={{ ...delBtn, marginLeft: "auto" }}>삭제</div>
+                    )}
+                  </>
                 )}
               </div>
             ) : (
               <div style={composeFootHint}>
                 <span style={{ width: 9, height: 9, borderRadius: "50%", background: S.accent, display: "block" }} />
-                요소를 클릭하면 조정 · 드래그로 이동 · 내가 올린 것만 편집돼요{isGm ? " (GM은 전체 편집)" : ""}
+                요소 클릭 → 조정·삭제 · 드래그로 이동 · 드로잉은 선 위를 클릭하면 선택돼요{isGm ? " (GM은 전체 편집)" : ""}
               </div>
             )}
           </div>

@@ -98,7 +98,7 @@ const INITIAL_FORM: FormState = {
 };
 
 /** 타입 세그먼트 순서 */
-const TYPE_SEGMENTS: ShopCreatableType[] = ["marker", "sticker", "other"];
+const TYPE_SEGMENTS: ShopCreatableType[] = ["marker", "sticker", "camera", "other"];
 
 /** item_ref 라벨 · 힌트 (타입별) */
 const ITEM_REF_META: Record<ShopCreatableType, { label: string; hint: string; placeholder: string }> = {
@@ -111,6 +111,11 @@ const ITEM_REF_META: Record<ShopCreatableType, { label: string; hint: string; pl
     label:       "이모지",
     hint:        "이모지 자체를 입력합니다. 스티커 화면에 그대로 표시됩니다.",
     placeholder: "예: ⭐",
+  },
+  camera: {
+    label:       "식별자",
+    hint:        "사진기 종류 식별자. 영문 소문자·숫자·언더스코어 권장 (예: camera_basic). 보유 시 연습일지 폴라로이드가 열립니다.",
+    placeholder: "예: camera_basic",
   },
   other: {
     label:       "이벤트 식별자",
@@ -217,7 +222,8 @@ export default function ShopItemCreatePanel({ onCreated, onCancel }: Props) {
         metadata.initial_durability = MARKER_DURABILITY_DEFAULT;
       }
     }
-    // sticker · other 는 빈 metadata (필요 시 나중에 확장)
+    // sticker · camera · other 는 빈 metadata (필요 시 나중에 확장)
+    // camera : 보유 여부만으로 폴라로이드 게이팅. 별도 metadata 불필요.
 
     // 슬롯 보상 태깅 (other + 체크 시에만)
     if (form.itemType === "other" && form.slotReward) {

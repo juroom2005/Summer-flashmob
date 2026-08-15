@@ -31,6 +31,7 @@ const TYPE_ACCENT_COLOR: Record<ShopItemType, string> = {
   wallpaper:  "#5aa8a1",
   refill_ink: "#1a9edb",
   other:      "#8a97a1",
+  camera:     "#4a7fe0",
 };
 
 type Props = {

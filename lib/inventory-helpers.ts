@@ -38,6 +38,7 @@ export const DISCARD_FORBIDDEN_TYPES: readonly InventoryItemType[] = [
   "marker",
   "sticker",
   "doll",
+  "camera",
 ] as const;
 
 export function isDiscardable(itemType: InventoryItemType): boolean {
