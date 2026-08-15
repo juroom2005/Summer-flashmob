@@ -1,22 +1,41 @@
 // components/noticeboard/FolderStage.tsx
 // ═══════════════════════════════════════════════════════════════════
-// 폴더 스테이지 — 시안(Anima) 폴더 3층 구조
+// 폴더 스테이지 — 시안(Anima) 폴더 3층 구조 + 좌측 북마크(NavRail)
 // ═══════════════════════════════════════════════════════════════════
 //
-// 레이어 (뒤 → 앞):
-//   1) 프레임  : 폴더 겉표지 바닥면. 모든 탭에서 항상 표시 (공유 배경).
-//   2) 내지    : 흰 종이. board 가 아닐 때, 그 위에 문서(공지/월드/…).
-//   3) 덮개    : 폴더 앞커버. board 일 때만 표시, 그 위에 대시보드.
+// 쌓임 순서는 z-index 를 쓰지 않고 DOM 순서로만 만든다(원본 방식 유지).
+// 뒤 → 앞(DOM 순서):
+//   1) 북마크(NavRail)  ← 맨 먼저 = 맨 뒤. 프레임에 오른쪽이 가려짐.
+//   2) 프레임           ← 북마크를 덮는 폴더 겉면
+//   3) 내지            ← 프레임 위. 항상 표시(흰 종이).
+//   3') 덮개           ← board 일 때만 내지 위에 얹음.
+//   4) 콘텐츠           ← 내지/덮개 위 실제 내용
+//
+//   시안 요구(겹침): "프레임 > 북마크", "내지/덮개 > 프레임". 위 DOM 순서가
+//   두 관계를 동시에 만족. 북마크(폴더 왼쪽 밖)와 내지(폴더 안쪽)는 서로
+//   안 겹치므로 사이에 프레임이 껴도 시각 충돌 없음.
+//
+//   ※ z-index 를 섞지 않는 이유: 자식 일부에만 z-index 를 주면 stacking
+//     context 가 갈려 예기치 않게 내지가 프레임 뒤로 숨는 문제가 났었음.
+//     DOM 순서 단일 규칙이 가장 안전. 프레임 img 는 pointerEvents:none 이라
+//     뒤 북마크의 삐져나온 부분 클릭이 통과해 정상 동작.
 //
 // 동작:
-//   tab === "board"  → 프레임 + 덮개 + children(대시보드)   [덮개 위]
-//   tab !== "board"  → 프레임 + 내지 + children(문서)        [내지 위]
+//   내지는 항상 그림(board 에서도 흰 종이가 보여야 함).
+//   tab === "board"  → 북마크 + 프레임 + 내지 + 덮개(내지 위) + children(대시보드)
+//   tab !== "board"  → 북마크 + 프레임 + 내지 + children(문서)
+//
+// ── 세로 점프(덜컹거림) 방지 ──
+//   콘텐츠 슬롯의 top/height 를 board/내지 공통 고정값으로 둔다.
+//   (예전엔 isBoard 로 내지↔덮개 영역을 통째로 바꿔 top 이 +17.6px 튀었고,
+//    가로 슬라이드와 겹쳐 "구조물이 세로로 쑥 내려갔다 올라오는" 덜컹거림 발생.)
+//   좌우(left/width)는 board/내지 각자 유지 → 가로 슬라이드 애니메이션은 그대로.
 //
 // ── 위치·크기 조정 ──
 //   아래 LAYOUT 상수만 바꾸면 폴더 전체 위치·크기가 조정된다.
 //   실제 화면 띄워보며 FRAME_LEFT / FRAME_TOP / FRAME_W 를 조정할 것.
-//   내지·덮개는 프레임 기준 상대 좌표(원본 SVG 좌표 비율)로 자동 정렬되므로
-//   대개 프레임만 옮기면 따라온다.
+//   북마크(NavRail)는 프레임 기준 상대좌표(RAIL_LEFT/RAIL_TOP)로 붙으므로
+//   프레임을 옮기면 탭도 함께 따라온다.
 //
 // 좌표계: 부모 스테이지(1366×768) 기준 px. 이 컴포넌트는 그 위에 absolute.
 // ═══════════════════════════════════════════════════════════════════
@@ -24,6 +43,7 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
+import NavRail, { type Tab } from "./NavRail";
 
 // ── SVG 원본 크기 (조정 금지, 비율 계산 기준) ──────────────
 const FRAME_SVG_W = 976;
@@ -35,7 +55,7 @@ const PAPER_SVG_H = 720;
 
 // ── 프레임 배치 (여기를 조정) ──────────────────────────────
 //   시안 기준 초기값. 스테이지(1366×768) 안에서 중앙~상단.
-//   폴더 프레임 폭을 스테이지의 약 700px 로 축소해 넣음(비율 유지).
+//   폴더 프레임 폭을 스테이지의 약 780px 로 축소해 넣음(비율 유지).
 const FRAME_LEFT = 365;
 const FRAME_TOP  = 60;
 const FRAME_W    = 780;
@@ -47,9 +67,22 @@ const FRAME_H = FRAME_SVG_H * K;
 // ── 내지/덮개의 프레임 내부 상대 위치 (원본 SVG 좌표) ──────
 const PAPER_OFFSET_X = 30;
 const PAPER_OFFSET_Y = 90;
-//   덮개(968) 
+//   덮개(968)
 const COVER_OFFSET_X = 4;
 const COVER_OFFSET_Y = 112;
+
+// ── 북마크(NavRail) 프레임 내부 상대 위치 ──────────────────
+//   프레임 왼쪽 모서리(렌더상 상대 x≈3.6)에 탭 오른쪽이 물리도록
+//   왼쪽 밖으로 삐져나오게 둔다. 탭 폭 132 기준 겹침 약 19px.
+//   음수 = 프레임 왼쪽 경계보다 바깥.
+const RAIL_LEFT = -113;
+const RAIL_TOP  = 58;
+
+// ── 콘텐츠 슬롯 세로 고정값 (덜컹거림 방지) ────────────────
+//   덮개 기준으로 고정(대시보드가 실제로 놓이는 영역).
+//   내지 문서는 top 이 약 17px 위로 올라오지만 문서 자체 여백으로 흡수됨.
+const CONTENT_TOP = COVER_OFFSET_Y * K;
+const CONTENT_H   = COVER_SVG_H * K;
 
 // ── SVG (data-uri 인라인) ──────────────────────────────────
 const FRAME_SVG =
@@ -73,11 +106,18 @@ const PAPER_SVG =
   );
 
 type Props = {
-  isBoard: boolean;   // true = 덮개(대시보드), false = 내지(문서)
+  isBoard: boolean;                 // true = 덮개(대시보드), false = 내지(문서)
+  activeTab: Tab;                   // 좌측 북마크 현재 탭
+  onTabClick: (key: Tab) => void;   // 탭 클릭 핸들러
   children: ReactNode;
 };
 
-export default function FolderStage({ isBoard, children }: Props) {
+export default function FolderStage({
+  isBoard,
+  activeTab,
+  onTabClick,
+  children,
+}: Props) {
   // 프레임 컨테이너
   const frameStyle: CSSProperties = {
     position: "absolute",
@@ -88,16 +128,25 @@ export default function FolderStage({ isBoard, children }: Props) {
     zIndex: 10,
   };
 
-  // 프레임 배경 이미지 (맨 뒤)
+  // 프레임 배경 이미지 — 북마크(앞서 렌더=뒤)를 덮음.
+  //   pointerEvents:none → 뒤 북마크의 삐져나온 부분 클릭을 막지 않음.
   const frameImgStyle: CSSProperties = {
     position: "absolute",
     inset: 0,
     backgroundImage: `url("${FRAME_SVG}")`,
     backgroundSize: "100% 100%",
     backgroundRepeat: "no-repeat",
+    pointerEvents: "none",
   };
 
-  // 내지 (흰 종이) — board 아닐 때
+  // 북마크(NavRail) 래퍼 — DOM 상 맨 먼저 = 맨 뒤. z-index 없음.
+  const railWrapStyle: CSSProperties = {
+    position: "absolute",
+    left: RAIL_LEFT,
+    top: RAIL_TOP,
+  };
+
+  // 내지 (흰 종이) — board 아닐 때. z-index 없음(DOM 순서로 프레임 위).
   const paperStyle: CSSProperties = {
     position: "absolute",
     left: PAPER_OFFSET_X * K,
@@ -109,7 +158,7 @@ export default function FolderStage({ isBoard, children }: Props) {
     backgroundRepeat: "no-repeat",
   };
 
-  // 덮개 — board 일 때
+  // 덮개 — board 일 때. z-index 없음.
   const coverStyle: CSSProperties = {
     position: "absolute",
     left: COVER_OFFSET_X * K,
@@ -121,32 +170,39 @@ export default function FolderStage({ isBoard, children }: Props) {
     backgroundRepeat: "no-repeat",
   };
 
-  // 콘텐츠 슬롯 — 내지/덮개 위에 얹힘. 스크롤 가능.
-  //   board: 덮개 영역에 맞춤 / 그 외: 내지 영역에 맞춤
-  const contentBox = isBoard
-    ? { left: COVER_OFFSET_X * K, top: COVER_OFFSET_Y * K, width: COVER_SVG_W * K, height: COVER_SVG_H * K }
-    : { left: PAPER_OFFSET_X * K, top: PAPER_OFFSET_Y * K, width: PAPER_SVG_W * K, height: PAPER_SVG_H * K };
+  // 콘텐츠 슬롯 — 내지/덮개 위에 얹힘(DOM 상 맨 마지막 = 맨 앞).
+  //   세로(top/height)는 고정 → board↔내지 전환 시 세로 점프 없음.
+  //   좌우(left/width)만 board/내지 각각 → 가로 슬라이드 애니메이션 유지.
+  const contentBoxX = isBoard
+    ? { left: COVER_OFFSET_X * K, width: COVER_SVG_W * K }
+    : { left: PAPER_OFFSET_X * K, width: PAPER_SVG_W * K };
 
   const contentStyle: CSSProperties = {
     position: "absolute",
-    ...contentBox,
+    top: CONTENT_TOP,
+    height: CONTENT_H,
+    ...contentBoxX,
     padding: "28px 34px",
     overflow: isBoard ? "hidden" : "auto",
-    zIndex: 2,
   };
 
   return (
     <div style={frameStyle}>
-      {/* 1) 프레임 (항상) */}
+      {/* 1) 북마크 (맨 뒤) — 프레임에 오른쪽이 가려짐 */}
+      <div style={railWrapStyle}>
+        <NavRail activeTab={activeTab} onTabClick={onTabClick} />
+      </div>
+
+      {/* 2) 프레임 — 북마크를 덮는 폴더 겉면 */}
       <div style={frameImgStyle} />
 
-      {/* 2) 내지 or 3) 덮개 */}
+      {/* 3) 내지 — 항상 그림(board 에서도 흰 종이가 보여야 함) */}
       <div style={paperStyle} />
 
-      {/* 3) 덮개 — board 일 때만 내지 위에 덮임 */}
+      {/* 3') 덮개 — board 일 때만 내지 위에 얹음 */}
       {isBoard ? <div style={coverStyle} /> : null}
 
-      {/* 콘텐츠 (내지/덮개 위) */}
+      {/* 4) 콘텐츠 — 내지/덮개 위 (맨 앞) */}
       <div style={contentStyle}>{children}</div>
     </div>
   );

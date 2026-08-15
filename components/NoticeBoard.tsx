@@ -152,15 +152,14 @@ export default function NoticeBoard({
         { transform: "translateX(24px)", opacity: 0 },
         { transform: "translateX(0)",    opacity: 1 },
       ],
-      { duration: 260, easing: "cubic-bezier(.25,.8,.3,1)" }
+      { duration: 260, easing: "cubic-bezier(.25,.8,.3,1)", fill: "backwards" }
     );
   };
-
   // ── 액션 ─────────────────────────────────────────────────
   const openTab = (key: Tab) => {
     if (tab === key) return;
     setTab(key);
-    requestAnimationFrame(() => requestAnimationFrame(doSlide));
+    requestAnimationFrame(doSlide);
   };
 
   // ── 스테이지 실제 렌더 크기 (스케일 적용 후) ───────────
@@ -176,17 +175,16 @@ export default function NoticeBoard({
   // ═══════════════════════════════════════════════════════════
   return (
     <div style={viewportShellStyle}>
-      {/* ── 뷰포트 배경 (이미지를 화면에 늘려 채움) ── */}
+      {/* ── 뷰포트 배경 ── */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           backgroundImage: backgroundSrc ? `url(${backgroundSrc})` : undefined,
-          backgroundSize: "100% 100%",   // 종횡비 무시하고 화면 꽉 채움 (뭉개짐 감수)
-          backgroundColor: "#7cc9f2",     // 이미지 없을 때 fallback
+          backgroundSize: "cover",        
+          backgroundPosition: "center",
+          backgroundColor: "#f4f8fc",   
           zIndex: 0,
-          // 폴더 상시 표시 → 배경은 항상 블러로 뒤로 물러나게.
-          filter: "blur(8px)",
         }}
       />
 

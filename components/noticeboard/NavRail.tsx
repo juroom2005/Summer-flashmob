@@ -1,9 +1,8 @@
 // components/noticeboard/NavRail.tsx
 //
-// NoticeBoard 좌측 스티커 탭.
+// NoticeBoard 좌측 탭 — 폴더 왼쪽 모서리에 물린 "북마크/서류철 인덱스" 형태.
 //
-// 각 탭이 색·모서리·회전 각도가 다 다름 → NAV 데이터 배열로 관리,
-// CSS variable로 인젝션해서 스타일 driven하게 처리.
+// 각 탭이 색만 다름 → NAV 데이터 배열로 관리, CSS variable로 인젝션.
 //
 // Tab 타입은 여기서 export → NoticeBoard가 import해서 state 관리.
 //
@@ -19,8 +18,13 @@
 //   · 라벨 이모티콘 전부 제거 (리뉴얼 방침).
 //   · 탭 명칭: shop → store (시안 STORE).
 //
-//   ※ Tab 타입에 board/notice/system/world 신설.
-//     NoticeBoard 라우팅 개조(2-B)는 별도 단계.
+// ── 2026-08 후속 (북마크형 교체) ──
+//   · 시안대로 폴더 왼쪽 모서리에 물린 각진 북마크형으로 교체.
+//   · 회전·둥근 모서리·스티커 그림자 제거.
+//   · 탭 오른쪽 끝이 폴더 프레임 왼쪽에 살짝 겹쳐 "물린" 느낌.
+//     (겹침·위치 값은 NavRail.module.css 상단 주석 참조. 폴더 FRAME_LEFT
+//      바뀌면 .rail left 도 같이 조정.)
+//   · 활성 탭은 폴더 쪽으로 살짝 더 나오고 색이 진해짐.
 
 "use client";
 
@@ -37,31 +41,27 @@ export type Tab =
   | "daily";
 
 type NavItem = {
-  key:    Tab;
-  label:  string;
-  border: string;   // 테두리 색
-  hi:     string;   // active 하이라이트 배경
-  color:  string;   // 텍스트 색
-  radius: string;   // border-radius (4모서리 다르게)
-  rot:    string;   // 회전 각도
+  key:   Tab;
+  label: string;
+  fill:  string;   // 탭 전체 채움 색 (시안: 탭이 색으로 꽉 참)
 };
 
-// 색은 tokens.css 시안 팔레트에서 가져온 실제 값.
-//   board  : 시안 주 파랑    #3f88f9 / 연파랑 #cce3f8
-//   notice : 시안 NOTICE 파랑 #2563eb / 연파랑 #dbeafe
-//   system : 시안 SYSTEM 핑크 #ec4899 / 연핑크 #fce7f3
-//   world  : 시안 WORLD  청록 #06b6d4 / 연청록 #cffafe
-//   member : 시안 노랑     #facc15 / 연노랑 #fef08a
-//   store  : 시안 강조노랑  #f8e31a / 연노랑 #fdf6b2
-//   daily  : 시안 남색     #1a335e / 연파랑 #d6e4f5
+// 색은 tokens.css 시안 팔레트 기준. 탭 전체를 이 색으로 채우고 글씨는 흰색.
+//   board  : 시안 주 파랑    #3f88f9
+//   notice : 시안 NOTICE 파랑 #2563eb
+//   system : 시안 SYSTEM 핑크 #ec4899
+//   world  : 시안 WORLD  노랑 #facc15
+//   member : 시안 MEMBER 청록 #06b6d4
+//   store  : 시안 STORE  연노랑 #f8e31a
+//   daily  : 시안 남색     #1a335e
 const NAV: NavItem[] = [
-  { key: "board",  label: "보드",   border: "#3f88f9", hi: "#cce3f8", color: "#0d3b8a", radius: "18px 18px 18px 6px", rot: "-2deg"  },
-  { key: "notice", label: "공지",   border: "#2563eb", hi: "#dbeafe", color: "#1a337a", radius: "6px 18px 18px 18px", rot: "1.5deg" },
-  { key: "system", label: "시스템", border: "#ec4899", hi: "#fce7f3", color: "#9d1852", radius: "18px 6px 18px 18px", rot: "-1deg"  },
-  { key: "world",  label: "월드",   border: "#06b6d4", hi: "#cffafe", color: "#0a6577", radius: "18px 18px 6px 18px", rot: "2deg"   },
-  { key: "member", label: "멤버",   border: "#facc15", hi: "#fef08a", color: "#8a6d10", radius: "18px 18px 18px 6px", rot: "-1.5deg"},
-  { key: "store",  label: "매점",   border: "#f8e31a", hi: "#fdf6b2", color: "#7a6a12", radius: "6px 18px 18px 18px", rot: "1deg"   },
-  { key: "daily",  label: "데일리", border: "#1a335e", hi: "#d6e4f5", color: "#1a335e", radius: "18px 6px 18px 18px", rot: "-1deg"  },
+  { key: "board",  label: "BOARD",  fill: "#3f88f9" },
+  { key: "notice", label: "NOTICE", fill: "#2563eb" },
+  { key: "system", label: "SYSTEM", fill: "#ec4899" },
+  { key: "world",  label: "WORLD",  fill: "#facc15" },
+  { key: "member", label: "MEMBER", fill: "#06b6d4" },
+  { key: "store",  label: "STORE",  fill: "#f8e31a" },
+  { key: "daily",  label: "DAILY",  fill: "#1a335e" },
 ];
 
 type Props = {
@@ -75,25 +75,24 @@ export default function NavRail({ activeTab, onTabClick }: Props) {
       {NAV.map((n) => {
         const active = activeTab === n.key;
 
-        // 각 탭의 색·회전을 CSS variable로 인젝션
+        // 밝은 노랑 계열(world/store)은 흰 글씨가 안 보임 → 어두운 글씨.
+        const darkText = n.key === "world" || n.key === "store";
+
+        // 탭 전체 채움 색·글씨색·그림자를 CSS variable로 인젝션
         const cssVars = {
-          "--tab-border":  n.border,
-          "--tab-hi":      n.hi,
-          "--tab-color":   n.color,
-          "--tab-radius":  n.radius,
-          "--tab-rot":     n.rot,
-          "--tab-shadow": `${n.border}80`,  // hex + alpha 50%
+          "--tab-fill":   n.fill,
+          "--tab-text":   darkText ? "#1a335e" : "#ffffff",
+          "--tab-shadow": `${n.fill}66`, // hex + alpha 40%
         } as CSSProperties;
 
         return (
           <button
             key={n.key}
             onClick={() => onTabClick(n.key)}
-            className={styles.tab}
+            className={`${styles.tab} ${active ? styles.active : ""}`}
             style={cssVars}
             aria-current={active ? "page" : undefined}
           >
-            {active ? <span className={styles.highlight} /> : null}
             <span className={styles.label}>{n.label}</span>
           </button>
         );

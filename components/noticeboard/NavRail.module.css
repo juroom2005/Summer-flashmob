@@ -1,59 +1,61 @@
 /* components/noticeboard/NavRail.module.css
  *
- * 좌측 스티커 탭 스타일.
+ * 좌측 탭 — 폴더 왼쪽 모서리에 물린 각진 북마크형. 탭 전체가 색으로 채워짐(시안).
  *
- * 각 탭의 색·모서리·회전은 tsx에서 CSS variable로 인젝션:
- *   --tab-border  : 테두리 색
- *   --tab-hi      : 활성 하이라이트 배경
- *   --tab-color   : 텍스트 색
- *   --tab-radius  : border-radius (4모서리 각각 다르게 지정)
- *   --tab-rot     : 회전 각도
- *   --tab-shadow  : box-shadow 색 (테두리 + alpha)
+ * ── 배치 책임 분리 ──
+ *   NavRail 은 FolderStage 안에 렌더되며, 위치(left/top/z-index)는
+ *   FolderStage 의 railWrap 이 잡는다(프레임 기준 상대좌표 RAIL_LEFT/RAIL_TOP).
+ *   따라서 .rail 은 flow(세로 나열·간격)만 담당하고 위치는 갖지 않는다.
  *
- * :hover로 회전 초기화 + 살짝 확대.
+ * 각 탭의 색은 tsx에서 CSS variable로 인젝션:
+ *   --tab-fill    : 탭 전체 채움 색
+ *   --tab-text    : 글씨 색 (밝은 노랑 탭은 어두운 남색, 나머지는 흰색)
+ *   --tab-shadow  : 그림자 색 (fill + alpha 40%)
  *
- * ── 2026-08 리뉴얼 (Anima 시안) ──
- *   탭 4개 → 7개로 늘어남. 스테이지(768px) 안에 들어가도록
- *   top·높이·gap 재계산:
- *     top 108 + (44 + 12) × 7 − 12 = 108 + 380 = 488px → 여유.
- *   시안 탭 높이(44px)·간격 반영.
+ * ── 물림 원리 (FolderStage 와 함께) ──
+ *   FolderStage 레이어 z: 프레임 4 > 북마크(railWrap) 3 > 내지/덮개 2.
+ *   북마크 오른쪽 끝이 프레임 뒤로 들어가 가려지고 왼쪽 라벨만 밖으로 나온다.
+ *   프레임 img 는 pointerEvents:none 이라 삐져나온 부분 클릭 정상.
+ *
+ * ── 2026-08 후속 (북마크형·색 채움) ──
+ *   회전·둥근 모서리·스티커 그림자 제거. 탭 전체 색 채움 + 흰 글씨(시안).
  */
 
 .rail {
-  position: absolute;
-  left: 40px;
-  top: 108px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  z-index: 20;
+  gap: 10px;
 }
 
 .tab {
   position: relative;
-  width: 146px;
-  height: 44px;
-  border: 2.5px solid var(--tab-border);
-  border-radius: var(--tab-radius);
-  background: #fff;
-  color: var(--tab-color);
+  width: 132px;
+  height: 40px;
+  border: none;
+  border-radius: 0;        
+  background: var(--tab-fill);
+  color: var(--tab-text);
   font-family: var(--font-heading);
-  font-size: 18px;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding-left: 16px;
   cursor: pointer;
-  box-shadow: 2px 3px 0 var(--tab-shadow);
-  overflow: hidden;
-  transform: rotate(var(--tab-rot));
-  transition: transform 0.18s ease;
+  box-shadow: -2px 2px 0 var(--tab-shadow);
+  transition: transform 0.15s ease, filter 0.15s ease;
 }
+
 
 .tab:hover {
-  transform: rotate(0deg) scale(1.06);
+  transform: translateX(-4px);
+  filter: brightness(1.08);
 }
 
-.highlight {
-  position: absolute;
-  inset: 0;
-  background: var(--tab-hi);
+
+.tab.active {
+  transform: translateX(-6px);
+  box-shadow: -3px 3px 0 var(--tab-shadow);
+  filter: brightness(1.05);
 }
 
 .label {
