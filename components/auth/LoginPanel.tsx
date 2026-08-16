@@ -48,10 +48,10 @@ export default function LoginPanel({ onSuccess, onSwitchToRegister }: Props) {
   return (
     <div>
       <div style={{ fontFamily: JUA, fontSize: 23, color: "#0d6fa8", marginBottom: 4 }}>
-        🔑 로그인
+       로그인
       </div>
       <div style={{ fontFamily: GAEGU, fontWeight: 700, fontSize: 17, color: "#2ea3dd", marginBottom: 16 }}>
-        마스토돈 계정으로 들어와요!
+        가입한 이메일과 비밀번호를 입력하세요.
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
