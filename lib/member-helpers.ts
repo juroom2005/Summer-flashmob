@@ -39,11 +39,15 @@ type MemberProfileRow = {
   personality:   string;
   etc:           string;
   photo_url:     string | null;
+  theme_color:   string | null;
+  tag_last:      string;
+  tag_first:     string;
 };
 
 const ROW_COLUMNS =
   "id, owner_id, name, date_of_birth, age, grade, height, " +
-  "rhythm, stamina, performance, personality, etc, photo_url";
+  "rhythm, stamina, performance, personality, etc, photo_url, theme_color, " +
+  "tag_last, tag_first";
 
 /** DB 행 → 프론트 MemberProfile. */
 function rowToProfile(r: MemberProfileRow): MemberProfile {
@@ -61,6 +65,9 @@ function rowToProfile(r: MemberProfileRow): MemberProfile {
     personality: r.personality ?? "",
     etc:         r.etc ?? "",
     photoUrl:    r.photo_url ?? undefined,
+    themeColor:  r.theme_color ?? undefined,
+    tagLast:     r.tag_last ?? "",
+    tagFirst:    r.tag_first ?? "",
   };
 }
 
@@ -79,6 +86,9 @@ export type MemberProfileInput = Partial<{
   personality: string;
   etc:         string;
   photoUrl:    string | null;   // null = 사진 삭제, undefined = 미변경
+  themeColor:  string | null;   // null = 색 삭제(기본색), undefined = 미변경
+  tagLast:     string;
+  tagFirst:    string;
 }>;
 
 function inputToPayload(input: MemberProfileInput): Record<string, unknown> {
@@ -96,6 +106,8 @@ function inputToPayload(input: MemberProfileInput): Record<string, unknown> {
   put("performance",   input.performance);
   put("personality",   input.personality);
   put("etc",           input.etc);
+  put("tag_last",      input.tagLast);
+  put("tag_first",     input.tagFirst);
 
   // photoUrl 은 3-상태:
   //   undefined → 키 없음(미변경)
@@ -103,6 +115,10 @@ function inputToPayload(input: MemberProfileInput): Record<string, unknown> {
   //   string    → photo_url:string (설정)
   if (input.photoUrl !== undefined) {
     p.photo_url = input.photoUrl; // null 또는 string 그대로
+  }
+  // themeColor 도 동일 3-상태(undefined 미변경 / null 삭제 / string 설정)
+  if (input.themeColor !== undefined) {
+    p.theme_color = input.themeColor;
   }
   return p;
 }

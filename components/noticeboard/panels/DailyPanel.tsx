@@ -28,7 +28,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import styles from "./DailyPanel.module.css";
 import CafeMinigameOverlay from "../cafe/CafeMinigameOverlay";
 import PracticeMinigameOverlay from "../practice/PracticeMinigameOverlay";
@@ -39,6 +39,49 @@ type Props = {
   isLoggedIn:  boolean;
   onOpenLogin: () => void;
 };
+
+/* 카드 정의. accent/accentSoft 는 CSS 변수로 주입해 카드별 색 결정.
+ * items: 앞면에 나열할 세부(카페·연습실 3종). 리듬은 items 없이 desc 만. */
+type CardDef = {
+  key:        "cafe" | "practice" | "rhythm";
+  emoji:      string;
+  name:       string;
+  accent:     string;
+  accentSoft: string;
+  img?:       string;   // 배경 이미지 URL(추후 주입). 없으면 accent 그라데 폴백.
+  items?:     string[];
+  desc?:      string;
+};
+
+const CARDS: CardDef[] = [
+  {
+    key:        "cafe",
+    emoji:      "☕",
+    name:       "카페 알바",
+    accent:     "#f0c987",
+    accentSoft: "#fbe6c9",
+    img:        "",   // 예: "/img/daily-cafe.webp"
+    items:      ["카운터 (주문 받기)", "음료 제조대", "싱크대 (설거지)"],
+  },
+  {
+    key:        "practice",
+    emoji:      "🎧",
+    name:       "연습실 알바",
+    accent:     "#c9a6e6",
+    accentSoft: "#ede0fa",
+    img:        "",   // 예: "/img/daily-practice.webp"
+    items:      ["청소", "재고 정리", "장비 세팅"],
+  },
+  {
+    key:        "rhythm",
+    emoji:      "🎵",
+    name:       "연습 (리듬게임)",
+    accent:     "#8fd0e6",
+    accentSoft: "#d6f0fa",
+    img:        "",   // 예: "/img/daily-rhythm.webp"
+    desc:       "노트에 맞춰 박자를 치고, 선택한 스탯을 크게 올립니다.",
+  },
+];
 
 export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -122,59 +165,21 @@ export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
         </div>
       ) : (
         <div className={styles.grid}>
-          {/* 카페알바 (실기능) */}
-          <button
-            className={styles.actionCard}
-            style={{ ["--card-border" as string]: "#f0c987" }}
-            onClick={handleCafeClick}
-          >
-            <span className={styles.actionEmoji}>☕</span>
-            <span className={styles.actionName}>카페 알바</span>
-            <span className={styles.actionDesc}>
-              주문 받기 · 음료 제조 · 설거지 중 하나를 골라 플레이합니다.
-            </span>
-            {isLoggedIn && remaining !== null ? (
-              <span className={styles.remainLine}>
-                오늘 남은 횟수 {remaining}회
-              </span>
-            ) : null}
-          </button>
-
-          {/* 연습실알바 (실기능, 세션 L) */}
-          <button
-            className={styles.actionCard}
-            style={{ ["--card-border" as string]: "#c9a6e6" }}
-            onClick={handlePracticeClick}
-          >
-            <span className={styles.actionEmoji}>🎧</span>
-            <span className={styles.actionName}>연습실 알바</span>
-            <span className={styles.actionDesc}>
-              청소 · 재고 정리 · 장비 세팅 중 하나를 골라 플레이합니다.
-            </span>
-            {isLoggedIn && remaining !== null ? (
-              <span className={styles.remainLine}>
-                오늘 남은 횟수 {remaining}회
-              </span>
-            ) : null}
-          </button>
-
-          {/* 리듬게임 (실기능, 세션 M) */}
-          <button
-            className={styles.actionCard}
-            style={{ ["--card-border" as string]: "#8fd0e6" }}
-            onClick={handleRhythmClick}
-          >
-            <span className={styles.actionEmoji}>🎵</span>
-            <span className={styles.actionName}>연습 (리듬게임)</span>
-            <span className={styles.actionDesc}>
-              노트에 맞춰 박자를 치고, 선택한 스탯을 크게 올립니다.
-            </span>
-            {isLoggedIn && remaining !== null ? (
-              <span className={styles.remainLine}>
-                오늘 남은 횟수 {remaining}회
-              </span>
-            ) : null}
-          </button>
+          {CARDS.map((card) => (
+            <FlipCard
+              key={card.key}
+              card={card}
+              isLoggedIn={isLoggedIn}
+              remaining={remaining}
+              onStart={
+                card.key === "cafe"
+                  ? handleCafeClick
+                  : card.key === "practice"
+                  ? handlePracticeClick
+                  : handleRhythmClick
+              }
+            />
+          ))}
         </div>
       )}
 
@@ -207,6 +212,76 @@ export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
         onOpenLogin={onOpenLogin}
         isLoggedIn={isLoggedIn}
       />
+    </div>
+  );
+}
+
+/* ── flip 카드 ──────────────────────────────────────────────
+ * hover·focus 로 뒤집힘(CSS). 뒷면 "시작하기" → onStart(기존 핸들러).
+ * 세부 선택은 기존 미니게임 오버레이 홈에서 이뤄지므로 여기선 진입만. */
+function FlipCard({
+  card,
+  isLoggedIn,
+  remaining,
+  onStart,
+}: {
+  card:       CardDef;
+  isLoggedIn: boolean;
+  remaining:  number | null;
+  onStart:    () => void;
+}) {
+  return (
+    <div
+      className={styles.flipContainer}
+      style={
+        {
+          ["--accent" as string]: card.accent,
+          ["--accent-soft" as string]: card.accentSoft,
+          ["--card-img" as string]: card.img ? `url("${card.img}")` : "none",
+        } as CSSProperties
+      }
+      tabIndex={0}
+      role="button"
+      aria-label={`${card.name} 시작`}
+    >
+      <div className={styles.flipInner}>
+        {/* 앞면: 이미지 배경 + 하단 유리패널 */}
+        <div className={`${styles.face} ${styles.front}`}>
+          <div className={styles.frontGlass}>
+            <span className={styles.frontEmoji}>{card.emoji}</span>
+            <span className={styles.frontName}>{card.name}</span>
+            {card.items ? (
+              <ul className={styles.frontList}>
+                {card.items.map((it) => (
+                  <li key={it}>{it}</li>
+                ))}
+              </ul>
+            ) : (
+              <span className={styles.frontDesc}>{card.desc}</span>
+            )}
+            <span className={styles.flipHint}>▸ 올려서 뒤집기</span>
+          </div>
+        </div>
+
+        {/* 뒷면: 이미지 배경 + 중앙 유리패널 */}
+        <div className={`${styles.face} ${styles.back}`}>
+          <div className={styles.backGlass}>
+            <span className={styles.backEmoji}>{card.emoji}</span>
+            <span className={styles.backName}>{card.name}</span>
+            <button type="button" className={styles.startBtn} onClick={onStart}>
+              시작하기
+            </button>
+            {isLoggedIn && remaining !== null ? (
+              <span className={styles.backRemain}>남은 {remaining}회</span>
+            ) : null}
+            {card.items ? (
+              <span className={styles.backHint}>
+                시작하면 세부 활동을 골라요.
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

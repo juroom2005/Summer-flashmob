@@ -27,7 +27,7 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(4, 137px);
-  gap: 20px 18px;
+  gap: 20px 20px;
   justify-content: center;
 }
 .slot {
@@ -151,12 +151,11 @@
   margin-top: 44px;
 }
 .fieldRow {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);   
+  display: flex;
   border-bottom: 1px solid rgba(0, 0, 0, 0.55);
 }
 .field {
-  grid-column: span 1;                     
+  flex: 1 1 0;
   min-width: 0;
   padding: 12px 4px 8px;
   border-right: 1px solid rgba(0, 0, 0, 0.55);
@@ -169,7 +168,7 @@
   border-right: none;
 }
 .fieldWide {
-  grid-column: span 2;                   
+  flex: 2 1 0;
 }
 .fieldLabel {
   font-size: 12px;
@@ -351,4 +350,53 @@
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 999px;
   padding: 2px 8px;
+}
+
+/* ── 네임태그 테마색 편집 (MemberEditCard) ──────────────── */
+.editThemeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.themeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.themeColorPicker {
+  width: 42px;
+  height: 34px;
+  padding: 0;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.themeResetBtn {
+  padding: 7px 14px;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  font-size: 12.5px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.themePreview {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 2px;
+}
+
+/* 네임태그 성/이름 입력 줄 */
+.tagInputRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tagInputRow > * {
+  flex: 1 1 140px;
 }

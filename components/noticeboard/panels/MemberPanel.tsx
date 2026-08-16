@@ -22,6 +22,7 @@
 import { useState, useCallback, useEffect } from "react";
 import styles from "./MemberPanel.module.css";
 import MemberEditCard from "./MemberEditCard";
+import NameTag from "../member/NameTag";
 import ModalPortal from "./ModalPortal";
 import { useCurrentUser } from "@/components/shared/useCurrentUser";
 import { listGmUsers, type GmUserRow } from "@/lib/gm-user-helpers";
@@ -49,6 +50,9 @@ export type MemberProfile = {
   personality: string;
   etc: string;
   photoUrl?: string;
+  themeColor?: string;
+  tagLast: string;
+  tagFirst: string;
 };
 
 const FIELD_ROWS: {
@@ -253,6 +257,9 @@ export default function MemberPanel() {
       listMemberProfiles(),
       getMyMemberProfile(),
     ]);
+    // [임시 디버그] 편집버튼 진단용 — 확인 후 제거
+    console.log("[MemberPanel debug] getMyMemberProfile 결과:", JSON.stringify(mine));
+    console.log("[MemberPanel debug] 목록 id들:", list.map((p) => p.id));
     setProfiles(list);
     setMyProfileId(mine?.id ?? null);
     setLoading(false);
@@ -264,8 +271,14 @@ export default function MemberPanel() {
 
   /* 편집 권한: GM 이거나, 그 프로필이 본인 것. */
   const canEditProfile = useCallback(
-    (p: MemberProfile) =>
-      isGm || (myProfileId !== null && p.id === myProfileId),
+    (p: MemberProfile) => {
+      const result = isGm || (myProfileId !== null && p.id === myProfileId);
+      // [임시 디버그] 편집버튼 진단용 — 확인 후 제거
+      console.log("[MemberPanel debug] canEditProfile:", JSON.stringify({
+        profileId: p.id, myProfileId, isGm, result,
+      }));
+      return result;
+    },
     [isGm, myProfileId],
   );
 
@@ -380,7 +393,14 @@ export default function MemberPanel() {
               className={styles.slot}
               onClick={() => openDetail(p)}
               aria-label={`${p.name || "프로필"} 카드`}
-            />
+            >
+              <NameTag
+                lastName={p.tagLast}
+                firstName={p.tagFirst}
+                color={p.themeColor}
+                width={137}
+              />
+            </button>
           ))}
         </div>
       ) : (

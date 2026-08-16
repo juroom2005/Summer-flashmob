@@ -47,6 +47,23 @@
   src: url('/fonts/PretendardJP-Bold.woff2') format('woff2');
 }
 
+/* 네임태그(멤버 프로필) 전용 폰트 */
+@font-face {
+  font-family: 'Impact Nametag';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Impact.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Hey November';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/HeyNovember.otf') format('opentype');
+}
+
 * {
   cursor: url('/cursors/heart.ani'), url('/cursors/heart.webp') 0 0, auto;
 }

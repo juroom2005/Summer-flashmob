@@ -18,15 +18,25 @@
 import { useState, useCallback } from "react";
 import styles from "./MemberPanel.module.css";
 import ImageCropField from "./ImageCropField";
+import NameTag from "../member/NameTag";
 import ModalPortal from "./ModalPortal";
 import type { MemberProfile } from "./MemberPanel";
 import type { MemberProfileInput } from "@/lib/member-helpers";
 
 /* 편집 대상 텍스트 필드 정의. 읽기 카드의 FIELD_ROWS 와 라벨·배치 동일.
  * multiline: personality/etc 는 여러 줄. */
+/** 텍스트 입력으로 다루는 필드만(photoUrl·themeColor 제외). */
 type TextFieldKey =
-  | "name" | "dateOfBirth" | "age" | "grade" | "height"
-  | "rhythm" | "stamina" | "performance" | "personality" | "etc";
+  | "name"
+  | "dateOfBirth"
+  | "age"
+  | "grade"
+  | "height"
+  | "rhythm"
+  | "stamina"
+  | "performance"
+  | "personality"
+  | "etc";
 
 const EDIT_ROWS: {
   label: string;
@@ -66,6 +76,9 @@ type FormState = {
   personality: string;
   etc: string;
   photoUrl: string | null; // null = 없음/삭제
+  themeColor: string | null; // null = 기본색, hex = 지정
+  tagLast: string;
+  tagFirst: string;
 };
 
 function initialForm(profile: MemberProfile | null): FormState {
@@ -81,6 +94,9 @@ function initialForm(profile: MemberProfile | null): FormState {
     personality: profile?.personality ?? "",
     etc: profile?.etc ?? "",
     photoUrl: profile?.photoUrl ?? null,
+    themeColor: profile?.themeColor ?? null,
+    tagLast: profile?.tagLast ?? "",
+    tagFirst: profile?.tagFirst ?? "",
   };
 }
 
@@ -99,6 +115,9 @@ function formToInput(f: FormState): MemberProfileInput {
     personality: f.personality,
     etc: f.etc,
     photoUrl: f.photoUrl,
+    themeColor: f.themeColor,
+    tagLast: f.tagLast,
+    tagFirst: f.tagFirst,
   };
 }
 
@@ -131,15 +150,8 @@ export default function MemberEditCard({
   const [form, setForm] = useState<FormState>(() => initialForm(profile));
   const [cropError, setCropError] = useState<string | null>(null);
 
-    const setField = useCallback(
-    (key: TextFieldKey, value: string) => {
-      setForm((prev) => ({ ...prev, [key]: value }));
-    },
-    []
-  );
-
-  const setPhoto = useCallback((url: string | null) => {
-    setForm((prev) => ({ ...prev, photoUrl: url }));
+  const setField = useCallback((key: keyof FormState, value: string | null) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const handleSave = useCallback(() => {
@@ -177,10 +189,65 @@ export default function MemberEditCard({
           <div className={styles.editPhotoBlock}>
             <ImageCropField
               value={form.photoUrl}
-              onChange={setPhoto}
-              onError={setCropError}
+              onChange={(url) => setField("photoUrl", url)}
+              onError={(m) => setCropError(m)}
             />
             {cropError ? <p className={styles.editError}>{cropError}</p> : null}
+          </div>
+
+          {/* 네임태그 입력 + 실시간 미리보기 */}
+          <div className={styles.editThemeBlock}>
+            <span className={styles.fieldLabel}>네임태그</span>
+            <div className={styles.tagInputRow}>
+              <input
+                type="text"
+                className={styles.editInput}
+                value={form.tagLast}
+                placeholder="상단 성 (영문, 예: CHISE)"
+                onChange={(e) => setField("tagLast", e.target.value)}
+              />
+              <input
+                type="text"
+                className={styles.editInput}
+                value={form.tagFirst}
+                placeholder="가운데 이름 (영문, 예: Haruyuki)"
+                onChange={(e) => setField("tagFirst", e.target.value)}
+              />
+            </div>
+            <div className={styles.themeRow}>
+              <input
+                type="color"
+                className={styles.themeColorPicker}
+                value={form.themeColor ?? "#3f88f9"}
+                onChange={(e) => setField("themeColor", e.target.value)}
+                aria-label="네임태그 테마색 선택"
+              />
+              <input
+                type="text"
+                className={styles.editInput}
+                value={form.themeColor ?? ""}
+                placeholder="#3f88f9"
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  setField("themeColor", v === "" ? null : v);
+                }}
+              />
+              <button
+                type="button"
+                className={styles.themeResetBtn}
+                onClick={() => setField("themeColor", null)}
+              >
+                기본색
+              </button>
+            </div>
+            <div className={styles.themePreview}>
+              <NameTag
+                lastName={form.tagLast}
+                firstName={form.tagFirst}
+                color={form.themeColor ?? undefined}
+                width={137}
+              />
+            </div>
           </div>
 
           {/* 필드 표 (읽기 카드와 동일 구조, 값 자리에 입력) */}

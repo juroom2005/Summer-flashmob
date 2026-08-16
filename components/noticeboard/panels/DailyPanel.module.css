@@ -1,7 +1,12 @@
 /* components/noticeboard/panels/DailyPanel.module.css
  *
- * 일일 행동 패널 스타일.
- * 지금(J1)은 카페알바 진입 카드 하나. 연습실알바·리듬게임은 후속에서 추가.
+ * 일일 행동 패널 — flip-card + 글래스모피즘(2026-08).
+ * 카드 3장(카페/연습실/리듬) 한 줄 배치, hover·focus 로 Y축 3D flip.
+ *   앞·뒷면 모두 이미지 배경 위에 반투명 유리패널(블러+흰빛 투과).
+ *   이미지는 --card-img 변수로 주입(없으면 accent 그라데이션 폴백).
+ * 카드별 색: --accent / --accent-soft 인라인 주입.
+ *
+ * 이미지 최적 사이즈: 360×480(2x, 3:4 세로형). WebP/JPG 권장.
  */
 
 .wrap {
@@ -14,19 +19,18 @@
   display: flex;
   align-items: baseline;
   gap: 12px;
+  flex-wrap: wrap;
 }
-
 .title {
   font-family: var(--font-jua, "Jua"), sans-serif;
   font-size: 24px;
-  color: #0d6fa8;
+  color: var(--color-text-strong, #1a335e);
 }
-
 .subtitle {
   font-family: "Gaegu", cursive;
   font-weight: 700;
   font-size: 15px;
-  color: #2ea3dd;
+  color: var(--color-text-dim, #7fb3d4);
 }
 
 /* ── 점검 중 안내 ─────────────────────────────────── */
@@ -40,13 +44,11 @@
   padding: 20px 22px;
   max-width: 540px;
 }
-
 .maintenanceTitle {
   font-family: var(--font-jua, "Jua"), sans-serif;
   font-size: 18px;
   color: #a5701c;
 }
-
 .maintenanceBody {
   font-family: "Gowun Dodum", sans-serif;
   font-size: 14px;
@@ -54,71 +56,197 @@
   line-height: 1.5;
 }
 
-/* ── 행동 카드 그리드 ─────────────────────────────── */
+/* ── flip 카드 그리드 (한 줄 3개) ──────────────────── */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 14px;
-  max-width: 640px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.actionCard {
+.flipContainer {
+  --accent: #f0c987;
+  --accent-soft: #fbe6c9;
+  --card-img: none;             /* 이미지 주입 시 url(...) 로 override */
+  width: 190Px;
+  height: 400px;
+  perspective: 1100px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.flipInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.flipContainer:hover .flipInner,
+.flipContainer:focus-visible .flipInner {
+  transform: rotateY(180deg);
+}
+
+/* 앞·뒤 공통 면 — 이미지 배경 + accent 폴백 */
+.face {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  background: #fff;
-  border: 2.5px solid var(--card-border, #ecc987);
-  border-radius: 18px;
-  padding: 18px 18px 16px;
-  cursor: pointer;
-  text-align: left;
-  transition: transform 0.16s, box-shadow 0.16s;
-}
-.actionCard:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 24px rgba(120, 90, 30, 0.2);
+  border: 2.5px solid var(--accent);
+  /* 먼저 쓴 레이어가 위: 이미지(있으면) → 그라데 폴백.
+     --card-img 가 none 이면 그라데만 보인다. */
+  background-image:
+    var(--card-img),
+    linear-gradient(155deg, var(--accent-soft), var(--accent));
+  background-size: cover, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  background-color: var(--accent-soft);
 }
 
-.actionEmoji {
-  font-size: 34px;
+/* ── 앞면 ── */
+.front {
+  transform: rotateY(0deg);
+  z-index: 2;
+  justify-content: flex-end;   /* 유리패널을 하단에 */
+}
+
+/* 하단 유리패널(글래스모피즘) */
+.frontGlass {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 12px 13px 13px;
+  background: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(8px) saturate(1.2);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.frontEmoji {
+  font-size: 26px;
   line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
 }
-
-.actionName {
+.frontName {
   font-family: var(--font-jua, "Jua"), sans-serif;
-  font-size: 18px;
-  color: #7a5518;
+  font-size: 15px;
+  color: #1a335e;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
-
-.actionDesc {
+.frontList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.frontList li {
   font-family: "Gowun Dodum", sans-serif;
-  font-size: 12.5px;
-  color: #9a7c4a;
-  line-height: 1.45;
-}
-
-.remainLine {
-  margin-top: 2px;
-  font-family: var(--font-jua, "Jua"), sans-serif;
-  font-size: 13px;
-  color: #b08028;
-}
-
-/* 준비 중 (연습실·리듬게임 자리표시) */
-.actionCardSoon {
-  cursor: default;
-  opacity: 0.6;
-}
-.actionCardSoon:hover {
-  transform: none;
-  box-shadow: none;
-}
-.soonTag {
-  font-family: var(--font-jua, "Jua"), sans-serif;
   font-size: 11px;
-  color: #9a7c4a;
-  background: #f2ead8;
+  color: #2a3f5e;
+  padding-left: 11px;
+  position: relative;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+.frontList li::before {
+  content: "·";
+  position: absolute;
+  left: 3px;
+  color: #1a335e;
+  font-weight: bold;
+}
+.frontDesc {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 11px;
+  color: #2a3f5e;
+  line-height: 1.45;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+.flipHint {
+  font-family: "Gaegu", cursive;
+  font-weight: 700;
+  font-size: 10.5px;
+  color: #3a5578;
+  text-align: center;
+}
+
+/* ── 뒷면 ── */
+.back {
+  transform: rotateY(180deg);
+  z-index: 1;
+  align-items: center;
+  justify-content: center;
+}
+/* 뒷면 중앙 유리패널 */
+.backGlass {
+  position: relative;
+  z-index: 1;
+  width: 82%;
+  padding: 18px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(20, 50, 90, 0.18);
+}
+.backEmoji {
+  font-size: 30px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+}
+.backName {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 14px;
+  color: #1a335e;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+.startBtn {
+  padding: 9px 22px;
+  border: 0;
   border-radius: 999px;
-  padding: 2px 9px;
+  background: var(--color-primary, #3f88f9);
+  color: #fff;
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 4px 0 var(--color-primary-shadow, rgba(63, 136, 249, 0.2));
+  transition: transform 0.12s;
+}
+.startBtn:hover {
+  transform: translateY(-1px);
+}
+.startBtn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--color-primary-shadow, rgba(63, 136, 249, 0.2));
+}
+.backRemain {
+  font-family: var(--font-jua, "Jua"), sans-serif;
+  font-size: 12px;
+  color: #1a335e;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+.backHint {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 10px;
+  color: #2a3f5e;
+  text-align: center;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 }

@@ -45,7 +45,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import NavRail, { type Tab } from "./NavRail";
 
-// ── SVG 원본 크기 (조정 금지, 비율 계산 기준) ──────────────
 const FRAME_SVG_W = 976;
 const FRAME_SVG_H = 850;
 const COVER_SVG_W = 968;
@@ -53,41 +52,26 @@ const COVER_SVG_H = 729;
 const PAPER_SVG_W = 915;
 const PAPER_SVG_H = 720;
 
-// ── 프레임 배치 (여기를 조정) ──────────────────────────────
-//   시안 기준 초기값. 스테이지(1366×768) 안에서 중앙~상단.
-//   폴더 프레임 폭을 스테이지의 약 780px 로 축소해 넣음(비율 유지).
+
 const FRAME_LEFT = 365;
 const FRAME_TOP  = 60;
 const FRAME_W    = 780;
 
-// 프레임 렌더 스케일 (원본 → 렌더)
+
 const K = FRAME_W / FRAME_SVG_W;
 const FRAME_H = FRAME_SVG_H * K;
 
-// ── 내지/덮개의 프레임 내부 상대 위치 (원본 SVG 좌표) ──────
+
 const PAPER_OFFSET_X = 30;
 const PAPER_OFFSET_Y = 90;
-//   덮개(968)
-const COVER_OFFSET_X = 4;
+const COVER_OFFSET_X = 4.3;
 const COVER_OFFSET_Y = 112;
 
-// ── 북마크(NavRail) 프레임 내부 상대 위치 ──────────────────
-//   탭은 프레임보다 앞(위)으로 나오고, 오른쪽 일부가 내지 뒤로 들어간다.
-//   내지 왼쪽 경계는 상대 x = PAPER_OFFSET_X*K ≈ 24. 탭 오른쪽 끝이 이 값을
-//   넘어야 내지에 물린다. 탭 폭 132 기준 아래 RAIL_LEFT 면 오른쪽 끝 ≈ 44
-//   → 내지에 약 20px 물리고 라벨은 온전히 보인다.
-//   음수 = 프레임 왼쪽 경계보다 바깥. 값을 키우면(덜 음수) 내지에 더 깊이 물림.
-//   ※ 화면 보며 미세조정: 내지에 덜 물리면 덜 음수로, 라벨이 잘리면 더 음수로.
+
 const RAIL_LEFT = -88;
 const RAIL_TOP  = 80;
 
-// ── (참고) 콘텐츠 슬롯 영역은 아래 컴포넌트 본문에서 board/내지 각각 잡는다.
-//   예전엔 세로를 덮개 기준으로 고정해 board 진입 시 세로 점프를 막았으나,
-//   이제 board 진입은 페이드 전환(NoticeBoard runTransition)이라 점프가 안 보임.
-//   대신 세로를 고정하면 내지 탭에서 스크롤 영역이 내지보다 커져 콘텐츠가
-//   프레임 밖으로 흘러넘치는 문제가 있어, 각 탭 실제 영역으로 잡는다.
 
-// ── SVG (data-uri 인라인) ──────────────────────────────────
 const FRAME_SVG =
   `data:image/svg+xml;utf8,` +
   encodeURIComponent(
@@ -100,8 +84,7 @@ const COVER_SVG =
     `<svg width="968" height="729" viewBox="0 0 968 729" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20.5 56.3668H651.388C658.568 56.3668 665.197 52.5177 668.757 46.2819L689.134 10.5848C692.694 4.34905 699.323 0.5 706.504 0.5H947.5C958.546 0.5 967.5 9.45432 967.5 20.5L967.5 708.5C967.5 719.546 958.546 728.5 947.5 728.5H20.5C9.45428 728.5 0.5 719.546 0.5 708.5V76.3668C0.5 65.3211 9.45428 56.3668 20.5 56.3668Z" fill="#CCE3F8" stroke="black"/></svg>`
   );
 
-// 내지는 단순 흰 rect → SVG 대신 div 로 그려도 되지만,
-// 원본과 동일하게 유지하기 위해 SVG 유지.
+
 const PAPER_SVG =
   `data:image/svg+xml;utf8,` +
   encodeURIComponent(
@@ -109,9 +92,9 @@ const PAPER_SVG =
   );
 
 type Props = {
-  isBoard: boolean;                 // true = 덮개(대시보드), false = 내지(문서)
-  activeTab: Tab;                   // 좌측 북마크 현재 탭
-  onTabClick: (key: Tab) => void;   // 탭 클릭 핸들러
+  isBoard: boolean;              
+  activeTab: Tab;                  
+  onTabClick: (key: Tab) => void;   
   children: ReactNode;
 };
 
@@ -121,7 +104,7 @@ export default function FolderStage({
   onTabClick,
   children,
 }: Props) {
-  // 프레임 컨테이너
+  
   const frameStyle: CSSProperties = {
     position: "absolute",
     left: FRAME_LEFT,
@@ -131,8 +114,7 @@ export default function FolderStage({
     zIndex: 10,
   };
 
-  // 프레임 배경 이미지 — 맨 뒤. z-index 없음(DOM 순서).
-  //   pointerEvents:none → 그 위(앞) 북마크 클릭에 영향 없음.
+
   const frameImgStyle: CSSProperties = {
     position: "absolute",
     inset: 0,
@@ -142,14 +124,14 @@ export default function FolderStage({
     pointerEvents: "none",
   };
 
-  // 북마크(NavRail) 래퍼 — 프레임 앞·내지 뒤. z-index 없음(DOM 순서).
+
   const railWrapStyle: CSSProperties = {
     position: "absolute",
     left: RAIL_LEFT,
     top: RAIL_TOP,
   };
 
-  // 내지 (흰 종이) — 북마크 앞(북마크 오른쪽을 덮음). z-index 없음(DOM 순서).
+
   const paperStyle: CSSProperties = {
     position: "absolute",
     left: PAPER_OFFSET_X * K,
@@ -161,7 +143,7 @@ export default function FolderStage({
     backgroundRepeat: "no-repeat",
   };
 
-  // 덮개 — board 일 때. z-index 없음.
+
   const coverStyle: CSSProperties = {
     position: "absolute",
     left: COVER_OFFSET_X * K,
@@ -181,7 +163,7 @@ export default function FolderStage({
   const contentStyle: CSSProperties = {
     position: "absolute",
     ...contentBox,
-    // board(커버)는 기존 패딩 유지, 문서 탭만 내부 여백을 키운다(좌우 +24).
+
     padding: isBoard ? "28px 34px" : "28px 58px",
     overflow: isBoard ? "hidden" : "auto",
 
@@ -190,21 +172,19 @@ export default function FolderStage({
 
   return (
     <div style={frameStyle}>
-      {/* 1) 프레임 (맨 뒤) — 폴더 겉면 */}
+
       <div style={frameImgStyle} />
 
-      {/* 2) 북마크 — 프레임 앞으로 나옴(탭이 프레임 위에 얹혀 보임) */}
       <div style={railWrapStyle}>
         <NavRail activeTab={activeTab} onTabClick={onTabClick} />
       </div>
 
-      {/* 3) 내지 — 북마크 앞(북마크 오른쪽을 덮음 = 북마크는 내지 뒤로) */}
       <div style={paperStyle} />
 
-      {/* 3') 덮개 — board 일 때만 내지 위에 얹음 */}
+
       {isBoard ? <div style={coverStyle} /> : null}
 
-      {/* 4) 콘텐츠 — 내지/덮개 위 (맨 앞) */}
+
       <div style={contentStyle}>{children}</div>
     </div>
   );
