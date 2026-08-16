@@ -24,10 +24,11 @@
  *   부모 슬롯은 scrollbar-gutter:stable 로 스크롤바 자리를 항상 확보하므로,
  *   좌우 대칭 -34 로 정확히 맞는다(스크롤바 폭을 따로 보정할 필요 없음). */
 .rootDetail {
-  margin-left: -34px;
-  margin-right: -34px;
+  --edge-inset: 3px;
+  margin-left: calc(-58px + var(--edge-inset));
+  margin-right: calc(-58px + var(--edge-inset));
+  width: calc(100% + 116px - var(--edge-inset) * 2);
 }
-
 /* 슬라이드 인 (상세·메뉴 전환 공통) */
 .slideIn,
 .menu {
@@ -216,6 +217,6 @@
 .label {
   margin: 0;
   font-family: 'KoPubWorld Dotum', var(--font-body);
-  font-size: 13px;
+  font-size: 11px;
   color: #1a335e;
 }

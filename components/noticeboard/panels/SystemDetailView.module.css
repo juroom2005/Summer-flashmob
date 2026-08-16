@@ -23,7 +23,7 @@
   border-radius: 999px;
   background: #fff;
   border: 1.5px solid rgba(0, 0, 0, 0.15);
-  font-size: 13px;
+  font-size: 11px;
   color: #1a335e;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -94,7 +94,7 @@
   -webkit-user-drag: none;
 }
 .folderLabel {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   color: #000;
 }
@@ -113,7 +113,7 @@
 }
 .calloutLine {
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.5;
   color: #000;
 }
@@ -123,7 +123,7 @@
   position: relative;
   padding: 30px 20px 40px;
   background: #ececec;
-  border-radius: 10px;
+  border-radius: 9px;   
 }
 .bottomInner {
   min-width: 0;
@@ -134,19 +134,19 @@
 }
 .para {
   margin: 0 0 14px;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.6;
   color: #000;
 }
 .grade {
   margin: 0 0 6px;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 13px;
   color: #000;
 }
 .note {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
   color: #3f88f9;
 }
 
@@ -163,13 +163,13 @@
 }
 .cardTitle {
   margin: 0 0 8px;
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 700;
   color: #000;
 }
 .cardDesc {
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.55;
   color: #222;
 }
@@ -179,7 +179,7 @@
   padding: 20px 0;
   text-align: center;
   color: #888;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 /* ── 불릿 리스트 (일지) ────────────────────────────────── */
@@ -192,7 +192,7 @@
   position: relative;
   padding-left: 16px;
   margin-bottom: 8px;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.55;
   color: #000;
 }
@@ -207,7 +207,7 @@
 /* ── 말풍선 (매점 Ex.) ─────────────────────────────────── */
 .exLabel {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: 12px;
   color: #000;
 }
 .bubbleWrap {
@@ -221,7 +221,7 @@
   color: #fff;
   border-radius: 16px;
   border-bottom-left-radius: 4px;
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -238,13 +238,13 @@
 }
 .groupTitle {
   margin: 0 0 2px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: #000;
 }
 .groupSub {
   margin: 0 0 14px;
-  font-size: 13px;
+  font-size: 11px;
   color: #3f88f9;
 }
 .iconRow {
@@ -265,7 +265,7 @@
   object-fit: contain;
 }
 .iconLabel {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: #000;
 }

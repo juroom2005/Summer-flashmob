@@ -181,7 +181,8 @@ export default function FolderStage({
   const contentStyle: CSSProperties = {
     position: "absolute",
     ...contentBox,
-    padding: "28px 34px",
+    // board(커버)는 기존 패딩 유지, 문서 탭만 내부 여백을 키운다(좌우 +24).
+    padding: isBoard ? "28px 34px" : "28px 58px",
     overflow: isBoard ? "hidden" : "auto",
 
     boxSizing: isBoard ? undefined : "border-box",

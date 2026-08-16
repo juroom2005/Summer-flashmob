@@ -79,7 +79,7 @@
 
 /* 작은 타이틀 변형 (2단용) */
 .titleSm {
-  font-size: 34px;
+  font-size: 29px;
   margin-bottom: 18px;
 }
 
@@ -96,7 +96,7 @@
 
 /* ── 본문 블록 ───────────────────────────────────────────── */
 .body {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.62;
 }
 .para {
@@ -137,7 +137,7 @@
   position: absolute;
   left: 3px;
   top: -0.02em;
-  font-size: 15px;
+  font-size: 13px;
   color: var(--nd-ink);
 }
 /* 파란 불릿 텍스트 (After 세부) — • 점 */
@@ -157,7 +157,7 @@
 .note {
   margin: 4px 0 16px;
   color: var(--nd-blue);
-  font-size: 15px;
+  font-size: 13px;
 }
 
 /* 파란 강조 박스 (After 하단, Comunity 없음) */
@@ -172,7 +172,7 @@
 .calloutLine {
   margin: 0;
   color: #fff;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.75;
 }
 

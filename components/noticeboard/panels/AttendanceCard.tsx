@@ -377,7 +377,7 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
             opacity: isChecking ? 0.75 : 1,
           }}
         >
-          {btnLabel}
+          <span style={{ transform: "translateY(1px)" }}>{btnLabel}</span>
         </button>
       </div>
 
@@ -547,6 +547,10 @@ const submitBtnStyle: CSSProperties = {
   borderRadius: 11,
   fontFamily: JUA,
   fontSize: 15,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  lineHeight: 1,
   transition: "background 120ms ease, opacity 120ms ease",
 };
 

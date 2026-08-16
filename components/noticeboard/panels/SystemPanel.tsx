@@ -62,7 +62,7 @@ export default function SystemPanel() {
   const row2 = FOLDERS.slice(3);
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} ${activeDetail ? styles.rootDetail : ""}`}>
       {activeDetail ? (
         <div key={activeDetail} className={styles.slideIn}>
           <SystemDetailView

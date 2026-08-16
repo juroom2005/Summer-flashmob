@@ -78,7 +78,7 @@
 
 /* ── 본문 ───────────────────────────────────────────────── */
 .body {
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.62;
 }
 .para {
@@ -96,7 +96,7 @@
   display: inline-block;
   padding: 3px 12px 4px;
   font-family: 'Stretch Pro', var(--font-heading);
-  font-size: 18px;
+  font-size: 15px;
   color: var(--w-ink);
   z-index: 0;
 }
@@ -145,7 +145,7 @@
   max-width: 78%;
   padding: 9px 15px;
   border-radius: 16px;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.4;
   word-break: break-word;
 }
@@ -175,7 +175,7 @@
   display: inline-block;
   padding: 2px 8px;
   font-family: 'Ongleaf Beomjun', var(--font-accent, cursive);
-  font-size: 22px;
+  font-size: 19px;
   color: var(--w-ink);
   z-index: 0;
   transform: rotate(-2deg);
