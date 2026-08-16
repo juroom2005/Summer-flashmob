@@ -521,7 +521,7 @@ const popupBackdropStyle: CSSProperties = {
 
 const popupCardStyle: CSSProperties = {
   position: "relative",
-  width: 420,
+  width: 560,
   maxWidth: "calc(100% - 40px)",
   maxHeight: "calc(100% - 80px)",
   overflowY: "auto",
