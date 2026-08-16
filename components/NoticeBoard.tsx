@@ -101,12 +101,21 @@ export default function NoticeBoard({
   // ── 뷰포트에 맞춰 스케일 계산 (window 크기 관찰) ────────
   const [scale, setScale] = useState(1);
   const [viewportW, setViewportW] = useState(0);
+  // 좁은 폭 안내 배너 닫힘 여부 (완전 차단이 아니라 안내만)
+  const [narrowNoticeDismissed, setNarrowNoticeDismissed] = useState(false);
   useLayoutEffect(() => {
     function recompute() {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       setViewportW(vw);
-      const s = Math.min(vw / STAGE_W, vh / STAGE_H);
+      // 좁은 폭(모바일): 폭에만 꽉 맞추고 세로는 스크롤로 흐르게 한다.
+      //   → 글자가 최대한 크게 유지되고, 스테이지가 세로로 길어짐.
+      // 넓은 폭(데스크톱/태블릿 가로): 기존대로 폭·높이 중 작은 쪽에 맞춰
+      //   화면 안에 통째로 들어오게 한다.
+      const s =
+        vw < MIN_SUPPORTED_VIEWPORT_W
+          ? vw / STAGE_W
+          : Math.min(vw / STAGE_W, vh / STAGE_H);
       setScale(s > 0 ? s : 1);
     }
     recompute();
@@ -157,7 +166,33 @@ export default function NoticeBoard({
   const stageRenderedW = STAGE_W * scale;
   const stageRenderedH = STAGE_H * scale;
 
-  const tooNarrow = viewportW > 0 && viewportW < MIN_SUPPORTED_VIEWPORT_W;
+  // 좁은 폭: 완전 차단하지 않고 폭에 맞춰 세로 스크롤로 사용 가능하게 한다.
+  const isNarrow = viewportW > 0 && viewportW < MIN_SUPPORTED_VIEWPORT_W;
+  // 안내 배너 노출 = 좁은 폭 && 아직 닫지 않음.
+  const showNarrowNotice = isNarrow && !narrowNoticeDismissed;
+
+  // 셸: 좁은 폭에서는 세로 스크롤 허용(스테이지가 세로로 길어짐).
+  const shellStyle: CSSProperties = isNarrow
+    ? { ...viewportShellStyle, overflowY: "auto", overflowX: "hidden" }
+    : viewportShellStyle;
+
+  // 스테이지 바깥 래퍼: 넓은 폭=중앙 고정, 좁은 폭=상단 정렬 문서 흐름.
+  const stageWrapStyle: CSSProperties = isNarrow
+    ? {
+        position: "relative",
+        width: stageRenderedW,
+        height: stageRenderedH,
+        margin: "0 auto",
+        overflow: "hidden",
+      }
+    : {
+        position: "absolute",
+        left: `calc(50% - ${stageRenderedW / 2}px)`,
+        top: `calc(50% - ${stageRenderedH / 2}px)`,
+        width: stageRenderedW,
+        height: stageRenderedH,
+        overflow: "hidden",
+      };
 
   const isBoard = tab === "board";
 
@@ -165,11 +200,12 @@ export default function NoticeBoard({
   // 렌더
   // ═══════════════════════════════════════════════════════════
   return (
-    <div style={viewportShellStyle}>
+    <div style={shellStyle}>
       {/* ── 뷰포트 배경 ── */}
       <div
         style={{
-          position: "absolute",
+          // 좁은 폭에선 셸이 스크롤되므로 배경은 fixed 로 뷰포트에 고정.
+          position: isNarrow ? "fixed" : "absolute",
           inset: 0,
           backgroundImage: backgroundSrc ? `url(${backgroundSrc})` : undefined,
           backgroundSize: "cover",        
@@ -179,34 +215,26 @@ export default function NoticeBoard({
         }}
       />
 
-      {/* 좁은 뷰포트 안내 (임시, 모바일 전용 UI 나오기 전까지) */}
-      {tooNarrow ? (
-        <div style={narrowNoticeStyle}>
-          <div style={narrowNoticeCardStyle}>
-            <div style={{ fontFamily: JUA, fontSize: 22, color: "#fff", marginBottom: 8 }}>
-              PC 접속 권장
-            </div>
-            <div style={{ fontFamily: BODY, fontSize: 14, color: "rgba(255,255,255,.85)", lineHeight: 1.6 }}>
-              현재 화면이 좁아 UI가 정상적으로 보이지 않을 수 있습니다.
-              PC나 태블릿 가로 모드에서 접속 바랍니다.
-              <br />
-              모바일 전용 화면은 추후 지원 예정입니다.
-            </div>
+      {/* 좁은 뷰포트 안내 배너 (완전 차단 아님 — 닫고 그대로 사용 가능) */}
+      {showNarrowNotice ? (
+        <div style={narrowNoticeStyle} role="status">
+          <div style={{ fontFamily: BODY, fontSize: 13, lineHeight: 1.5, flex: 1 }}>
+            모바일은 임시 지원 중입니다. 가로 모드나 PC에서 더 편하게 이용할 수 있어요.
           </div>
+          <button
+            type="button"
+            onClick={() => setNarrowNoticeDismissed(true)}
+            aria-label="안내 닫기"
+            style={narrowNoticeCloseStyle}
+          >
+            ✕
+          </button>
         </div>
       ) : null}
 
-      {/* ── 스테이지 (1366×768 원본 → scale 적용, 중앙 정렬) ── */}
-      <div
-        style={{
-          position: "absolute",
-          left: `calc(50% - ${stageRenderedW / 2}px)`,
-          top:  `calc(50% - ${stageRenderedH / 2}px)`,
-          width: stageRenderedW,
-          height: stageRenderedH,
-          overflow: "hidden",
-        }}
-      >
+      {/* ── 스테이지 (1366×768 원본 → scale 적용) ──
+          넓은 폭: 화면 중앙 고정 · 좁은 폭: 상단 정렬 + 세로 스크롤 ── */}
+      <div style={stageWrapStyle}>
         <div
           style={{
             position: "absolute",
@@ -354,27 +382,37 @@ export default function NoticeBoard({
 const viewportShellStyle: CSSProperties = {
   position: "fixed",
   inset: 0,
-  overflow: "hidden",
+  // overflow(shorthand) 대신 축별로 분리 — 좁은 폭에서 overflowY 만 덮어쓸 때
+  // shorthand/non-shorthand 혼용 경고를 피하기 위함.
+  overflowX: "hidden",
+  overflowY: "hidden",
 };
 
-// 모바일 안내 오버레이 (스테이지 위, 뷰포트 전체 덮음)
+// 모바일 안내 배너 (상단 고정 · 화면을 덮지 않음 · 닫기 가능)
 const narrowNoticeStyle: CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  background: "rgba(20, 40, 90, 0.72)",
+  position: "fixed",
+  top: 0,
+  left: 0,
+  right: 0,
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
+  gap: 8,
+  padding: "8px 12px",
+  background: "rgba(20, 64, 111, 0.94)",
+  color: "rgba(255,255,255,.92)",
+  boxShadow: "0 2px 10px rgba(0,0,0,.25)",
   zIndex: 1000,
-  padding: 24,
 };
 
-const narrowNoticeCardStyle: CSSProperties = {
-  maxWidth: 360,
-  padding: "24px 28px",
-  background: "rgba(20, 64, 111, 0.92)",
-  border: "2px solid rgba(255,255,255,.35)",
-  borderRadius: 16,
-  textAlign: "center",
-  boxShadow: "0 20px 40px rgba(0,0,0,.35)",
+const narrowNoticeCloseStyle: CSSProperties = {
+  flex: "0 0 auto",
+  width: 28,
+  height: 28,
+  border: "none",
+  borderRadius: 8,
+  background: "rgba(255,255,255,.15)",
+  color: "#fff",
+  fontSize: 14,
+  cursor: "pointer",
+  lineHeight: 1,
 };

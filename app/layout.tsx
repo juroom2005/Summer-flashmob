@@ -1,5 +1,5 @@
 // app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   Jua,
   Gaegu,
@@ -69,6 +69,13 @@ const hachiMaruPop = Hachi_Maru_Pop({
 export const metadata: Metadata = {
   title: "Summer FlashMob",
   description: "춤추지 않으면 손해인 날도 있다.",
+};
+
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
