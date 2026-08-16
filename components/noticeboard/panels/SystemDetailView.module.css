@@ -137,6 +137,9 @@
   font-size: 13px;
   line-height: 1.6;
   color: #000;
+  /* 데이터의 \n 을 줄바꿈으로 표시. pre-line 은 줄바꿈만 살리고
+     여분 공백/들여쓰기는 접어준다(데이터에 "\n " 처럼 공백이 붙어 있어도 깔끔). */
+  white-space: pre-line;
 }
 .grade {
   margin: 0 0 6px;

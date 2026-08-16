@@ -32,6 +32,8 @@ import styles from "./Header.module.css";
 // ── 외부 링크 ──────────────────────────────────────────────
 const X_URL = "https://x.com/AYA_mushiba";
 const MASTODON_URL = "https://project-summer-mas.cloud/explore";
+// 마스토돈 링크 임시 비활성화(준비 중). 되살리려면 true 로.
+const MASTODON_ENABLED = false;
 
 type Props = {
   onLoginClick:   () => void;
@@ -131,12 +133,16 @@ export default function Header({ onLoginClick, onMyPanelClick }: Props) {
       </a>
 
       <a
-        href={MASTODON_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={styles.iconButton}
-        title="마스토돈"
-        aria-label="마스토돈"
+        href={MASTODON_ENABLED ? MASTODON_URL : undefined}
+        target={MASTODON_ENABLED ? "_blank" : undefined}
+        rel={MASTODON_ENABLED ? "noopener noreferrer" : undefined}
+        className={`${styles.iconButton} ${
+          MASTODON_ENABLED ? "" : styles.iconButtonDisabled
+        }`}
+        title={MASTODON_ENABLED ? "마스토돈" : "마스토돈 (준비 중)"}
+        aria-label={MASTODON_ENABLED ? "마스토돈" : "마스토돈 (준비 중)"}
+        aria-disabled={MASTODON_ENABLED ? undefined : true}
+        onClick={MASTODON_ENABLED ? undefined : (e) => e.preventDefault()}
       >
         <svg width="26" height="26" viewBox="0 0 37 37" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M29.5566 20.957C29.1953 22.6914 26.4492 24.5703 23.4141 25.0039C17.1992 25.7988 13.5137 24.5703 13.5137 24.5703C13.7305 25.5098 13.2246 28.4727 18.5723 28.3281C20.8125 28.3281 22.7637 27.8223 22.7637 27.8223L22.9082 29.7734C19.2227 31.5078 15.1758 30.8574 12.791 30.207C7.94922 28.9785 7.08203 23.7031 6.9375 18.5V14.2363C6.9375 8.88868 10.4785 7.29884 10.4785 7.29884C14.0918 5.56446 23.4863 5.70899 26.5215 7.29884C26.5215 7.29884 30.0625 8.88868 30.0625 14.2363C30.0625 14.2363 30.1348 18.2109 29.5566 20.957Z" fill="black"/>

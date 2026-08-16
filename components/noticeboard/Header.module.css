@@ -141,3 +141,13 @@
 .iconButton:active {
   transform: translateY(1px);
 }
+
+/* 준비 중(임시 비활성) — 흐리게 + 클릭 불가 + hover 반응 없음 */
+.iconButtonDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.iconButtonDisabled:hover,
+.iconButtonDisabled:active {
+  transform: none;
+}

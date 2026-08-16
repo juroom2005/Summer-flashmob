@@ -263,7 +263,7 @@ function FlipCard({
               시작하기
             </button>
             {isLoggedIn && remaining !== null ? (
-              <span className={styles.backRemain}>남은 {remaining}회</span>
+              <span className={styles.backRemain}>잔여 {remaining}회</span>
             ) : null}
           </div>
         </div>

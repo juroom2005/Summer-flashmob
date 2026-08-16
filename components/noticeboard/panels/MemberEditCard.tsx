@@ -15,13 +15,17 @@
 // 저장 경로는 이 컴포넌트가 정하지 않는다. onSave(input) 콜백으로 편집값만
 //   넘기고, 실제 GM RPC / 본인 UPDATE 선택은 부모(MemberPanel)가 한다.
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import styles from "./MemberPanel.module.css";
 import ImageCropField from "./ImageCropField";
 import NameTag from "../member/NameTag";
 import ModalPortal from "./ModalPortal";
 import type { MemberProfile } from "./MemberPanel";
-import type { MemberProfileInput } from "@/lib/member-helpers";
+import {
+  getMemberStatLevels,
+  type MemberStatLevels,
+  type MemberProfileInput,
+} from "@/lib/member-helpers";
 
 /* 편집 대상 텍스트 필드 정의. 읽기 카드의 FIELD_ROWS 와 라벨·배치 동일.
  * multiline: personality/etc 는 여러 줄. */
@@ -103,15 +107,14 @@ function initialForm(profile: MemberProfile | null): FormState {
 /* FormState → helper 로 넘길 input.
  * photoUrl 은 그대로(문자열/null) 전달 → helper 가 3-상태 처리. */
 function formToInput(f: FormState): MemberProfileInput {
+  // rhythm/stamina/performance 는 편집 불가(실제 레벨은 미니게임으로 상승) →
+  // 저장 payload 에서 제외한다. MemberProfileInput 은 Partial 이라 생략 가능.
   return {
     name: f.name,
     dateOfBirth: f.dateOfBirth,
     age: f.age,
     grade: f.grade,
     height: f.height,
-    rhythm: f.rhythm,
-    stamina: f.stamina,
-    performance: f.performance,
     personality: f.personality,
     etc: f.etc,
     photoUrl: f.photoUrl,
@@ -149,6 +152,30 @@ export default function MemberEditCard({
 }: Props) {
   const [form, setForm] = useState<FormState>(() => initialForm(profile));
   const [cropError, setCropError] = useState<string | null>(null);
+
+  // 스탯(rhythm/stamina/performance)은 편집 불가 — 미니게임으로 오르는 실제
+  // 레벨을 회색 읽기전용으로 표시만 한다. (profiles 에서 조회, 실패 시 "-")
+  const [levels, setLevels] = useState<MemberStatLevels | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setLevels(null);
+    if (profile?.ownerId) {
+      getMemberStatLevels(profile.ownerId).then((lv) => {
+        if (alive) setLevels(lv);
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [profile?.ownerId]);
+
+  // 스탯 키 → 표시할 실제 레벨 문자열.
+  const statLevelText = (key: keyof FormState): string | null => {
+    if (key === "rhythm") return levels ? String(levels.rhythm) : "-";
+    if (key === "stamina") return levels ? String(levels.physical) : "-";
+    if (key === "performance") return levels ? String(levels.expression) : "-";
+    return null; // 스탯 아님
+  };
 
   const setField = useCallback((key: keyof FormState, value: string | null) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -260,7 +287,11 @@ export default function MemberEditCard({
                     className={`${styles.field} ${f.wide ? styles.fieldWide : ""}`}
                   >
                     <span className={styles.fieldLabel}>{f.label}</span>
-                    {f.multiline ? (
+                    {statLevelText(f.key) !== null ? (
+                      <span className={styles.editStatReadonly}>
+                        {statLevelText(f.key)}
+                      </span>
+                    ) : f.multiline ? (
                       <textarea
                         className={styles.editTextarea}
                         value={form[f.key] as string}

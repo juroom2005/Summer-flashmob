@@ -230,6 +230,15 @@
   line-height: 1.5;
 }
 
+/* 편집 불가 스탯(rhythm/stamina/performance) — 실제 레벨을 회색으로 표시만.
+   입력 필드가 아니라 값 표시라 테두리·배경 없이 흐린 텍스트로 둔다. */
+.editStatReadonly {
+  font-size: 13px;
+  color: #9aa4ad;
+  padding: 4px 6px;
+  min-height: 16px;
+}
+
 .editError {
   margin: 10px 0 0;
   font-size: 12.5px;

@@ -120,6 +120,7 @@
   padding-left: 20px;
   margin-bottom: 6px;
   line-height: 1.6;
+  font-size: 12px;
 }
 /* ■ 검정 사각 */
 .liSquare::before {
@@ -180,4 +181,5 @@
 .tail {
   margin-top: 18px;
   white-space: pre-line;
+  font-size: 12px;
 }

@@ -185,37 +185,65 @@
 .volumeRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px 2px;
+  gap: 7px;
+  padding: 8px 14px 2px;
 }
 .volumeBtn {
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   border: 0;
-  border-radius: 8px;
-  background: #eef4fb;
+  background: transparent;
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.12s;
+  opacity: 0.75;
+  transition: opacity 0.12s;
 }
 .volumeBtn:hover:not(:disabled) {
-  background: #dde9f7;
+  opacity: 1;
 }
 .volumeBtn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 .volumeSlider {
   flex: 1 1 auto;
   min-width: 0;
-  height: 4px;
+  height: 3px;
   cursor: pointer;
-  accent-color: #0a84e0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #d3e2f2;
+  border-radius: 999px;
+  outline: none;
+}
+/* thumb — 작은 파란 원, 테두리·그림자 없이 미니멀 */
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #0a84e0;
+  border: none;
+  cursor: pointer;
+}
+.volumeSlider::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #0a84e0;
+  border: none;
+  cursor: pointer;
+}
+.volumeSlider::-moz-range-track {
+  height: 3px;
+  background: #d3e2f2;
+  border-radius: 999px;
 }
 .volumeSlider:disabled {
   opacity: 0.5;
