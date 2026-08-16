@@ -345,7 +345,7 @@ export default function CafeDishGame({ onExit, onPlayed }: Props) {
             {spots.map((spot) => (
               <div
                 key={spot.id}
-                className={styles.spot}
+                className={`${styles.spot} ${styles[`spotV${spot.variant}`]}`}
                 style={{
                   left:    `${spot.x}%`,
                   top:     `${spot.y}%`,

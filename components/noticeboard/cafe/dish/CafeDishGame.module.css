@@ -300,18 +300,20 @@
   position: absolute;
   aspect-ratio: 1 / 1;
   transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%,
-    color-mix(in srgb, var(--stain) 82%, black 18%) 0%,
-    var(--stain) 50%,
-    color-mix(in srgb, var(--stain) 85%, black 15%) 100%);
-  box-shadow: inset 1px 2px 3px rgba(0, 0, 0, 0.3);
+  /* png 얼룩 이미지 — variant 별 배경은 .spotV0~2 에서 지정.
+     원형 클립·그림자·blur 제거해 png 본래 붓자국 모양을 살린다. */
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
   transition:
     opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
-  filter: blur(0.5px);
 }
+
+.spotV0 { background-image: url(/dish/dirt_1.png); }
+.spotV1 { background-image: url(/dish/dirt_2.png); }
+.spotV2 { background-image: url(/dish/dirt_3.png); }
 
 /* ═══════════════════════════════════════════════════════════
  * 스펀지 커서

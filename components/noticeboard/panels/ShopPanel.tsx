@@ -37,6 +37,7 @@ import { useCurrentUser } from "../../shared/useCurrentUser";
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
 const BODY  = "'Gowun Dodum', sans-serif";
+const HEADING = "'Stretch Pro', 'Jua', sans-serif";
 
 /* flashmob 토큰(하드코딩 별칭 — 인라인 스타일이라 var 대신 값 사용) */
 const C = {
@@ -74,11 +75,11 @@ function readEmoji(metadata: Record<string, unknown> | null | undefined): string
 
 /* 카테고리 정의(표시 순서·라벨). */
 type CatKey = "marker" | "sticker" | "camera" | "other";
-const CATEGORIES: { key: CatKey; label: string; emoji: string }[] = [
-  { key: "marker",  label: "사인펜", emoji: "✏️" },
-  { key: "sticker", label: "스티커", emoji: "🌟" },
-  { key: "camera",  label: "사진기", emoji: "📷" },
-  { key: "other",   label: "이벤트", emoji: "🎁" },
+const CATEGORIES: { key: CatKey; label: string }[] = [
+  { key: "marker",  label: "사인펜" },
+  { key: "sticker", label: "스티커" },
+  { key: "camera",  label: "사진기" },
+  { key: "other",   label: "이벤트" },
 ];
 
 export default function ShopPanel() {
@@ -177,7 +178,7 @@ export default function ShopPanel() {
     <div>
       {/* ── 헤더 ── */}
       <div style={headerRowStyle}>
-        <span style={titleStyle}>🛒 매점</span>
+        <span style={titleStyle}>STORE</span>
         <span style={balancePillStyle}>
           <span style={balanceLabelStyle}>보유</span>
           <strong style={balanceNumStyle}>{mobil.toLocaleString()}</strong>
@@ -205,7 +206,6 @@ export default function ShopPanel() {
                     ...(active ? tabActiveStyle : null),
                   }}
                 >
-                  <span style={{ fontSize: 15 }}>{c.emoji}</span>
                   {c.label}
                   <span
                     style={{
@@ -428,9 +428,13 @@ const headerRowStyle: CSSProperties = {
 };
 
 const titleStyle: CSSProperties = {
-  fontFamily: JUA,
-  fontSize:   26,
-  color:      C.textStrong,
+  fontFamily:    HEADING,
+  fontSize:      44,
+  fontWeight:    400,
+  lineHeight:    1,
+  letterSpacing: 0.5,
+  textTransform: "capitalize",
+  color:         "#000",
 };
 
 /* 모빌 잔액 — 노랑 pill 배지(매점 정체성) */

@@ -33,6 +33,7 @@ import styles from "./DailyPanel.module.css";
 import CafeMinigameOverlay from "../cafe/CafeMinigameOverlay";
 import PracticeMinigameOverlay from "../practice/PracticeMinigameOverlay";
 import RhythmMinigameOverlay from "../rhythm/RhythmMinigameOverlay";
+import ModalPortal from "./ModalPortal";
 import { getTodayMinigameStatus } from "@/lib/minigame-helpers";
 
 type Props = {
@@ -48,6 +49,7 @@ type CardDef = {
   name:       string;
   accent:     string;
   accentSoft: string;
+  backColor:  string;   // 뒷면 단색 배경 (카드 메인색)
   img?:       string;   // 배경 이미지 URL(추후 주입). 없으면 accent 그라데 폴백.
   items?:     string[];
   desc?:      string;
@@ -60,7 +62,8 @@ const CARDS: CardDef[] = [
     name:       "카페 알바",
     accent:     "#f0c987",
     accentSoft: "#fbe6c9",
-    img:        "",   // 예: "/img/daily-cafe.webp"
+    backColor:  "#f8b62d",           // 카페 주황
+    img:        "/daily/cafe.svg",
     items:      ["카운터 (주문 받기)", "음료 제조대", "싱크대 (설거지)"],
   },
   {
@@ -69,7 +72,8 @@ const CARDS: CardDef[] = [
     name:       "연습실 알바",
     accent:     "#c9a6e6",
     accentSoft: "#ede0fa",
-    img:        "",   // 예: "/img/daily-practice.webp"
+    backColor:  "#c62ff7",           // 연습실 보라 (SPACEMOB)
+    img:        "/daily/practice.svg",
     items:      ["청소", "재고 정리", "장비 세팅"],
   },
   {
@@ -78,7 +82,8 @@ const CARDS: CardDef[] = [
     name:       "연습 (리듬게임)",
     accent:     "#8fd0e6",
     accentSoft: "#d6f0fa",
-    img:        "",   // 예: "/img/daily-rhythm.webp"
+    backColor:  "#3f88f9",           // 연습 파랑 (FLASHMOB)
+    img:        "/daily/rhythm.svg",
     desc:       "노트에 맞춰 박자를 치고, 선택한 스탯을 크게 올립니다.",
   },
 ];
@@ -149,9 +154,9 @@ export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
   return (
     <div className={styles.wrap}>
       <div className={styles.headerRow}>
-        <span className={styles.title}>✅ 일일 행동</span>
-        <span className={styles.subtitle}>
-          하루 {dailyLimit}회. 자정(KST)에 초기화됩니다.
+        <h2 className={styles.heading}>DAILY</h2>
+        <span className={styles.limitNote}>
+          하루 {dailyLimit}회 · 자정 초기화
         </span>
       </div>
 
@@ -183,35 +188,37 @@ export default function DailyPanel({ isLoggedIn, onOpenLogin }: Props) {
         </div>
       )}
 
-      <CafeMinigameOverlay
-        open={cafeOpen}
-        onClose={() => {
-          setCafeOpen(false);
-          refreshStatus();
-        }}
-        onOpenLogin={onOpenLogin}
-        isLoggedIn={isLoggedIn}
-      />
+      <ModalPortal>
+        <CafeMinigameOverlay
+          open={cafeOpen}
+          onClose={() => {
+            setCafeOpen(false);
+            refreshStatus();
+          }}
+          onOpenLogin={onOpenLogin}
+          isLoggedIn={isLoggedIn}
+        />
 
-      <PracticeMinigameOverlay
-        open={practiceOpen}
-        onClose={() => {
-          setPracticeOpen(false);
-          refreshStatus();
-        }}
-        onOpenLogin={onOpenLogin}
-        isLoggedIn={isLoggedIn}
-      />
+        <PracticeMinigameOverlay
+          open={practiceOpen}
+          onClose={() => {
+            setPracticeOpen(false);
+            refreshStatus();
+          }}
+          onOpenLogin={onOpenLogin}
+          isLoggedIn={isLoggedIn}
+        />
 
-      <RhythmMinigameOverlay
-        open={rhythmOpen}
-        onClose={() => {
-          setRhythmOpen(false);
-          refreshStatus();
-        }}
-        onOpenLogin={onOpenLogin}
-        isLoggedIn={isLoggedIn}
-      />
+        <RhythmMinigameOverlay
+          open={rhythmOpen}
+          onClose={() => {
+            setRhythmOpen(false);
+            refreshStatus();
+          }}
+          onOpenLogin={onOpenLogin}
+          isLoggedIn={isLoggedIn}
+        />
+      </ModalPortal>
     </div>
   );
 }
@@ -238,6 +245,7 @@ function FlipCard({
           ["--accent" as string]: card.accent,
           ["--accent-soft" as string]: card.accentSoft,
           ["--card-img" as string]: card.img ? `url("${card.img}")` : "none",
+          ["--card-back" as string]: card.backColor,
         } as CSSProperties
       }
       tabIndex={0}
@@ -245,39 +253,17 @@ function FlipCard({
       aria-label={`${card.name} 시작`}
     >
       <div className={styles.flipInner}>
-        {/* 앞면: 이미지 배경 + 하단 유리패널 */}
-        <div className={`${styles.face} ${styles.front}`}>
-          <div className={styles.frontGlass}>
-            <span className={styles.frontEmoji}>{card.emoji}</span>
-            <span className={styles.frontName}>{card.name}</span>
-            {card.items ? (
-              <ul className={styles.frontList}>
-                {card.items.map((it) => (
-                  <li key={it}>{it}</li>
-                ))}
-              </ul>
-            ) : (
-              <span className={styles.frontDesc}>{card.desc}</span>
-            )}
-            <span className={styles.flipHint}>▸ 올려서 뒤집기</span>
-          </div>
-        </div>
+        {/* 앞면: SVG 카드 디자인 전체. hover 만으로 뒤집히므로 별도 힌트 없음. */}
+        <div className={`${styles.face} ${styles.front}`}></div>
 
-        {/* 뒷면: 이미지 배경 + 중앙 유리패널 */}
+        {/* 뒷면: 카드 메인색 단색 배경 + 시작 버튼 */}
         <div className={`${styles.face} ${styles.back}`}>
           <div className={styles.backGlass}>
-            <span className={styles.backEmoji}>{card.emoji}</span>
-            <span className={styles.backName}>{card.name}</span>
             <button type="button" className={styles.startBtn} onClick={onStart}>
               시작하기
             </button>
             {isLoggedIn && remaining !== null ? (
               <span className={styles.backRemain}>남은 {remaining}회</span>
-            ) : null}
-            {card.items ? (
-              <span className={styles.backHint}>
-                시작하면 세부 활동을 골라요.
-              </span>
             ) : null}
           </div>
         </div>

@@ -18,19 +18,24 @@
 .headerRow {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 14px;
   flex-wrap: wrap;
+  margin-bottom: 20px;
 }
-.title {
-  font-family: var(--font-jua, "Jua"), sans-serif;
-  font-size: 24px;
-  color: var(--color-text-strong, #1a335e);
+.heading {
+  margin: 0;
+  font-family: 'Stretch Pro', var(--font-heading);
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+  text-transform: capitalize;
+  color: #000;
 }
-.subtitle {
-  font-family: "Gaegu", cursive;
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--color-text-dim, #7fb3d4);
+.limitNote {
+  font-family: "Gowun Dodum", sans-serif;
+  font-size: 13px;
+  color: #7fb3d4;
 }
 
 /* ── 점검 중 안내 ─────────────────────────────────── */
@@ -115,70 +120,6 @@
 .front {
   transform: rotateY(0deg);
   z-index: 2;
-  justify-content: flex-end;   /* 유리패널을 하단에 */
-}
-
-/* 하단 유리패널(글래스모피즘) */
-.frontGlass {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  padding: 12px 13px 13px;
-  background: rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(8px) saturate(1.2);
-  -webkit-backdrop-filter: blur(8px) saturate(1.2);
-  border-top: 1px solid rgba(255, 255, 255, 0.5);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.frontEmoji {
-  font-size: 26px;
-  line-height: 1;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
-}
-.frontName {
-  font-family: var(--font-jua, "Jua"), sans-serif;
-  font-size: 15px;
-  color: #1a335e;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
-}
-.frontList {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.frontList li {
-  font-family: "Gowun Dodum", sans-serif;
-  font-size: 11px;
-  color: #2a3f5e;
-  padding-left: 11px;
-  position: relative;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
-}
-.frontList li::before {
-  content: "·";
-  position: absolute;
-  left: 3px;
-  color: #1a335e;
-  font-weight: bold;
-}
-.frontDesc {
-  font-family: "Gowun Dodum", sans-serif;
-  font-size: 11px;
-  color: #2a3f5e;
-  line-height: 1.45;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
-}
-.flipHint {
-  font-family: "Gaegu", cursive;
-  font-weight: 700;
-  font-size: 10.5px;
-  color: #3a5578;
-  text-align: center;
 }
 
 /* ── 뒷면 ── */
@@ -187,6 +128,9 @@
   z-index: 1;
   align-items: center;
   justify-content: center;
+  /* 앞면 공통 배경(SVG)을 덮고 카드 메인색 단색으로 */
+  background-image: none;
+  background-color: var(--card-back);
 }
 /* 뒷면 중앙 유리패널 */
 .backGlass {
@@ -195,38 +139,26 @@
   width: 82%;
   padding: 18px 14px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.32);
-  backdrop-filter: blur(10px) saturate(1.2);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(0, 0, 0, 0.14);
+  backdrop-filter: blur(6px) saturate(1.1);
+  -webkit-backdrop-filter: blur(6px) saturate(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
   box-shadow: 0 8px 24px rgba(20, 50, 90, 0.18);
 }
-.backEmoji {
-  font-size: 30px;
-  line-height: 1;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
-}
-.backName {
-  font-family: var(--font-jua, "Jua"), sans-serif;
-  font-size: 14px;
-  color: #1a335e;
-  text-align: center;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
-}
 .startBtn {
   padding: 9px 22px;
   border: 0;
   border-radius: 999px;
-  background: var(--color-primary, #3f88f9);
-  color: #fff;
+  background: #fff;
+  color: var(--card-back);
   font-family: var(--font-jua, "Jua"), sans-serif;
   font-size: 14px;
   cursor: pointer;
-  box-shadow: 0 4px 0 var(--color-primary-shadow, rgba(63, 136, 249, 0.2));
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.18);
   transition: transform 0.12s;
 }
 .startBtn:hover {
@@ -234,19 +166,11 @@
 }
 .startBtn:active {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--color-primary-shadow, rgba(63, 136, 249, 0.2));
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
 }
 .backRemain {
   font-family: var(--font-jua, "Jua"), sans-serif;
   font-size: 12px;
-  color: #1a335e;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
-}
-.backHint {
-  font-family: "Gowun Dodum", sans-serif;
-  font-size: 10px;
-  color: #2a3f5e;
-  text-align: center;
-  line-height: 1.4;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }

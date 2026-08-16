@@ -29,11 +29,12 @@ export const TIME_BONUS_CEIL_SEC  = 8;  // 이상이면 만점
 export const SPOT_MIN_COUNT     = 5;
 export const SPOT_MAX_COUNT     = 7;
 export const SPOT_MIN_SIZE_PCT  = 9;    // 접시 대비 지름 % (약 40px @ 접시 400px)
-export const SPOT_MAX_SIZE_PCT  = 15;   // 약 60px @ 접시 400px
+export const SPOT_MAX_SIZE_PCT  = 25;   // 약 60px @ 접시 400px
 export const SPOT_SAFE_RADIUS   = 40;   // 접시 중심 대비 최대 배치 반경 % (가장자리 여유)
 export const SPOT_MIN_DISTANCE  = 16;   // 스팟간 최소 중심 거리 % (겹침 방지)
 export const SCRUB_DAMAGE       = 70;   // 재진입 시 청결도 증가량
 export const CLEAN_THRESHOLD    = 100;  // cleanliness 가 이 값 이상이면 완전 소멸
+export const DIRT_VARIANT_COUNT = 3;    // 얼룩 png 종류 수 (public/dish/dirt_1~3.png)
 
 /* ═══════════════════════════════════════════════════════════
  * 타입
@@ -45,6 +46,7 @@ export type DishSpot = {
   y:           number; // 접시 대비 %
   size:        number; // 접시 대비 지름 %
   cleanliness: number; // 0(완전 더러움) ~ 100(완전 깨끗)
+  variant:     number; // 얼룩 png 종류 (0~2), dirt_1~3.png 중 랜덤
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -84,6 +86,7 @@ export function generateSpots(): DishSpot[] {
           x, y,
           size:        SPOT_MIN_SIZE_PCT + Math.random() * (SPOT_MAX_SIZE_PCT - SPOT_MIN_SIZE_PCT),
           cleanliness: 0,
+          variant:     Math.floor(Math.random() * DIRT_VARIANT_COUNT),
         });
         placed = true;
       }
@@ -99,6 +102,7 @@ export function generateSpots(): DishSpot[] {
         y:           50 + Math.sin(angle) * radius,
         size:        SPOT_MIN_SIZE_PCT + Math.random() * (SPOT_MAX_SIZE_PCT - SPOT_MIN_SIZE_PCT),
         cleanliness: 0,
+        variant:     Math.floor(Math.random() * DIRT_VARIANT_COUNT),
       });
     }
   }

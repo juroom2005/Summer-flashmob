@@ -151,11 +151,12 @@
   margin-top: 44px;
 }
 .fieldRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   border-bottom: 1px solid rgba(0, 0, 0, 0.55);
 }
 .field {
-  flex: 1 1 0;
+  grid-column: span 1;
   min-width: 0;
   padding: 12px 4px 8px;
   border-right: 1px solid rgba(0, 0, 0, 0.55);
@@ -168,7 +169,7 @@
   border-right: none;
 }
 .fieldWide {
-  flex: 2 1 0;
+  grid-column: span 2;
 }
 .fieldLabel {
   font-size: 12px;
