@@ -26,7 +26,7 @@
 /* ── 카드 격자 ─────────────────────────────────────────── */
 .grid {
   display: grid;
-  grid-template-columns: repeat(5, 137px);
+  grid-template-columns: repeat(4, 137px);
   gap: 20px 18px;
   justify-content: center;
 }
@@ -48,14 +48,14 @@
 
 /* ── 상세 오버레이 ─────────────────────────────────────── */
 .detailBackdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 24px;
   background: rgba(20, 40, 70, 0.28);
-  border-radius: 8px;
   animation: mp-fade 0.18s ease both;
 }
 @keyframes mp-fade {
@@ -66,6 +66,8 @@
 .detailCard {
   position: relative;
   width: min(640px, 92%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
   background: #fff;
   border: 1.5px solid rgba(0, 0, 0, 0.5);
   border-radius: 22px;
@@ -149,11 +151,12 @@
   margin-top: 44px;
 }
 .fieldRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);   
   border-bottom: 1px solid rgba(0, 0, 0, 0.55);
 }
 .field {
-  flex: 1 1 0;
+  grid-column: span 1;                     
   min-width: 0;
   padding: 12px 4px 8px;
   border-right: 1px solid rgba(0, 0, 0, 0.55);
@@ -166,7 +169,7 @@
   border-right: none;
 }
 .fieldWide {
-  flex: 2 1 0;
+  grid-column: span 2;                   
 }
 .fieldLabel {
   font-size: 12px;
@@ -184,4 +187,168 @@
 /* 마지막 두 행(personality/etc)은 아래로 넓게 */
 .fieldRow:last-child .field {
   min-height: 120px;
+}
+
+/* ── 편집 카드 전용 (MemberEditCard) ──────────────────────
+ * 읽기 상세(위 규칙)는 그대로 두고, 편집 모드에서만 쓰는 클래스.
+ * 값 표시(span.fieldValue) 자리에 input/textarea 를 얹는다. */
+
+.editOwnerLabel {
+  margin: 2px 0 14px;
+  font-size: 13px;
+  color: #3f88f9;
+  font-family: 'Roboto', var(--font-body), sans-serif;
+}
+
+.editPhotoBlock {
+  margin: 6px 0 10px;
+}
+
+/* 입력칸: 필드 셀 안에서 값처럼 보이되 편집 가능하게 최소 스타일. */
+.editInput,
+.editTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+  color: #000;
+  font-family: inherit;
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 5px;
+  padding: 4px 6px;
+  outline: none;
+  transition: border-color 0.12s, background 0.12s;
+}
+.editInput:focus,
+.editTextarea:focus {
+  border-color: #3f88f9;
+  background: #fff;
+}
+.editTextarea {
+  resize: vertical;
+  min-height: 54px;
+  line-height: 1.5;
+}
+
+.editError {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: #d64550;
+}
+
+/* 액션 바 */
+.editActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+.editActionsRight {
+  display: flex;
+  gap: 10px;
+}
+.editSaveBtn {
+  padding: 8px 20px;
+  border: 0;
+  border-radius: 8px;
+  background: #3f88f9;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+.editSaveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.editCancelBtn {
+  padding: 8px 18px;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  background: #fff;
+  color: #555;
+  font-size: 14px;
+  cursor: pointer;
+}
+.editDeleteBtn {
+  padding: 8px 16px;
+  border: 1.5px solid rgba(214, 69, 80, 0.4);
+  border-radius: 8px;
+  background: #fff;
+  color: #d64550;
+  font-size: 14px;
+  cursor: pointer;
+}
+.editDeleteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── GM 작성 바 / 유저 선택 (신규) ──────────────────────── */
+.gmBar {
+  display: flex;
+  justify-content: center;
+  margin: -12px 0 22px;
+}
+.gmCreateBtn {
+  padding: 8px 18px;
+  border: 1.5px solid #3f88f9;
+  border-radius: 999px;
+  background: #fff;
+  color: #3f88f9;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.gmCreateBtn:hover {
+  background: #3f88f9;
+  color: #fff;
+}
+
+.empty {
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 30px 0;
+}
+
+/* 유저 선택 목록 */
+.ownerList {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ownerItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  color: #000;
+  transition: border-color 0.12s, background 0.12s;
+}
+.ownerItem:hover {
+  border-color: #3f88f9;
+  background: #f0f5ff;
+}
+.ownerName {
+  font-weight: 500;
+}
+.ownerTag {
+  font-size: 11px;
+  color: #8a8a8a;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 999px;
+  padding: 2px 8px;
 }

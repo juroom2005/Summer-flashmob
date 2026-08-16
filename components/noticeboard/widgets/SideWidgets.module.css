@@ -174,3 +174,76 @@
   height: 100%;
   border: 0;
 }
+/* YT.Player 가 host div 안에 생성하는 iframe 을 컨테이너에 꽉 채움. */
+.ytFrame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+/* ── 플레이어 볼륨 컨트롤 (NowPlayingWidget) ─────────────── */
+.volumeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 2px;
+}
+.volumeBtn {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: #eef4fb;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s;
+}
+.volumeBtn:hover:not(:disabled) {
+  background: #dde9f7;
+}
+.volumeBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.volumeSlider {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #0a84e0;
+}
+.volumeSlider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.volumeValue {
+  flex: 0 0 auto;
+  width: 24px;
+  text-align: right;
+  font-family: var(--font-body, 'Gowun Dodum', sans-serif);
+  font-size: 11px;
+  color: #5a7a99;
+}
+
+/* ── 플레이어 헤더 라벨줄 + YouTube 출처 표시 ─────────────── */
+.playerLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+/* YouTube 출처 어트리뷰션(YouTube API 정책: 출처 명시).
+ * 빨강 톤으로 YouTube 인지 가능하게, 작게 표시. */
+.ytAttribution {
+  font-family: var(--font-body, 'Gowun Dodum', sans-serif);
+  font-size: 10px;
+  font-weight: 600;
+  color: #ff0000;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
