@@ -33,6 +33,8 @@ import {
   gmUpdateMemberProfile,
   gmDeleteMemberProfile,
   updateMyMemberProfile,
+  getMemberStatLevels,
+  type MemberStatLevels,
   type MemberProfileInput,
 } from "@/lib/member-helpers";
 
@@ -92,8 +94,34 @@ function MemberDetail({
   onEdit: () => void;
   onClose: () => void;
 }) {
-  const val = (key: keyof MemberProfile) =>
-    profile ? String(profile[key] ?? "") : "";
+  // 실제 스탯 레벨(exp 파생, 0~5) — owner 의 profiles 에서 조회.
+  // 실패/미조회 시 null → 기존 텍스트 값으로 폴백.
+  const [levels, setLevels] = useState<MemberStatLevels | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setLevels(null);
+    if (profile?.ownerId) {
+      getMemberStatLevels(profile.ownerId).then((lv) => {
+        if (alive) setLevels(lv);
+      });
+    }
+    return () => {
+      alive = false;
+    };
+  }, [profile?.ownerId]);
+
+  // 스탯 3칸(rhythm/stamina/performance)은 실제 레벨을 표시하고,
+  // 나머지 칸은 기존 텍스트 값을 그대로 표시.
+  //   RHYTHM → rhythm_level · STAMINA → physical_level · PERFORMANCE → expression_level
+  const val = (key: keyof MemberProfile) => {
+    if (levels) {
+      if (key === "rhythm") return String(levels.rhythm);
+      if (key === "stamina") return String(levels.physical);
+      if (key === "performance") return String(levels.expression);
+    }
+    return profile ? String(profile[key] ?? "") : "";
+  };
 
   return (
     <ModalPortal>

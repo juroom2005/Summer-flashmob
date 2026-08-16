@@ -304,3 +304,47 @@ export async function updateMyMemberProfile(
   }
   return { ok: true, profile: rowToProfile(data as unknown as MemberProfileRow) };
 }
+/* ═══════════════════════════════════════════════════════════
+ * 스탯 레벨 조회 (디테일뷰 연동)
+ * ───────────────────────────────────────────────────────────
+ * member_profiles.owner_id 는 profiles.id 를 참조한다.
+ * 그 owner 의 실제 스탯 레벨(exp 에서 DB GENERATED 로 파생, 0~5)을 읽어
+ * 디테일뷰의 RHYTHM/STAMINA/PERFORMANCE 칸에 표시한다.
+ *   RHYTHM      → rhythm_level
+ *   STAMINA     → physical_level
+ *   PERFORMANCE → expression_level
+ * profiles_select_all RLS(전체 공개)라 타인 프로필도 조회 가능.
+ * 실패 시 null → 프론트에서 기존 텍스트/빈값 폴백. */
+export type MemberStatLevels = {
+  rhythm: number;
+  physical: number;
+  expression: number;
+};
+
+export async function getMemberStatLevels(
+  ownerId: string
+): Promise<MemberStatLevels | null> {
+  if (!ownerId) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("rhythm_level, physical_level, expression_level")
+    .eq("id", ownerId)
+    .maybeSingle<{
+      rhythm_level: number;
+      physical_level: number;
+      expression_level: number;
+    }>();
+
+  if (error) {
+    console.error("[getMemberStatLevels] failed:", error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  return {
+    rhythm:     Number(data.rhythm_level ?? 0),
+    physical:   Number(data.physical_level ?? 0),
+    expression: Number(data.expression_level ?? 0),
+  };
+}
