@@ -3,10 +3,14 @@
 // SYSTEM 상세 페이지 (스탯/뱃지/일일활동/일지/매점)
 // ═══════════════════════════════════════════════════════════════════
 //
-// 상단(흰): SYSTEM 헤딩 + 왼쪽 반투명 메뉴(현재 제외) + 큰 폴더 + 라벨
-//   일일활동엔 상단 우측에 안내 박스(callout)가 붙는다.
-// 하단(회색): 좌측 바코드 + 설명 블록 + (스탯 카드 / 뱃지·일일 아이콘)
-// 좌상단: 뒤로가기.
+// 리뉴얼(2026-08):
+//   · 상단(흰): SYSTEM 헤딩 + 폴더 5개 가로 나열(스탯/뱃지/일일활동/일지/매점).
+//     각 폴더 클릭 → 해당 상세로 이동. 현재 보는 항목은 강조(activeId).
+//     (기존의 왼쪽 텍스트 메뉴 sideMenu 는 제거하고 폴더 5개로 대체.)
+//   · 일일활동 안내박스(callout)는 폴더줄 아래에 배치.
+//   · 하단(회색): 좌측 바코드 + 설명 블록 + (스탯 카드 / 뱃지·일일 아이콘).
+//     회색 배경은 내지(흰종이) 좌우 끝까지 꽉 차게(부모 contentStyle 패딩 상쇄).
+//   · 우상단: 뒤로가기.
 //
 // 블록/아이콘 종류는 systemDetails.ts 참고. 인라인 **볼드** 지원.
 // ═══════════════════════════════════════════════════════════════════
@@ -23,7 +27,6 @@ import {
 } from "./systemDetails";
 
 const FOLDER_SRC = "/svg/system-folder-open.svg";
-const BARCODE_SRC = "/svg/system-barcode.svg";
 const ICON_SRC: Record<IconKey, string> = {
   note: "/svg/sys-icon-note.svg",
   heart: "/svg/sys-icon-heart.svg",
@@ -93,8 +96,6 @@ export default function SystemDetailView({
   const detail = SYSTEM_DETAILS[activeId];
   if (!detail) return null;
 
-  const others = SYSTEM_ORDER.filter((id) => id !== activeId);
-
   // 상단 우측 안내 박스(callout) 분리 (일일활동)
   const callout = detail.blocks.find((b) => b.type === "callout");
   const bodyBlocks = detail.blocks.filter((b) => b.type !== "callout");
@@ -114,51 +115,55 @@ export default function SystemDetailView({
 
         <h2 className={styles.heading}>SYSTEM</h2>
 
-        <div className={styles.topBody}>
-          <ul className={styles.sideMenu}>
-            {others.map((id) => (
-              <li key={id}>
-                <button
-                  type="button"
-                  className={styles.sideItem}
-                  onClick={() => onNavigate(id)}
-                >
-                  {SYSTEM_DETAILS[id]?.navLabel ?? id}
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <div className={styles.folderWrap}>
-            <img
-              className={styles.folderImg}
-              src={FOLDER_SRC}
-              alt={`${detail.label} 폴더`}
-            />
-            <p className={styles.folderLabel}>{detail.label}</p>
-          </div>
-
-          {/* 안내 박스 (일일활동) */}
-          {callout && callout.type === "callout" ? (
-            <div
-              className={`${styles.callout} ${
-                callout.hand ? styles.calloutHand : ""
-              }`}
-            >
-              {callout.lines.map((ln, i) => (
-                <p key={i} className={styles.calloutLine}>
-                  {ln === "" ? "\u00A0" : ln}
-                </p>
-              ))}
-            </div>
-          ) : null}
+        {/* 폴더 5개 가로 나열 (현재 항목 강조, 클릭 시 이동) */}
+        <div className={styles.folderRow}>
+          {SYSTEM_ORDER.map((id) => {
+            const d = SYSTEM_DETAILS[id];
+            if (!d) return null;
+            const isActive = id === activeId;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`${styles.folderItem} ${
+                  isActive ? styles.folderItemActive : ""
+                }`}
+                onClick={() => {
+                  if (!isActive) onNavigate(id);
+                }}
+                aria-current={isActive ? "true" : undefined}
+                aria-label={`${d.navLabel} 상세`}
+              >
+                <img
+                  className={styles.folderImg}
+                  src={FOLDER_SRC}
+                  alt=""
+                  aria-hidden
+                />
+                <span className={styles.folderLabel}>{d.navLabel}</span>
+              </button>
+            );
+          })}
         </div>
+
+        {/* 안내 박스 (일일활동) — 폴더줄 아래 */}
+        {callout && callout.type === "callout" ? (
+          <div
+            className={`${styles.callout} ${
+              callout.hand ? styles.calloutHand : ""
+            }`}
+          >
+            {callout.lines.map((ln, i) => (
+              <p key={i} className={styles.calloutLine}>
+                {ln === "" ? "\u00A0" : ln}
+              </p>
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {/* 하단 (회색) */}
+      {/* 하단 (회색) — 내지 좌우 끝까지 꽉 차게 */}
       <div className={styles.bottom}>
-        <img className={styles.barcode} src={BARCODE_SRC} alt="" aria-hidden />
-
         <div className={styles.bottomInner}>
           <div className={styles.blocks}>
             {bodyBlocks.map((b, i) => (

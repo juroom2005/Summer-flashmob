@@ -3,7 +3,7 @@
  * SYSTEM 탭 폴더 5개. Uiverse(Cobp) Tailwind 폴더를 CSS 로 변환.
  *
  * 색 대응:
- *   amber-600 #d97706 (뒤판)  amber-500 #f59e0b · amber-400 #fbbf24 (앞면 그라데)
+ *   amber-600 #f4b573 (뒤판)  amber-500 #fbca7c · amber-400 #fddc93 (앞면 그라데)
  *   zinc-200 #e4e4e7 · zinc-300 #d4d4d8 · zinc-400 #a1a1aa (안쪽 종이)
  *
  * 원본 크기 w-60/h-40(240×160). 시안 폴더가 작아 스케일 축소(--fw/--fh).
@@ -14,6 +14,18 @@
   width: 100%;
   padding: 8px 0 40px;
   overflow: hidden; /* 슬라이드 진입 시 가로 넘침 숨김 */
+}
+
+/* 상세 화면에서만: 부모 콘텐츠 슬롯(FolderStage contentStyle, padding 28 34)의
+ * 좌우 패딩(34px)을 음수 마진으로 상쇄해 .root 폭·클리핑 경계를 슬롯 전체로 넓힌다.
+ * → 상세 하단 회색(.bottom)이 내지(흰종이) 좌우 끝까지 닿을 수 있게 됨.
+ *   상단 콘텐츠는 .top 에서 다시 좌우 패딩을 줘 원래 안쪽 정렬을 유지한다.
+ * ⚠ 34px 는 FolderStage contentStyle 의 가로 패딩과 일치해야 한다.
+ *   부모 슬롯은 scrollbar-gutter:stable 로 스크롤바 자리를 항상 확보하므로,
+ *   좌우 대칭 -34 로 정확히 맞는다(스크롤바 폭을 따로 보정할 필요 없음). */
+.rootDetail {
+  margin-left: -34px;
+  margin-right: -34px;
 }
 
 /* 슬라이드 인 (상세·메뉴 전환 공통) */
@@ -55,7 +67,7 @@
   flex-direction: column;
   align-items: center;
   gap: 36px;
-  margin-top: 50px;
+  margin-top: 80px;
 }
 .row {
   display: flex;
@@ -97,7 +109,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  background: #d97706; /* amber-600 */
+  background: #f4b573; /* amber-600 */
   border-radius: 12px;
   border-top-left-radius: 0; /* rounded-tl-none */
   transform-origin: top;
@@ -111,7 +123,7 @@
   left: 0;
   width: calc(var(--fw) * 0.33); /* 원본 80/240 비율 */
   height: 8px; /* h-4 축소 */
-  background: #d97706;
+  background: #f4b573;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
 }
@@ -123,7 +135,7 @@
   left: calc(var(--fw) * 0.33 - 3px);
   width: 8px;
   height: 8px;
-  background: #d97706;
+  background: #f4b573;
   clip-path: polygon(0 35%, 0% 100%, 50% 100%);
 }
 /* 호버 시 그림자 */
@@ -166,7 +178,7 @@
   left: 0;
   width: 100%;
   height: calc(var(--fh) - 2px); /* h-[156px] 비율 */
-  background: linear-gradient(to top, #f59e0b, #fbbf24); /* amber-500→400 */
+  background: linear-gradient(to top, #fbca7c, #fddc93); /* amber-500→400 */
   border-radius: 12px;
   border-top-right-radius: 0; /* rounded-tr-none */
   transform-origin: bottom;
@@ -180,7 +192,7 @@
   right: 0;
   width: calc(var(--fw) * 0.61); /* 원본 146/240 비율 */
   height: 8px;
-  background: #fbbf24;
+  background: #fddc93;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
 }
@@ -192,11 +204,11 @@
   right: calc(var(--fw) * 0.61 - 2px);
   width: 6px;
   height: 6px;
-  background: #fbbf24;
+  background: #fddc93;
   clip-path: polygon(100% 14%, 50% 100%, 100% 100%);
 }
 .file:hover .front {
-  box-shadow: inset 0 20px 40px #fbbf24, inset 0 -20px 40px #d97706;
+  box-shadow: inset 0 20px 40px #fddc93, inset 0 -20px 40px #f4b573;
   transform: rotateX(-46deg) translateY(1px);
 }
 

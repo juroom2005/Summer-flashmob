@@ -20,8 +20,8 @@ import PracticeLogWidget from "./PracticeLogWidget";
 import WeatherWidget from "./WeatherWidget";
 
 // ── 배치 (스테이지 절대좌표) ── 화면 보며 조정
-const WRAP_LEFT = 200;
-const WRAP_TOP  = 530;
+const WRAP_LEFT = 205;
+const WRAP_TOP  = 560;
 const WRAP_W    = 155;
 
 type Props = {

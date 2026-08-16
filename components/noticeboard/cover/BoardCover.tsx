@@ -56,13 +56,13 @@ export default function BoardCover({ onOpenLogin, onToast }: Props) {
 const noticeSlotStyle: CSSProperties = {
   position: "absolute",
   top: 20,
-  left: 30,      // 폴더 좌측에서 좀 더 안쪽으로
+  left: 23,      // 폴더 좌측에서 좀 더 안쪽으로
   width: 420,
 };
 
 const attendanceSlotStyle: CSSProperties = {
   position: "absolute",
   top: 280,
-  left: 30,      // 공지와 같은 좌측 정렬
+  left: 23,      // 공지와 같은 좌측 정렬
   width: 420,
 };

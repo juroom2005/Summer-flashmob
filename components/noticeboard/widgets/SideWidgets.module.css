@@ -14,7 +14,7 @@
   height: 58px;
   border: 3px solid #ffffff;
   border-radius: 18px;
-  background: var(--color-danger, #ff6f7f);
+  background: #FACC15;
   color: #ffffff;
   font-family: var(--font-heading, 'Jua', sans-serif);
   font-size: 22px;
@@ -118,12 +118,12 @@
 .player {
   width: 100%;
   border-radius: 16px;
-  background: #ffffff;                 /* 본문 흰 배경 */
+  background: #ffffff;               
   box-shadow: 0 6px 16px rgba(10, 60, 110, 0.28);
   text-align: center;
   color: #1a335e;
   overflow: hidden;
-  padding-bottom: 12px;                /* 유튜브 아래 여백 */
+  padding-bottom: 12px;               
 }
 
 /* 헤더: 곡 라벨 + 제목 (흰 배경, 깔끔) */
@@ -165,7 +165,7 @@
   background: #000;
   border-radius: 10px;
   overflow: hidden;
-  margin: 4px 14px 0;   /* 좌우 여백을 헤더와 맞춤 */
+  margin: 4px 14px 0;   
 }
 .ytFrame {
   position: absolute;

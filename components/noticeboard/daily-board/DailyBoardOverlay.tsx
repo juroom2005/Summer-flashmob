@@ -170,6 +170,27 @@ export default function DailyBoardOverlay({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  const CLOSE_MS = 220;
+  const [render, setRender] = useState(open);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setRender(true);
+      let r2 = 0;
+      const r1 = requestAnimationFrame(() => {
+        r2 = requestAnimationFrame(() => setShown(true));
+      });
+      return () => {
+        cancelAnimationFrame(r1);
+        cancelAnimationFrame(r2);
+      };
+    }
+
+    setShown(false);
+    const t = setTimeout(() => setRender(false), CLOSE_MS);
+    return () => clearTimeout(t);
+  }, [open]);
+
   // 전역 range CSS 1회 주입
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -668,15 +689,26 @@ export default function DailyBoardOverlay({
     { label: "PHOTO", k: "photo" as const, enabled: caps.canPhoto },
   ];
 
-  if (!open || !mounted) return null;
+  if (!render || !mounted) return null;
+
+  const dimAnim: CSSProperties = {
+    opacity: shown ? 1 : 0,
+    transition: "opacity 240ms ease",
+  };
+  const sheetAnim: CSSProperties = {
+    transform: shown ? "translateY(0)" : "translateY(40px)",
+    opacity: shown ? 1 : 0,
+    transition:
+      "transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease",
+    willChange: "transform, opacity",
+  };
 
   const overlay = (
-    <div style={dimStyle} onPointerDown={onClose}>
-      <div style={sheetStyle} onPointerDown={(e) => e.stopPropagation()}>
+    <div style={{ ...dimStyle, ...dimAnim }} onPointerDown={onClose}>
+      <div style={{ ...sheetStyle, ...sheetAnim }} onPointerDown={(e) => e.stopPropagation()}>
         {/* 닫기 */}
         <button onClick={onClose} style={closeStyle} aria-label="닫기">✕</button>
 
-        {/* 수첩 스프링 바인딩 */}
         <div style={springWrap}>
           {Array.from({ length: 22 }).map((_, i) => (
             <span key={i} style={springStyle} />

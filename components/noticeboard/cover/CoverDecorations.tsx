@@ -142,7 +142,7 @@ export default function CoverDecorations() {
 const ddayWrapStyle: CSSProperties = {
   position: "absolute",
   top: 30,
-  right: 10,
+  right: 13,
   width: 214,
   height: 124,
   zIndex:2,
@@ -172,7 +172,7 @@ const ddayTextStyle: CSSProperties = {
 const rabbitBadgeStyle: CSSProperties = {
   position: "absolute",
   top: 40,
-  right: 160,
+  right: 165,
   width: 140,
   height: 108,
   zIndex:1,
@@ -182,7 +182,7 @@ const rabbitBadgeStyle: CSSProperties = {
 const eventWrapStyle: CSSProperties = {
   position: "absolute",
   top: 230,
-  right: 20,
+  right: 16,
   width: 262,
   height: 130,
 };
@@ -264,7 +264,7 @@ const EVENT_TAPE_SVG = `<svg width="100%" height="100%" viewBox="0 0 261 62" fil
 const logoStyle: CSSProperties = {
   position: "absolute",
   top: 137,
-  right: 10,
+  right: 14,
   width: 300,     
   height: 141,     
   pointerEvents: "none",

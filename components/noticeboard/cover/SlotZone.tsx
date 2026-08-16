@@ -413,8 +413,8 @@ function RewardPopup({
 // ────────────────────────────────────────────────────────────────────
 const zoneStyle: CSSProperties = {
   position: "absolute",
-  top: 250,
-  right: 20,
+  top: 255,
+  right: 17,
   width: 330,
   height: 300,
   overflow: "hidden",
@@ -432,8 +432,8 @@ const matStackStyle: CSSProperties = {
 
 const slotWrapStyle: CSSProperties = {
   position: "absolute",
-  top: 110,
-  right: 3,
+  top: 120,
+  right: 2,
   transform: "rotate(8deg) scale(0.34)",
   transformOrigin: "top right",
   zIndex: 4,
