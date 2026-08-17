@@ -119,9 +119,13 @@ function MemberDetail({
   //   RHYTHM → rhythm_level · STAMINA → physical_level · PERFORMANCE → expression_level
   const val = (key: keyof MemberProfile) => {
     if (levels) {
+      // 스탯·회원정보(name/age/grade)는 profiles 에서 불러온 실제 값을 표시.
       if (key === "rhythm") return String(levels.rhythm);
       if (key === "stamina") return String(levels.physical);
       if (key === "performance") return String(levels.expression);
+      if (key === "name") return levels.name;
+      if (key === "age") return levels.age;
+      if (key === "grade") return levels.grade;
     }
     return profile ? String(profile[key] ?? "") : "";
   };
@@ -460,6 +464,7 @@ export default function MemberPanel() {
       {mode.kind === "editNew" ? (
         <MemberEditCard
           profile={null}
+          ownerId={mode.owner.id}
           ownerLabel={
             `${mode.owner.family_name ?? ""} ${mode.owner.given_name ?? ""}`.trim() ||
             "(이름 미등록)"

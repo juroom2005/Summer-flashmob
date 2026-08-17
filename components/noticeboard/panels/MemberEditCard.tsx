@@ -107,13 +107,11 @@ function initialForm(profile: MemberProfile | null): FormState {
 /* FormState → helper 로 넘길 input.
  * photoUrl 은 그대로(문자열/null) 전달 → helper 가 3-상태 처리. */
 function formToInput(f: FormState): MemberProfileInput {
-  // rhythm/stamina/performance 는 편집 불가(실제 레벨은 미니게임으로 상승) →
-  // 저장 payload 에서 제외한다. MemberProfileInput 은 Partial 이라 생략 가능.
+  // 아래는 편집 불가(profiles 에서 불러오는 읽기전용) → 저장 payload 에서 제외:
+  //   name / age / grade (회원정보) · rhythm/stamina/performance (스탯)
+  // MemberProfileInput 은 Partial 이라 생략 가능.
   return {
-    name: f.name,
     dateOfBirth: f.dateOfBirth,
-    age: f.age,
-    grade: f.grade,
     height: f.height,
     personality: f.personality,
     etc: f.etc,
@@ -129,6 +127,8 @@ type Props = {
   profile: MemberProfile | null;
   /** 신규 작성 시 대상 유저 표시명(헤딩 보조). */
   ownerLabel?: string;
+  /** 신규 작성 시 대상 유저 id(profiles.id). 편집 시엔 profile.ownerId 사용. */
+  ownerId?: string;
   /** 저장 진행 중. */
   saving?: boolean;
   /** 저장 클릭. 편집값(input)을 넘긴다. */
@@ -144,6 +144,7 @@ type Props = {
 export default function MemberEditCard({
   profile,
   ownerLabel,
+  ownerId,
   saving = false,
   onSave,
   onCancel,
@@ -153,28 +154,34 @@ export default function MemberEditCard({
   const [form, setForm] = useState<FormState>(() => initialForm(profile));
   const [cropError, setCropError] = useState<string | null>(null);
 
-  // 스탯(rhythm/stamina/performance)은 편집 불가 — 미니게임으로 오르는 실제
-  // 레벨을 회색 읽기전용으로 표시만 한다. (profiles 에서 조회, 실패 시 "-")
+  // 스탯·회원정보(name/age/grade)는 편집 불가 — profiles 에서 조회해 읽기전용 표시.
+  // 편집 모드는 profile.ownerId, 신규 작성 모드는 넘겨받은 ownerId 를 쓴다.
   const [levels, setLevels] = useState<MemberStatLevels | null>(null);
+  const effectiveOwnerId = profile?.ownerId ?? ownerId ?? null;
   useEffect(() => {
     let alive = true;
     setLevels(null);
-    if (profile?.ownerId) {
-      getMemberStatLevels(profile.ownerId).then((lv) => {
+    if (effectiveOwnerId) {
+      getMemberStatLevels(effectiveOwnerId).then((lv) => {
         if (alive) setLevels(lv);
       });
     }
     return () => {
       alive = false;
     };
-  }, [profile?.ownerId]);
+  }, [effectiveOwnerId]);
 
-  // 스탯 키 → 표시할 실제 레벨 문자열.
+  // 읽기전용(profiles 에서 불러오는) 필드 → 표시 문자열.
+  //   스탯: rhythm/stamina/performance  ·  회원정보: name/age/grade
+  // 편집 불가(오류 여지 제거). 로딩/실패 시 "-".
   const statLevelText = (key: keyof FormState): string | null => {
     if (key === "rhythm") return levels ? String(levels.rhythm) : "-";
     if (key === "stamina") return levels ? String(levels.physical) : "-";
     if (key === "performance") return levels ? String(levels.expression) : "-";
-    return null; // 스탯 아님
+    if (key === "name") return levels ? levels.name : "-";
+    if (key === "age") return levels ? levels.age : "-";
+    if (key === "grade") return levels ? levels.grade : "-";
+    return null; // 편집 가능 필드
   };
 
   const setField = useCallback((key: keyof FormState, value: string | null) => {
@@ -230,14 +237,14 @@ export default function MemberEditCard({
                 type="text"
                 className={styles.editInput}
                 value={form.tagLast}
-                placeholder="상단 성 (영문, 예: CHISE)"
+                placeholder="상단 성 (영문, 예: KISARAGI)"
                 onChange={(e) => setField("tagLast", e.target.value)}
               />
               <input
                 type="text"
                 className={styles.editInput}
                 value={form.tagFirst}
-                placeholder="가운데 이름 (영문, 예: Haruyuki)"
+                placeholder="가운데 이름 (영문, 예: MOB)"
                 onChange={(e) => setField("tagFirst", e.target.value)}
               />
             </div>

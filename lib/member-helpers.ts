@@ -319,6 +319,13 @@ export type MemberStatLevels = {
   rhythm: number;
   physical: number;
   expression: number;
+  // 실제 회원 정보(profiles) — 편집폼에서 읽기전용으로 표시.
+  //   NAME  → family_name + given_name (캐릭터명과 동일하게 등록됨)
+  //   AGE   → age
+  //   GRADE → grade
+  name: string;
+  age: string;
+  grade: string;
 };
 
 export async function getMemberStatLevels(
@@ -328,12 +335,19 @@ export async function getMemberStatLevels(
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("rhythm_level, physical_level, expression_level")
+    .select(
+      "rhythm_level, physical_level, expression_level, " +
+        "family_name, given_name, age, grade"
+    )
     .eq("id", ownerId)
     .maybeSingle<{
       rhythm_level: number;
       physical_level: number;
       expression_level: number;
+      family_name: string | null;
+      given_name: string | null;
+      age: number | null;
+      grade: number | null;
     }>();
 
   if (error) {
@@ -342,9 +356,16 @@ export async function getMemberStatLevels(
   }
   if (!data) return null;
 
+  const fullName = [data.family_name, data.given_name]
+    .filter((s) => s != null && s !== "")
+    .join(" ");
+
   return {
     rhythm:     Number(data.rhythm_level ?? 0),
     physical:   Number(data.physical_level ?? 0),
     expression: Number(data.expression_level ?? 0),
+    name:       fullName,
+    age:        data.age != null ? String(data.age) : "",
+    grade:      data.grade != null ? String(data.grade) : "",
   };
 }
