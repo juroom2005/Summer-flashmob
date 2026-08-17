@@ -61,6 +61,7 @@ const FIELD_ROWS: {
   label: string;
   key: keyof MemberProfile;
   wide?: boolean;
+  full?: boolean;   // 행 전체(4칸) 를 꽉 채움
 }[][] = [
   [
     { label: "NAME", key: "name", wide: true },
@@ -77,8 +78,10 @@ const FIELD_ROWS: {
     { label: "PERFORMANCE", key: "performance", wide: true },
   ],
   [
-    { label: "PERSONALITY", key: "personality", wide: true },
-    { label: "ETC", key: "etc", wide: true },
+    { label: "PERSONALITY", key: "personality", full: true },
+  ],
+  [
+    { label: "ETC", key: "etc", full: true },
   ],
 ];
 
@@ -161,7 +164,7 @@ function MemberDetail({
                 {row.map((f) => (
                   <div
                     key={f.key}
-                    className={`${styles.field} ${f.wide ? styles.fieldWide : ""}`}
+                    className={`${styles.field} ${f.wide ? styles.fieldWide : ""} ${f.full ? styles.fieldFull : ""}`}
                   >
                     <span className={styles.fieldLabel}>{f.label}</span>
                     <span className={styles.fieldValue}>{val(f.key)}</span>

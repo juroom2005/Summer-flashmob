@@ -17,7 +17,7 @@
 .back {
   position: absolute;
   top: -4px;
-  right: 0;
+  right: 22px;
   z-index: 3;
   padding: 6px 14px;
   border-radius: 999px;
@@ -34,9 +34,9 @@
   color: #3f88f9;
 }
 
-/* ── 상단 (흰) ─────────────────────────────────────────── */
+/* ── 상단 ─────────────────────────────────────────── */
 .top {
-  padding: 4px 0 24px;
+  padding: 4px 24px 24px;
 }
 .heading {
   margin: 0 0 8px;
@@ -49,7 +49,7 @@
   color: #000;
 }
 
-/* ── 폴더 5개 가로 나열 ────────────────────────────────── */
+/* ── 폴더 5개  ────────────────────────────────── */
 .folderRow {
   display: flex;
   justify-content: center;
@@ -58,7 +58,7 @@
   margin-top: 18px;
   flex-wrap: wrap;
 }
-/* 폴더 한 칸 (버튼) */
+/* 폴더 한 칸  */
 .folderItem {
   display: flex;
   flex-direction: column;
@@ -102,7 +102,7 @@
   color: #1a335e;
 }
 
-/* ── 상단 안내 박스 (일일활동 callout) — 폴더줄 아래 중앙 ── */
+/* ── 상단 안내 박스 ── */
 .callout {
   max-width: 460px;
   margin: 22px auto 0;
@@ -137,8 +137,7 @@
   font-size: 13px;
   line-height: 1.6;
   color: #000;
-  /* 데이터의 \n 을 줄바꿈으로 표시. pre-line 은 줄바꿈만 살리고
-     여분 공백/들여쓰기는 접어준다(데이터에 "\n " 처럼 공백이 붙어 있어도 깔끔). */
+
   white-space: pre-line;
 }
 .grade {

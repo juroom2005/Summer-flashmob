@@ -171,6 +171,12 @@
 .fieldWide {
   grid-column: span 2;
 }
+/* 행 전체(4칸) 를 꽉 채우는 셀 (PERSONALITY / ETC) */
+.fieldFull {
+  grid-column: 1 / -1;
+  border-right: none;
+  min-height: 120px;
+}
 .fieldLabel {
   font-size: 12px;
   letter-spacing: 0.02em;
