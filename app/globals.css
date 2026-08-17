@@ -65,7 +65,7 @@
 }
 
 * {
-  cursor: url('/cursors/heart.ani'), url('/cursors/heart.webp') 0 0, auto;
+  cursor: url('/cursors/heart.ani'), url('/cursors/normal.webp') 0 0, auto;
 }
 * {
   box-sizing: border-box;
