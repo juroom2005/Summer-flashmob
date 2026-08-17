@@ -47,6 +47,7 @@ import {
   gmUpdateBoardItemContent,
   getBoardCapabilities,
   consumeMarkerInk,
+  grantDailyJournalReward,
   kstDateString,
   type BoardItemRow,
   type BoardItemKind,
@@ -241,6 +242,17 @@ export default function DailyBoardOverlay({
     [isGm, myProfileId]
   );
 
+  // ── 일일 일지 보상 ──
+  // 아이템(글·그림·스티커·사진)을 성공적으로 올린 뒤 호출.
+  // 그날 최초면 DB(RPC)가 100 모빌을 지급하고, 이미 받았으면 조용히 무시된다.
+  // "하루 1회"·"KST 초기화"·중복방지는 전부 서버가 보장하므로 매번 불러도 안전.
+  const rewardJournalOnce = useCallback(async () => {
+    const r = await grantDailyJournalReward();
+    if (r && r.granted) {
+      setBanner(`오늘 첫 일지 작성! ${r.amount} 모빌을 받았어요.`);
+    }
+  }, []);
+
   // ── open 시 프로필/권한/능력 로드 ──
   useEffect(() => {
     if (!open) return;
@@ -395,6 +407,7 @@ export default function DailyBoardOverlay({
     });
     if (res.ok) {
       setItems((prev) => [...prev, rowToLocal(res.data)]);
+      void rewardJournalOnce();
 
       // ── 잉크 소모 (선 길이 비례) ──
       // 그리기 자체는 이미 저장됨. 잉크는 별도로 차감 시도하며, 실패해도
@@ -479,6 +492,7 @@ export default function DailyBoardOverlay({
         setItems((prev) => [...prev, li]);
         setSel(li.id);
         setTool("select");
+        void rewardJournalOnce();
       } else {
         setBanner(res.message);
       }
@@ -523,6 +537,7 @@ export default function DailyBoardOverlay({
         const li = rowToLocal(res.data);
         setItems((prev) => [...prev, li]);
         setSel(li.id);
+        void rewardJournalOnce();
       } else {
         setBanner(res.message);
       }
@@ -546,6 +561,7 @@ export default function DailyBoardOverlay({
         setItems((prev) => [...prev, li]);
         setSel(li.id);
         setTool("select");
+        void rewardJournalOnce();
       } else {
         setBanner(res.message);
       }

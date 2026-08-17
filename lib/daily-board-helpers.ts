@@ -443,3 +443,35 @@ export async function gmUpdateBoardItemContent(
   }
   return { ok: true, data: undefined };
 }
+/* ═══════════════════════════════════════════════════════════
+ * 일일 일지 보상 (하루 최초 작성 시 100 모빌)
+ * ───────────────────────────────────────────────────────────
+ * 일지 항목을 그날 처음 올렸을 때 grant_daily_journal_reward() RPC 를 호출한다.
+ * "하루 1회"·"KST 자정 초기화"·중복 방지는 전부 DB(UNIQUE 인덱스 + RPC)가
+ * 보장하므로, 프론트는 매번 호출해도 안전하다(이미 받았으면 granted=false).
+ *
+ * 관련 마이그레이션: sql/pending/2026-08-17_daily_journal_reward.sql
+ * 실패해도 일지 작성 자체는 성공한 것이므로, 호출부는 보상 실패를 무시한다.
+ */
+export type JournalReward = {
+  granted:   boolean; // 이번에 지급됐는지 (false = 이미 오늘 받음)
+  amount:    number;  // 지급액 (미지급 시 0)
+  nextMobil: number;  // 지급 후 잔액
+};
+
+export async function grantDailyJournalReward(): Promise<JournalReward | null> {
+  const { data, error } = await supabase.rpc("grant_daily_journal_reward");
+  if (error) {
+    // 보상 지급 실패는 일지 작성 흐름을 막지 않는다(로그만).
+    console.warn("[grantDailyJournalReward] failed:", error.message);
+    return null;
+  }
+  // RPC 는 단일 행 테이블 반환 → 배열 첫 요소.
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return {
+    granted:   Boolean(row.granted),
+    amount:    Number(row.amount ?? 0),
+    nextMobil: Number(row.next_mobil ?? 0),
+  };
+}

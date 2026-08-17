@@ -89,6 +89,15 @@ export default function RootLayout({
       translate="no"
        className={`${jua.variable} ${gaegu.variable} ${gowunDodum.variable} ${nanumPen.variable} ${limelight.variable} ${monofett.variable} ${hachiMaruPop.variable}`}
     >
+      <head>
+        <link
+          rel="preload"
+          href="/fonts/KoPubWorldDotum-Medium.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body>
         <PasswordResetProvider>
           <PasswordResetBanner />
