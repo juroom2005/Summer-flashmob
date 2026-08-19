@@ -34,6 +34,8 @@ import {
   type AttendanceDate,
   type AttendanceMessage,
 } from "@/lib/attendance-helpers";
+import BadgeRow from "@/components/shared/BadgeRow";
+import { listBadgesForProfiles, type UserBadge } from "@/lib/badge-helpers";
 
 // ────────────────────────────────────────────────────────────────────
 // 폰트 상수 (NoticeBoard.tsx 와 일치)
@@ -138,6 +140,7 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
   const [processing, setProcessing] = useState(false);
 
   const [messages, setMessages] = useState<AttendanceMessage[]>([]);
+  const [badgeMap, setBadgeMap] = useState<Map<string, UserBadge[]>>(new Map());
   const [availableDates, setAvailableDates] = useState<AttendanceDate[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>(getTodayKey);
 
@@ -203,13 +206,28 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
     try {
       const rows = await listAttendanceMessages({ date });
       if (alive.current) setMessages(rows);
-    } finally {
+        } finally {
       if (alive.current) {
         setListLoading(false);
         setListInitialized(true);
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    const ids = messages.map((m) => m.profileId).filter(Boolean);
+    if (ids.length === 0) {
+      setBadgeMap(new Map());
+      return;
+    }
+    let live = true;
+    listBadgesForProfiles(ids).then((map) => {
+      if (live) setBadgeMap(map);
+    });
+    return () => {
+      live = false;
+    };
+  }, [messages]);
 
   // ── 초기 로드 ────────────────────────────────────────────
   useEffect(() => {
@@ -392,7 +410,7 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
         ) : (
           <ul style={ulStyle}>
             {messages.map((m) => (
-              <MessageRow key={m.id} item={m} />
+              <MessageRow key={m.id} item={m} badges={badgeMap.get(m.profileId) ?? []} />
             ))}
           </ul>
         )}
@@ -470,7 +488,7 @@ function EmptyLine({ text }: { text: string }) {
 // ═══════════════════════════════════════════════════════════════════
 // 서브 : 한마디 한 줄 (색 사각 · 이름 · 본문 · 시각)
 // ═══════════════════════════════════════════════════════════════════
-function MessageRow({ item }: { item: AttendanceMessage }) {
+function MessageRow({ item, badges }: { item: AttendanceMessage; badges: UserBadge[] }) {
   const name = item.displayName ?? FALLBACK_DISPLAY_NAME;
   const time = formatTime(item.createdAt);
 
@@ -478,6 +496,9 @@ function MessageRow({ item }: { item: AttendanceMessage }) {
     <li style={rowStyle}>
       <span style={squareStyle} />
       <span style={nameColStyle}>{name}</span>
+      {badges.length > 0 && (
+        <BadgeRow badges={badges} size={16} gap={2} titlePrefix={`${name} · `} />
+      )}
       <span style={msgColStyle}>{item.message}</span>
       <span style={timeColStyle}>{time}</span>
     </li>

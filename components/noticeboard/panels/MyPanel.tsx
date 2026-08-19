@@ -39,6 +39,7 @@ import {
 import AccountInfoCard from "./AccountInfoCard";
 import InventorySection from "./InventorySection";
 import StatBottle from "./StatBottle";
+import BadgeRow from "../../shared/BadgeRow";
 import {
   STAT_KEYS,
   performanceTotal,
@@ -476,6 +477,17 @@ export default function MyPanel({
               </div>
 
               <div style={{ position: "absolute", top: 44, right: 12, width: 34, height: 34, borderRadius: "50%", background: "conic-gradient(from 0deg,#ffd1e8,#d1e6ff,#d6ffe3,#fff3c9,#ffd1e8)", opacity: .85, boxShadow: "0 0 8px rgba(255,255,255,.8)", pointerEvents: "none" }} />
+
+              {/* 획득 뱃지  */}
+              {profileRow && (
+                <BadgeRow
+                  profileId={profileRow.id}
+                  size={22}
+                  gap={3}
+                  style={{ position: "absolute", top: 50, right: 52, zIndex: 2 }}
+                  titlePrefix={`${characterName} · `}
+                />
+              )}
 
               {/* 본문 — 두상(세로로 김) + 정보 컬럼(이름/학교/학년성별/서명) */}
               <div style={{ position: "relative", display: "flex", gap: 14, padding: "12px 14px 5px" }}>

@@ -47,7 +47,6 @@ import {
   gmUpdateBoardItemContent,
   getBoardCapabilities,
   consumeMarkerInk,
-  grantDailyJournalReward,
   kstDateString,
   type BoardItemRow,
   type BoardItemKind,
@@ -55,6 +54,8 @@ import {
   type UsableSticker,
   type UsablePen,
 } from "@/lib/daily-board-helpers";
+import BadgeRow from "@/components/shared/BadgeRow";
+import { listBadgesForProfiles, type UserBadge } from "@/lib/badge-helpers";
 
 const BOARD_W = 800;
 const BOARD_H = 560;
@@ -216,6 +217,8 @@ export default function DailyBoardOverlay({
   const [placing, setPlacing] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  // 작성자 뱃지 배치 조회 결과 (ownerId → 뱃지 목록)
+  const [badgeMap, setBadgeMap] = useState<Map<string, UserBadge[]>>(new Map());
   // drawing hover 시 이름표를 띄울 보드 좌표 (마우스 위치)
   const [hoverPt, setHoverPt] = useState<{ x: number; y: number } | null>(null);
   const [banner, setBanner] = useState<string | null>(null);
@@ -236,22 +239,27 @@ export default function DailyBoardOverlay({
 
   const boardDate = kstDateString(offset);
 
+  // ── 작성자 뱃지 배치 조회 (items 의 ownerId 모아 한 번에) ──
+  useEffect(() => {
+    const ids = items.map((i) => i.ownerId).filter(Boolean);
+    if (ids.length === 0) {
+      setBadgeMap(new Map());
+      return;
+    }
+    let live = true;
+    listBadgesForProfiles(ids).then((map) => {
+      if (live) setBadgeMap(map);
+    });
+    return () => {
+      live = false;
+    };
+  }, [items]);
+
   // ── 권한 판정 ──
   const canEdit = useCallback(
     (it: LocalItem) => isGm || (myProfileId != null && it.ownerId === myProfileId),
     [isGm, myProfileId]
   );
-
-  // ── 일일 일지 보상 ──
-  // 아이템(글·그림·스티커·사진)을 성공적으로 올린 뒤 호출.
-  // 그날 최초면 DB(RPC)가 100 모빌을 지급하고, 이미 받았으면 조용히 무시된다.
-  // "하루 1회"·"KST 초기화"·중복방지는 전부 서버가 보장하므로 매번 불러도 안전.
-  const rewardJournalOnce = useCallback(async () => {
-    const r = await grantDailyJournalReward();
-    if (r && r.granted) {
-      setBanner(`오늘 첫 일지 작성! ${r.amount} 모빌을 받았어요.`);
-    }
-  }, []);
 
   // ── open 시 프로필/권한/능력 로드 ──
   useEffect(() => {
@@ -407,7 +415,6 @@ export default function DailyBoardOverlay({
     });
     if (res.ok) {
       setItems((prev) => [...prev, rowToLocal(res.data)]);
-      void rewardJournalOnce();
 
       // ── 잉크 소모 (선 길이 비례) ──
       // 그리기 자체는 이미 저장됨. 잉크는 별도로 차감 시도하며, 실패해도
@@ -492,7 +499,6 @@ export default function DailyBoardOverlay({
         setItems((prev) => [...prev, li]);
         setSel(li.id);
         setTool("select");
-        void rewardJournalOnce();
       } else {
         setBanner(res.message);
       }
@@ -537,7 +543,6 @@ export default function DailyBoardOverlay({
         const li = rowToLocal(res.data);
         setItems((prev) => [...prev, li]);
         setSel(li.id);
-        void rewardJournalOnce();
       } else {
         setBanner(res.message);
       }
@@ -561,7 +566,6 @@ export default function DailyBoardOverlay({
         setItems((prev) => [...prev, li]);
         setSel(li.id);
         setTool("select");
-        void rewardJournalOnce();
       } else {
         setBanner(res.message);
       }
@@ -809,7 +813,10 @@ export default function DailyBoardOverlay({
                     {it.kind === "photo" && (
                       <div style={{ position: "relative", background: "#fff", padding: "10px 10px 6px", boxShadow: "0 8px 22px rgba(0,0,0,.35)" }}>
                         {/* 폴라로이드 틀 왼상단: 작성자명 상시 표시 */}
-                        <div style={photoAuthorTag}>{it.ownerName}</div>
+                        <div style={{ ...photoAuthorTag, display: "flex", alignItems: "center", gap: 3 }}>
+                          <span>{it.ownerName}</span>
+                          <BadgeRow badges={badgeMap.get(it.ownerId) ?? []} size={14} gap={2} titlePrefix={`${it.ownerName} · `} />
+                        </div>
                         <img src={it.src} alt="" style={{ display: "block", width: 180, height: 150, objectFit: "cover", background: "#ccc" }} />
                         <div style={photoCaption}>{it.caption}</div>
                       </div>
@@ -818,7 +825,10 @@ export default function DailyBoardOverlay({
                     {/* text/drawing/sticker: hover 시 작성자명 툴팁.
                         (drawing 은 이 레이어에 없어 canvas 별도지만, text·sticker 는 여기서 처리) */}
                     {it.kind !== "photo" && hoveredId === it.id && (
-                      <div style={hoverAuthorTag}>{it.ownerName}</div>
+                      <div style={{ ...hoverAuthorTag, display: "flex", alignItems: "center", gap: 3 }}>
+                        <span>{it.ownerName}</span>
+                        <BadgeRow badges={badgeMap.get(it.ownerId) ?? []} size={13} gap={2} titlePrefix={`${it.ownerName} · `} />
+                      </div>
                     )}
                   </div>
                 );
@@ -838,9 +848,13 @@ export default function DailyBoardOverlay({
                       top: hoverPt.y - 14,
                       bottom: "auto",
                       transform: "translate(-50%, -100%)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 3,
                     }}
                   >
-                    {h.ownerName}
+                    <span>{h.ownerName}</span>
+                    <BadgeRow badges={badgeMap.get(h.ownerId) ?? []} size={13} gap={2} titlePrefix={`${h.ownerName} · `} />
                   </div>
                 );
               })()}

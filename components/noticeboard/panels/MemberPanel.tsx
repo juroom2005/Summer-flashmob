@@ -26,6 +26,7 @@ import NameTag from "../member/NameTag";
 import ModalPortal from "./ModalPortal";
 import { useCurrentUser } from "@/components/shared/useCurrentUser";
 import { listGmUsers, type GmUserRow } from "@/lib/gm-user-helpers";
+import BadgeRow from "@/components/shared/BadgeRow";
 import {
   listMemberProfiles,
   getMyMemberProfile,
@@ -61,7 +62,6 @@ const FIELD_ROWS: {
   label: string;
   key: keyof MemberProfile;
   wide?: boolean;
-  full?: boolean;   // 행 전체(4칸) 를 꽉 채움
 }[][] = [
   [
     { label: "NAME", key: "name", wide: true },
@@ -78,10 +78,8 @@ const FIELD_ROWS: {
     { label: "PERFORMANCE", key: "performance", wide: true },
   ],
   [
-    { label: "PERSONALITY", key: "personality", full: true },
-  ],
-  [
-    { label: "ETC", key: "etc", full: true },
+    { label: "PERSONALITY", key: "personality", wide: true },
+    { label: "ETC", key: "etc", wide: true },
   ],
 ];
 
@@ -119,13 +117,9 @@ function MemberDetail({
   //   RHYTHM → rhythm_level · STAMINA → physical_level · PERFORMANCE → expression_level
   const val = (key: keyof MemberProfile) => {
     if (levels) {
-      // 스탯·회원정보(name/age/grade)는 profiles 에서 불러온 실제 값을 표시.
       if (key === "rhythm") return String(levels.rhythm);
       if (key === "stamina") return String(levels.physical);
       if (key === "performance") return String(levels.expression);
-      if (key === "name") return levels.name;
-      if (key === "age") return levels.age;
-      if (key === "grade") return levels.grade;
     }
     return profile ? String(profile[key] ?? "") : "";
   };
@@ -151,12 +145,28 @@ function MemberDetail({
 
           <div className={styles.photoWrap}>
             <div className={styles.clip} aria-hidden />
-            <div className={styles.photo}>
+            <div className={styles.photo} style={{ position: "relative" }}>
               {profile?.photoUrl ? (
                 <img
                   src={profile.photoUrl}
                   alt=""
                   className={styles.photoImg}
+                />
+              ) : null}
+              {/* 획득 뱃지 — 두상 사진 하단 좌측 */}
+              {profile?.ownerId ? (
+                <BadgeRow
+                  profileId={profile.ownerId}
+                  size={20}
+                  gap={2}
+                  style={{
+                    position: "absolute",
+                    left: 6,
+                    bottom: 6,
+                    padding: "2px 4px",
+                    borderRadius: 8,
+                    background: "rgba(255,255,255,0.72)",
+                  }}
                 />
               ) : null}
             </div>
@@ -168,7 +178,7 @@ function MemberDetail({
                 {row.map((f) => (
                   <div
                     key={f.key}
-                    className={`${styles.field} ${f.wide ? styles.fieldWide : ""} ${f.full ? styles.fieldFull : ""}`}
+                    className={`${styles.field} ${f.wide ? styles.fieldWide : ""}`}
                   >
                     <span className={styles.fieldLabel}>{f.label}</span>
                     <span className={styles.fieldValue}>{val(f.key)}</span>
@@ -464,7 +474,6 @@ export default function MemberPanel() {
       {mode.kind === "editNew" ? (
         <MemberEditCard
           profile={null}
-          ownerId={mode.owner.id}
           ownerLabel={
             `${mode.owner.family_name ?? ""} ${mode.owner.given_name ?? ""}`.trim() ||
             "(이름 미등록)"
