@@ -33,7 +33,9 @@ import StatAdjustPanel    from "./StatAdjustPanel";
 import MobilGrantPanel    from "./MobilGrantPanel";
 import PasswordResetPanel from "./PasswordResetPanel";
 import MinigameResetPanel from "./MinigameResetPanel";
+import BotLinkPanel       from "./BotLinkPanel";
 import UserDangerZone     from "./UserDangerZone";
+
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
@@ -158,6 +160,8 @@ export default function UserDetail({ user, onPatch, onRefresh }: Props) {
         mobil={user.mobil}
         onGranted={handleMobilGranted}
       />
+
+      <BotLinkPanel profileId={user.id} />
 
       {/* 미니게임 오늘 카운트 관리 : 가입 유저만 (shell 은 미니게임 불가). */}
       {user.is_registered ? (
