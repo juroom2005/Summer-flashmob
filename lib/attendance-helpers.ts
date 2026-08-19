@@ -5,7 +5,7 @@
 //
 // RPC 래퍼:
 //   - checkTodayAttended       : 오늘(KST) 이미 출석했는지 조회
-//   - attendToday(message?)    : 출석 실행. 성공 시 500 모빌 지급
+//   - attendToday(message?)    : 출석 실행. 성공 시 300 모빌 지급
 //                                한마디 message 가 있으면 attendance_messages 에 저장
 //   - listAttendanceMessages() : 한마디 리스트를 최신순으로 조회
 //
@@ -103,7 +103,7 @@ export async function checkTodayAttended(): Promise<boolean> {
 // 실행 : 출석 + 모빌 지급 (+ 선택적 한마디 저장)
 // ────────────────────────────────────────────────────────────────────
 /**
- * 오늘 출석을 실행한다. 성공 시 500 모빌이 지급된다.
+ * 오늘 출석을 실행한다. 성공 시 300 모빌이 지급된다.
  *
  * @param message  한마디. undefined/빈 문자열/공백만 있는 경우 저장되지 않는다.
  *                 200자 초과분은 서버에서 안전하게 절단된다.

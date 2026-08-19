@@ -69,7 +69,7 @@ const MSG = {
   listLoading:       "불러오는 중",
   listAnon:          "로그인 후 확인할 수 있습니다.",
 
-  toastSuccess:      (n: number) => `출석이 완료되었습니다. 500 모빌이 지급되었습니다. (보유 ${n})`,
+  toastSuccess:      (reward: number, n: number) => `출석이 완료되었습니다. ${reward} 모빌이 지급되었습니다. (보유 ${n})`,
   toastAlready:      "오늘은 이미 출석 완료 상태입니다.",
   toastNoProfile:    "프로필을 찾을 수 없습니다. 관리자에게 문의해 주십시오.",
   toastError:        "출석 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주십시오.",
@@ -206,7 +206,7 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
     try {
       const rows = await listAttendanceMessages({ date });
       if (alive.current) setMessages(rows);
-        } finally {
+    } finally {
       if (alive.current) {
         setListLoading(false);
         setListInitialized(true);
@@ -214,6 +214,7 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
     }
   }, [user]);
 
+  // ── messages 의 작성자 뱃지 배치 조회 (쿼리 폭증 방지) ──────
   useEffect(() => {
     const ids = messages.map((m) => m.profileId).filter(Boolean);
     if (ids.length === 0) {
@@ -278,7 +279,7 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
       if (r.ok) {
         setAttended(true);
         setMessage("");
-        onToast(MSG.toastSuccess(r.newMobil));
+        onToast(MSG.toastSuccess(r.reward, r.newMobil));
         window.dispatchEvent(new CustomEvent("profile-changed"));
         // 방금 출석 → 오늘 페이지로 되돌리고 재조회
         const todayKey = getTodayKey();
