@@ -30,6 +30,7 @@ import { supabase } from "./supabase";
 const DEFAULT_SPIN_COST = 400;
 const DEFAULT_LOCK_SECONDS = 50;
 const DEFAULT_JACKPOT_RATE = 0.02;
+const DEFAULT_COUPON_RATE = 0.20;
 const DEFAULT_IS_LOCKED = false;
 const DEFAULT_LOCK_MESSAGE = "";
 
@@ -40,6 +41,7 @@ export type SlotConfig = {
   spinCost: number;
   lockSeconds: number;
   jackpotRate: number;
+  couponRate: number;
   isLocked: boolean;
   lockMessage: string;
 };
@@ -99,6 +101,7 @@ type SlotConfigRow = {
   spin_cost: number | null;
   lock_seconds: number | null;
   jackpot_rate: number | string | null;
+  coupon_rate: number | string | null;
   is_locked: boolean | null;
   lock_message: string | null;
 };
@@ -165,7 +168,7 @@ function parseRewards(raw: SpinRewardRaw[] | null | undefined): SlotReward[] {
 export async function getSlotConfig(): Promise<SlotConfig> {
   const { data, error } = await supabase
     .from("slot_config")
-    .select("spin_cost, lock_seconds, jackpot_rate, is_locked, lock_message")
+    .select("spin_cost, lock_seconds, jackpot_rate, coupon_rate, is_locked, lock_message")
     .eq("id", 1)
     .maybeSingle<SlotConfigRow>();
 
@@ -175,6 +178,7 @@ export async function getSlotConfig(): Promise<SlotConfig> {
       spinCost: DEFAULT_SPIN_COST,
       lockSeconds: DEFAULT_LOCK_SECONDS,
       jackpotRate: DEFAULT_JACKPOT_RATE,
+      couponRate: DEFAULT_COUPON_RATE,
       isLocked: DEFAULT_IS_LOCKED,
       lockMessage: DEFAULT_LOCK_MESSAGE,
     };
@@ -185,6 +189,8 @@ export async function getSlotConfig(): Promise<SlotConfig> {
     lockSeconds: data.lock_seconds ?? DEFAULT_LOCK_SECONDS,
     jackpotRate:
       data.jackpot_rate !== null ? Number(data.jackpot_rate) : DEFAULT_JACKPOT_RATE,
+    couponRate:
+      data.coupon_rate !== null ? Number(data.coupon_rate) : DEFAULT_COUPON_RATE,
     isLocked: data.is_locked ?? DEFAULT_IS_LOCKED,
     lockMessage: data.lock_message ?? DEFAULT_LOCK_MESSAGE,
   };
@@ -209,6 +215,7 @@ export type SlotConfigPatch = {
   spinCost?: number;
   lockSeconds?: number;
   jackpotRate?: number;
+  couponRate?: number;
   isLocked?: boolean;
   lockMessage?: string;
 };
@@ -238,6 +245,12 @@ export async function updateSlotConfig(patch: SlotConfigPatch): Promise<UpdateCo
     }
     row.jackpot_rate = patch.jackpotRate;
   }
+  if (patch.couponRate !== undefined) {
+    if (!Number.isFinite(patch.couponRate) || patch.couponRate < SLOT_RATE_MIN || patch.couponRate > SLOT_RATE_MAX) {
+      return { ok: false, reason: "invalid_value" };
+    }
+    row.coupon_rate = patch.couponRate;
+  }
   if (patch.isLocked !== undefined) {
     row.is_locked = patch.isLocked;
   }
@@ -249,7 +262,7 @@ export async function updateSlotConfig(patch: SlotConfigPatch): Promise<UpdateCo
     .from("slot_config")
     .update(row)
     .eq("id", 1)
-    .select("spin_cost, lock_seconds, jackpot_rate, is_locked, lock_message")
+    .select("spin_cost, lock_seconds, jackpot_rate, coupon_rate, is_locked, lock_message")
     .maybeSingle<SlotConfigRow>();
 
   if (error) {
@@ -273,6 +286,7 @@ export async function updateSlotConfig(patch: SlotConfigPatch): Promise<UpdateCo
       spinCost: data.spin_cost ?? DEFAULT_SPIN_COST,
       lockSeconds: data.lock_seconds ?? DEFAULT_LOCK_SECONDS,
       jackpotRate: data.jackpot_rate !== null ? Number(data.jackpot_rate) : DEFAULT_JACKPOT_RATE,
+      couponRate: data.coupon_rate !== null ? Number(data.coupon_rate) : DEFAULT_COUPON_RATE,
       isLocked: data.is_locked ?? DEFAULT_IS_LOCKED,
       lockMessage: data.lock_message ?? DEFAULT_LOCK_MESSAGE,
     },

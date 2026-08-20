@@ -46,7 +46,8 @@ export default function SlotConfigPanel() {
 
   // 폼 상태 (문자열 입력)
   const [costText, setCostText]       = useState("");
-  const [rateText, setRateText]       = useState(""); // % 단위
+  const [rateText, setRateText]       = useState(""); // 잭팟 % 단위
+  const [couponRateText, setCouponRateText] = useState(""); // 쿠폰 % 단위
   const [lockSecText, setLockSecText] = useState("");
   const [isLocked, setIsLocked]       = useState(false);
   const [lockMessage, setLockMessage] = useState("");
@@ -54,6 +55,7 @@ export default function SlotConfigPanel() {
   const applyConfig = useCallback((c: SlotConfig) => {
     setCostText(String(c.spinCost));
     setRateText(rateToPercentText(c.jackpotRate));
+    setCouponRateText(rateToPercentText(c.couponRate));
     setLockSecText(String(c.lockSeconds));
     setIsLocked(c.isLocked);
     setLockMessage(c.lockMessage);
@@ -77,11 +79,15 @@ export default function SlotConfigPanel() {
   const rateValid =
     rateText.trim() !== "" && Number.isFinite(ratePct) && ratePct >= 0 && ratePct <= 100;
 
+  const couponPct = Number(couponRateText);
+  const couponRateValid =
+    couponRateText.trim() !== "" && Number.isFinite(couponPct) && couponPct >= 0 && couponPct <= 100;
+
   const lockSec = Number(lockSecText);
   const lockSecValid =
     lockSecText.trim() !== "" && Number.isInteger(lockSec) && lockSec >= 0 && lockSec <= SLOT_LOCK_SEC_MAX;
 
-  const allValid = costValid && rateValid && lockSecValid;
+  const allValid = costValid && rateValid && couponRateValid && lockSecValid;
 
   const handleSave = useCallback(async () => {
     if (!allValid || saving) return;
@@ -91,6 +97,7 @@ export default function SlotConfigPanel() {
     const res = await updateSlotConfig({
       spinCost:    cost,
       jackpotRate: ratePct / 100,   // % → 0~1
+      couponRate:  couponPct / 100, // % → 0~1
       lockSeconds: lockSec,
       isLocked,
       lockMessage: lockMessage.trim(),
@@ -109,7 +116,7 @@ export default function SlotConfigPanel() {
 
     applyConfig(res.config);
     setMsg({ kind: "ok", text: "저장되었습니다." });
-  }, [allValid, saving, cost, ratePct, lockSec, isLocked, lockMessage, applyConfig]);
+  }, [allValid, saving, cost, ratePct, couponPct, lockSec, isLocked, lockMessage, applyConfig]);
 
   return (
     <div style={wrapStyle}>
@@ -165,6 +172,26 @@ export default function SlotConfigPanel() {
                   <div style={metaStyle}>
                     <span style={rateValid ? okStyle : badStyle}>
                       {rateValid ? `${ratePct}% 확률로 인형 당첨` : "0 ~ 100 사이"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 쿠폰 확률 (논잭팟일 때만 적용) */}
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>쿠폰 확률 (%)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={couponRateText}
+                    onChange={(e) => { setCouponRateText(e.target.value.replace(/[^\d.]/g, "")); setMsg(null); }}
+                    disabled={saving}
+                    style={inputStyle}
+                  />
+                  <div style={metaStyle}>
+                    <span style={couponRateValid ? okStyle : badStyle}>
+                      {couponRateValid
+                        ? `잭팟이 아닐 때 ${couponPct}% 확률로 쿠폰 지급 (잡템은 항상)`
+                        : "0 ~ 100 사이"}
                     </span>
                   </div>
                 </div>
