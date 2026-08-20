@@ -103,6 +103,7 @@ export type ShopItemPatch = {
   description?: string | null;
   price?:       number;
   imageUrl?:    string | null;
+  metadata?:    Record<string, unknown>;
 };
 
 /** 신규 생성 페이로드. 모든 필드 명시적으로 지정. */
@@ -475,6 +476,7 @@ export async function updateShopItem(
   if (patch.description !== undefined) payload.description = patch.description === null ? null : patch.description.trim();
   if (patch.imageUrl !== undefined)    payload.image_url   = patch.imageUrl === null ? null : patch.imageUrl.trim() || null;
   if (patch.price !== undefined)       payload.price       = patch.price;
+  if (patch.metadata !== undefined)    payload.metadata    = patch.metadata;
 
   if (Object.keys(payload).length === 0) {
     return { ok: false, reason: "validation", message: "변경 사항이 없습니다." };

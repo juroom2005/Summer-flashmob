@@ -36,6 +36,8 @@ import {
   SHOP_ITEM_TYPE_LABEL,
   SLOT_KIND_LABEL,
   type SlotKind,
+  SLOT_WEIGHT_MIN,
+  SLOT_WEIGHT_MAX,
   SHOP_NAME_MAX_LEN,
   SHOP_PRICE_MAX,
   SHOP_PRICE_MIN,
@@ -59,14 +61,20 @@ type FormState = {
   description: string;
   priceText:   string;
   imageUrl:    string;
+  slotWeightText: string;
 };
 
 function itemToForm(it: GmShopItem): FormState {
+  const w =
+    it.metadata && typeof it.metadata === "object" && "weight" in it.metadata
+      ? (it.metadata as { weight?: unknown }).weight
+      : undefined;
   return {
     name:        it.name,
     description: it.description ?? "",
     priceText:   String(it.price),
     imageUrl:    it.imageUrl ?? "",
+    slotWeightText: w !== undefined && w !== null ? String(w) : "",
   };
 }
 
@@ -102,7 +110,17 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
   const descValid = form.description.length <= SHOP_DESC_MAX_LEN;
   const urlValid  = form.imageUrl.length <= SHOP_IMAGE_URL_MAX;
 
-  const allValid = nameValid && descValid && urlValid && priceValid;
+  // 슬롯 보상 아이템만 weight 편집 대상. 정수 & 범위 검사.
+  const isSlotReward = item.metadata?.slot_reward === true;
+  const slotWeightNum = Number(form.slotWeightText);
+  const slotWeightValid =
+    !isSlotReward ||
+    (form.slotWeightText.trim() !== "" &&
+      Number.isInteger(slotWeightNum) &&
+      slotWeightNum >= SLOT_WEIGHT_MIN &&
+      slotWeightNum <= SLOT_WEIGHT_MAX);
+
+  const allValid = nameValid && descValid && urlValid && priceValid && slotWeightValid;
 
   // dirty 검사 (스냅샷과 비교)
   const original = itemToForm(item);
@@ -110,7 +128,8 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
     form.name        !== original.name ||
     form.description !== original.description ||
     form.priceText   !== original.priceText ||
-    form.imageUrl    !== original.imageUrl;
+    form.imageUrl    !== original.imageUrl ||
+    form.slotWeightText !== original.slotWeightText;
 
   /* ── 저장 ── */
 
@@ -124,6 +143,10 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
       description: form.description.trim() === "" ? null : form.description.trim(),
       price:       priceNum,
       imageUrl:    form.imageUrl.trim() === "" ? null : form.imageUrl.trim(),
+      // 슬롯 보상 아이템이면 기존 metadata 를 유지한 채 weight 만 갱신.
+      ...(isSlotReward
+        ? { metadata: { ...item.metadata, weight: slotWeightNum } }
+        : {}),
     });
 
     setSaving(false);
@@ -135,7 +158,7 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
 
     onPatch(result.item);
     showNotice("저장되었습니다.");
-  }, [dirty, allValid, saving, busy, item.id, form, priceNum, onPatch, showNotice]);
+  }, [dirty, allValid, saving, busy, item.id, item.metadata, isSlotReward, slotWeightNum, form, priceNum, onPatch, showNotice]);
 
   /* ── 활성 토글 ── */
 
@@ -207,6 +230,13 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
   /* ── 렌더 ── */
 
   const isDisabled = saving || busy;
+
+  // 이 아이템에 설정된 커스텀 이모지 (metadata.emoji). 미리보기·안내용.
+  const editorEmoji =
+    item.metadata && typeof item.metadata === "object" && "emoji" in item.metadata &&
+    typeof (item.metadata as { emoji?: unknown }).emoji === "string"
+      ? ((item.metadata as { emoji?: string }).emoji ?? "").trim() || null
+      : null;
 
   return (
     <div style={wrapStyle}>
@@ -307,21 +337,41 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
         {/* 이미지 URL (2컬럼 폭 사용) */}
         <div style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
           <label style={labelStyle}>이미지 URL</label>
-          <input
-            type="text"
-            value={form.imageUrl}
-            maxLength={SHOP_IMAGE_URL_MAX}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setForm((f) => ({ ...f, imageUrl: e.target.value }))
-            }
-            disabled={isDisabled}
-            placeholder="비워두면 이미지 없음"
-            style={inputStyle}
-          />
-          <div style={fieldMetaStyle}>
-            <span style={urlValid ? metaOkStyle : metaBadStyle}>
-              {form.imageUrl.length} / {SHOP_IMAGE_URL_MAX}
-            </span>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            {/* 미리보기: 이미지 우선 → 이모지 → 없음 */}
+            <div style={previewBoxStyle} aria-hidden>
+              {form.imageUrl.trim() !== "" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.imageUrl.trim()} alt="" style={previewImgStyle} />
+              ) : editorEmoji ? (
+                <span style={previewEmojiStyle}>{editorEmoji}</span>
+              ) : (
+                <span style={previewEmptyStyle}>—</span>
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <input
+                type="text"
+                value={form.imageUrl}
+                maxLength={SHOP_IMAGE_URL_MAX}
+                onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                  setForm((f) => ({ ...f, imageUrl: e.target.value }))
+                }
+                disabled={isDisabled}
+                placeholder="비워두면 이미지 없음"
+                style={inputStyle}
+              />
+              <div style={fieldMetaStyle}>
+                <span style={urlValid ? metaOkStyle : metaBadStyle}>
+                  {form.imageUrl.length} / {SHOP_IMAGE_URL_MAX}
+                </span>
+                {editorEmoji ? (
+                  <span style={{ ...metaOkStyle, marginLeft: 8 }}>
+                    이모지 설정됨: {editorEmoji} (이미지 없을 때 표시)
+                  </span>
+                ) : null}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -346,17 +396,39 @@ export default function ShopItemEditor({ item, onPatch, onDeleted }: Props) {
             <span style={lockedKeyStyle}>슬롯 보상</span>
             <span style={lockedValStyle}>
               {SLOT_KIND_LABEL[item.metadata.slot_kind as SlotKind] ?? "?"}
-              {" · 가중치 "}
-              <code style={codeMonoInlineStyle}>
-                {String(item.metadata.weight ?? "?")}
-              </code>
+              {" · 종류는 고정"}
             </span>
           </div>
         ) : null}
         <div style={lockedNoteStyle}>
-          타입 · 참조 · 메타데이터 변경은 아이템 추가 UI 개발 시 함께 다룹니다.
+          타입 · 참조 · 종류(슬롯 kind) 변경은 아이템 추가 UI 개발 시 함께 다룹니다.
         </div>
       </div>
+
+      {/* 슬롯 가중치 편집 (슬롯 보상 아이템만) */}
+      {isSlotReward ? (
+        <div style={fieldStyle}>
+          <label style={labelStyle}>슬롯 가중치 (클수록 자주 나옴)</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={form.slotWeightText}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setForm((f) => ({ ...f, slotWeightText: e.target.value.replace(/[^\d]/g, "") }))
+            }
+            disabled={isDisabled}
+            placeholder={`${SLOT_WEIGHT_MIN} ~ ${SLOT_WEIGHT_MAX.toLocaleString()}`}
+            style={inputStyle}
+          />
+          <div style={fieldMetaStyle}>
+            <span style={slotWeightValid ? metaOkStyle : metaBadStyle}>
+              {slotWeightValid
+                ? `가중치 ${slotWeightNum} · 같은 종류 안에서의 상대 비율`
+                : `${SLOT_WEIGHT_MIN} ~ ${SLOT_WEIGHT_MAX.toLocaleString()} 정수`}
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       {/* 저장 버튼 (dirty + valid 일 때만 활성화) */}
       <div style={saveRowStyle}>
@@ -601,9 +673,37 @@ const textareaStyle: CSSProperties = {
   minWidth:     0,
 };
 
+const previewBoxStyle: CSSProperties = {
+  width:          46,
+  height:         46,
+  flexShrink:     0,
+  display:        "flex",
+  alignItems:     "center",
+  justifyContent: "center",
+  borderRadius:   8,
+  background:     "#f0f6fa",
+  border:         "1.5px solid #cfe4f2",
+  overflow:       "hidden",
+};
+const previewImgStyle: CSSProperties = {
+  width:     "100%",
+  height:    "100%",
+  objectFit: "contain",
+};
+const previewEmojiStyle: CSSProperties = {
+  fontSize:   26,
+  lineHeight: 1,
+};
+const previewEmptyStyle: CSSProperties = {
+  fontSize: 16,
+  color:    "#b3c4d0",
+};
+
 const fieldMetaStyle: CSSProperties = {
   display: "flex",
-  justifyContent: "flex-end",
+  justifyContent: "space-between",
+  gap: 8,
+  flexWrap: "wrap",
   fontFamily: BODY,
   fontSize:   10.5,
   minHeight:  14,

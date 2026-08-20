@@ -40,10 +40,22 @@ type Props = {
   onClick:  () => void;
 };
 
+/** metadata.emoji 안전 추출 (문자열일 때만). */
+function readEmoji(meta: unknown): string | null {
+  if (meta && typeof meta === "object" && "emoji" in meta) {
+    const e = (meta as { emoji?: unknown }).emoji;
+    if (typeof e === "string" && e.trim() !== "") return e.trim();
+  }
+  return null;
+}
+
 export default function ShopItemListItem({ item, isActive, onClick }: Props) {
   const accentColor   = TYPE_ACCENT_COLOR[item.itemType];
   const surroundColor = isActive ? "#1a9edb" : "#dce8f0";
   const inactive      = !item.isActive;
+
+  // 썸네일: 이미지 우선 → 이모지 → 빈 자리(타입 이니셜).
+  const emoji = readEmoji(item.metadata);
 
   return (
     <button
@@ -60,6 +72,17 @@ export default function ShopItemListItem({ item, isActive, onClick }: Props) {
       }}
     >
       <div style={topRowStyle}>
+        {/* 썸네일 (이미지/이모지 확인용) */}
+        <span style={thumbStyle} aria-hidden>
+          {item.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.imageUrl} alt="" style={thumbImgStyle} />
+          ) : emoji ? (
+            <span style={thumbEmojiStyle}>{emoji}</span>
+          ) : (
+            <span style={thumbEmptyStyle}>—</span>
+          )}
+        </span>
         <span style={nameStyle}>{item.name || "(이름 없음)"}</span>
         {inactive ? <span style={inactiveBadgeStyle}>내림</span> : null}
       </div>
@@ -106,6 +129,31 @@ const topRowStyle: CSSProperties = {
   justifyContent: "space-between",
   gap:            6,
   minWidth:       0,
+};
+
+const thumbStyle: CSSProperties = {
+  width:          24,
+  height:         24,
+  flexShrink:     0,
+  display:        "flex",
+  alignItems:     "center",
+  justifyContent: "center",
+  borderRadius:   6,
+  background:     "#f0f6fa",
+  overflow:       "hidden",
+};
+const thumbImgStyle: CSSProperties = {
+  width:     "100%",
+  height:    "100%",
+  objectFit: "contain",
+};
+const thumbEmojiStyle: CSSProperties = {
+  fontSize:   15,
+  lineHeight: 1,
+};
+const thumbEmptyStyle: CSSProperties = {
+  fontSize: 12,
+  color:    "#b3c4d0",
 };
 
 const nameStyle: CSSProperties = {
