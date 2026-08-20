@@ -146,6 +146,32 @@ export async function getMyPanelProfile(): Promise<MyPanelProfileRow | null> {
 }
 
 /* ═══════════════════════════════════════════════════════════
+ * 리듬게임 : 본인 캐릭터 스프라이트 조회
+ * ───────────────────────────────────────────────────────────
+ * 리듬게임(RhythmGame)은 세션 유저 본인의 스프라이트를 캐릭터로 쓴다.
+ * 스프라이트는 GM 이 profiles.sprite_url 에 설정(gm_set_user_sprite)하지만,
+ * 조회는 본인 행 SELECT(profiles_select_* RLS)로 충분하다 — GM RPC 불필요.
+ * sprite_url 한 컬럼만 가볍게 읽는다.
+ * 실패·미로그인·미설정 → 전부 null. 호출부는 null 이면 기본 이미지 폴백.
+ */
+export async function getMySpriteUrl(): Promise<string | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("sprite_url")
+    .eq("user_id", user.id)
+    .maybeSingle<{ sprite_url: string | null }>();
+
+  if (error) {
+    console.error("[getMySpriteUrl] failed:", error.message);
+    return null;
+  }
+  return data?.sprite_url ?? null;
+}
+
+/* ═══════════════════════════════════════════════════════════
  * MyPanel 학생증 커스터마이제이션 저장
  * ─────────────────────────────────────────────────────────── */
 

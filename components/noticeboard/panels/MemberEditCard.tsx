@@ -46,6 +46,7 @@ const EDIT_ROWS: {
   label: string;
   key: TextFieldKey;
   wide?: boolean;
+  full?: boolean;
   multiline?: boolean;
 }[][] = [
   [
@@ -63,8 +64,10 @@ const EDIT_ROWS: {
     { label: "PERFORMANCE", key: "performance", wide: true },
   ],
   [
-    { label: "PERSONALITY", key: "personality", wide: true, multiline: true },
-    { label: "ETC", key: "etc", wide: true, multiline: true },
+    { label: "PERSONALITY", key: "personality", full: true, multiline: true },
+  ],
+  [
+    { label: "ETC", key: "etc", full: true, multiline: true },
   ],
 ];
 
@@ -83,6 +86,7 @@ type FormState = {
   themeColor: string | null; // null = 기본색, hex = 지정
   tagLast: string;
   tagFirst: string;
+  quote: string;
 };
 
 function initialForm(profile: MemberProfile | null): FormState {
@@ -101,6 +105,7 @@ function initialForm(profile: MemberProfile | null): FormState {
     themeColor: profile?.themeColor ?? null,
     tagLast: profile?.tagLast ?? "",
     tagFirst: profile?.tagFirst ?? "",
+    quote: profile?.quote ?? "",
   };
 }
 
@@ -119,6 +124,7 @@ function formToInput(f: FormState): MemberProfileInput {
     themeColor: f.themeColor,
     tagLast: f.tagLast,
     tagFirst: f.tagFirst,
+    quote: f.quote,
   };
 }
 
@@ -229,6 +235,18 @@ export default function MemberEditCard({
             {cropError ? <p className={styles.editError}>{cropError}</p> : null}
           </div>
 
+          {/* 한마디(quote) — 네임태그 위. 비워두면 상세에서 표시되지 않음. */}
+          <div className={styles.editQuoteBlock}>
+            <span className={styles.fieldLabel}>한마디</span>
+            <input
+              type="text"
+              className={styles.editInput}
+              value={form.quote}
+              placeholder="캐릭터의 한마디 (비워두면 표시되지 않습니다)"
+              onChange={(e) => setField("quote", e.target.value)}
+            />
+          </div>
+
           {/* 네임태그 입력 + 실시간 미리보기 */}
           <div className={styles.editThemeBlock}>
             <span className={styles.fieldLabel}>네임태그</span>
@@ -291,7 +309,9 @@ export default function MemberEditCard({
                 {row.map((f) => (
                   <div
                     key={f.key}
-                    className={`${styles.field} ${f.wide ? styles.fieldWide : ""}`}
+                    className={`${styles.field} ${
+                      f.full ? styles.fieldFull : f.wide ? styles.fieldWide : ""
+                    }`}
                   >
                     <span className={styles.fieldLabel}>{f.label}</span>
                     {statLevelText(f.key) !== null ? (

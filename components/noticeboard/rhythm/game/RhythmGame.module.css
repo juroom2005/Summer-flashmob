@@ -416,12 +416,11 @@
 
 /* ── 아이콘 레일 + 캐릭터 ── */
 .charRow {
-  align-self: center;
+  align-self: stretch;
   display: flex;
   align-items: stretch;
   gap: 16px;
 }
-
 .iconRail {
   width: 46px;
   flex: none;
@@ -437,17 +436,41 @@
 
 .sprite {
   position: relative;
-  width: 400px;
-  height: 400px;
-  border-radius: 16px;
-  background: #e9eff9;
-  border: 2px dashed #9db6e8;
-  overflow: hidden;
-  /* 캐릭터 이미지 : public 에 두고 아래 경로만 교체 */
-  background-image: url("/rhythm/character.png");
-  background-size: contain;
-  background-position: center bottom;
-  background-repeat: no-repeat;
+  /* 아이콘 레일을 뺀 남은 가로 공간을 차지하고, 그 안에서 캐릭터를 중앙에.
+     높이(320)는 유지 → 이미지는 높이 기준으로 크기가 잡힌다. */
+  flex: 1;
+  min-width: 0;
+  height: 320px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: visible;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.spriteImg {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  filter:
+    drop-shadow( 2px  0    0 #fff)
+    drop-shadow(-2px  0    0 #fff)
+    drop-shadow( 0    2px  0 #fff)
+    drop-shadow( 0   -2px  0 #fff)
+    drop-shadow( 1.5px  1.5px 0 #fff)
+    drop-shadow(-1.5px  1.5px 0 #fff)
+    drop-shadow( 1.5px -1.5px 0 #fff)
+    drop-shadow(-1.5px -1.5px 0 #fff);
+  transform-origin: center bottom;
+  will-change: transform;
+}
+
+.spriteJump {
+  animation: charJump 0.42s cubic-bezier(0.28, 0.84, 0.42, 1);
 }
 
 .spriteJump {
@@ -672,9 +695,13 @@
 }
 
 @keyframes charJump {
-  0%   { transform: translateY(0); }
-  45%  { transform: translateY(-24px); }
-  100% { transform: translateY(0); }
+  0%   { transform: translateY(0)     scale(1,    1);    }
+  15%  { transform: translateY(0)     scale(1.12, 0.86); }
+  35%  { transform: translateY(-30px) scale(0.9,  1.14); }
+  55%  { transform: translateY(-34px) scale(1,    1);    }
+  75%  { transform: translateY(0)     scale(1.14, 0.84); }
+  88%  { transform: translateY(0)     scale(0.96, 1.05); }
+  100% { transform: translateY(0)     scale(1,    1);    }
 }
 
 @keyframes countinPulse {

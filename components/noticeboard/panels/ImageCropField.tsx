@@ -238,9 +238,25 @@ export default function ImageCropField({ value, onChange, onError }: Props) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, [onChange]);
 
+  const openPicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // 크롭 취소: 로드한 이미지를 버리고 기존 값(있으면) 미리보기로 복귀.
+  const cancelCrop = useCallback(() => {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+    setLoaded(null);
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
   return (
-    <div style={wrapStyle}>
-      {/* 미리보기 프레임 */}
+    <div style={colStyle}>
+      {/* 미리보기 프레임 (크롭 중이면 드래그 가능) */}
       <div
         ref={frameRef}
         style={frameStyle}
@@ -276,61 +292,71 @@ export default function ImageCropField({ value, onChange, onError }: Props) {
         )}
       </div>
 
-      {/* 컨트롤 */}
-      <div style={controlsStyle}>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={(e) => handleFile(e.target.files?.[0])}
-          style={{ fontSize: 12 }}
-        />
+      {/* 숨긴 파일 input (커스텀 버튼으로 여닫음) */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => handleFile(e.target.files?.[0])}
+        style={{ display: "none" }}
+      />
 
-        {loaded ? (
-          <>
-            <label style={labelStyle}>
-              확대
-              <input
-                type="range"
-                min={ZOOM_MIN}
-                max={ZOOM_MAX}
-                step={0.01}
-                value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                style={{ width: 140 }}
-              />
-            </label>
-            <p style={hintStyle}>프레임을 드래그해 위치를 맞추세요.</p>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                onClick={applyCrop}
-                disabled={busy}
-                style={applyBtnStyle}
-              >
-                {busy ? "처리 중" : "이 사진 적용"}
-              </button>
-              <button type="button" onClick={clearPhoto} style={clearBtnStyle}>
-                제거
-              </button>
-            </div>
-          </>
-        ) : value ? (
-          <button type="button" onClick={clearPhoto} style={clearBtnStyle}>
-            사진 제거
+      {loaded ? (
+        // ── 크롭 중: 확대 슬라이더 + 적용/취소 ──
+        <>
+          <label style={labelStyle}>
+            확대
+            <input
+              type="range"
+              min={ZOOM_MIN}
+              max={ZOOM_MAX}
+              step={0.01}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+          </label>
+          <p style={hintStyle}>프레임을 드래그해 위치를 맞추세요.</p>
+          <button
+            type="button"
+            onClick={applyCrop}
+            disabled={busy}
+            style={applyBtnStyle}
+          >
+            {busy ? "처리 중" : "이 사진 적용"}
           </button>
-        ) : null}
-      </div>
+          <button type="button" onClick={cancelCrop} style={clearBtnStyle}>
+            취소
+          </button>
+        </>
+      ) : (
+        // ── 대기 상태: 이미지 교체 / 삭제 ──
+        <>
+          <button type="button" onClick={openPicker} style={applyBtnStyle}>
+            이미지 교체
+          </button>
+          <button
+            type="button"
+            onClick={clearPhoto}
+            disabled={!value}
+            style={{ ...clearBtnStyle, opacity: value ? 1 : 0.5 }}
+          >
+            삭제
+          </button>
+        </>
+      )}
     </div>
   );
 }
 
-/* ── 스타일(인라인, 디자인은 프론트 리뉴얼 때 정리) ── */
-const wrapStyle: React.CSSProperties = {
+/* ── 스타일(인라인, 디자인은 프론트 리뉴얼 때 정리) ──
+ *  세로 정렬: 프레임 → (크롭 중이면 슬라이더/적용/취소, 아니면 교체/삭제).
+ *  스프라이트 칸(SpriteUploadField)과 같은 톤·폭. */
+const colStyle: React.CSSProperties = {
   display: "flex",
-  gap: 16,
-  alignItems: "flex-start",
-  flexWrap: "wrap",
+  flexDirection: "column",
+  gap: 10,
+  alignItems: "center",
 };
 const frameStyle: React.CSSProperties = {
   position: "relative",
@@ -353,23 +379,19 @@ const placeholderStyle: React.CSSProperties = {
   color: "#8a8a8a",
   fontSize: 13,
 };
-const controlsStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 10,
-  minWidth: 180,
-};
 const labelStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 4,
   fontSize: 13,
   color: "#333",
+  width: "100%",
 };
 const hintStyle: React.CSSProperties = {
   margin: 0,
   fontSize: 12,
   color: "#777",
+  textAlign: "center",
 };
 const applyBtnStyle: React.CSSProperties = {
   padding: "7px 14px",
@@ -379,6 +401,7 @@ const applyBtnStyle: React.CSSProperties = {
   color: "#fff",
   fontSize: 13,
   cursor: "pointer",
+  width: "100%",
 };
 const clearBtnStyle: React.CSSProperties = {
   padding: "7px 14px",
@@ -388,4 +411,5 @@ const clearBtnStyle: React.CSSProperties = {
   color: "#555",
   fontSize: 13,
   cursor: "pointer",
+  width: "100%",
 };

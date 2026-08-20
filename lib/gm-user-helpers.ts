@@ -81,6 +81,7 @@ const RPC_ERROR_MESSAGES: Record<string, string> = {
   insufficient_mobil:   "차감 후 잔액이 음수가 됩니다.",
   cannot_deactivate_gm: "GM 계정은 비활성화할 수 없습니다.",
   invalid_avatar_data:  "이미지 형식이 올바르지 않습니다.",
+  invalid_sprite_data:  "이미지 형식이 올바르지 않습니다.",
 };
 
 /**
@@ -246,6 +247,72 @@ export async function setGmUserAvatar(
   if (error) {
     const n = normalizeRpcError(error.message);
     console.error("[setGmUserAvatar] failed:", error.message);
+    return { ok: false, ...n };
+  }
+  return { ok: true, data: undefined };
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 리듬게임 스프라이트 (GM 설정/조회) — 두상(avatar)과 동일 패턴
+ * ─────────────────────────────────────────────────────────── */
+
+/**
+ * 대상 유저의 리듬게임 캐릭터 스프라이트 조회 (GM 관리 UI 미리보기).
+ *
+ * 두상(getGmUserAvatar)과 동일하게 gm_list_users 에 싣지 않고 단건 조회로
+ * 격리한다(스프라이트도 dataURL 이라 목록에 실으면 무거워짐).
+ *
+ * 반환: 스프라이트 있으면 dataURL 문자열, 미설정/조회실패면 null.
+ */
+export async function getGmUserSprite(
+  profileId: string
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc("gm_get_user_sprite", {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    console.error("[getGmUserSprite] failed:", error.message);
+    return null;
+  }
+  return (data as string | null) ?? null;
+}
+
+/**
+ * 대상 유저의 리듬게임 캐릭터 스프라이트 설정/삭제.
+ *
+ * @param spriteUrl  dataURL(또는 http URL) 문자열. null 이면 스프라이트 삭제.
+ *
+ * - GM 전용 RPC(gm_set_user_sprite, SECURITY DEFINER)로 남의 행 UPDATE.
+ * - 형식은 서버(RPC·컬럼 CHECK)와 클라 양쪽에서 방어. 명백히 이상한 값은
+ *   호출 전에 걸러 불필요한 왕복을 예방.
+ * - 대용량 방지 리사이즈는 호출부(업로드 UI)에서 수행.
+ */
+export async function setGmUserSprite(
+  profileId: string,
+  spriteUrl: string | null
+): Promise<RpcResult> {
+  if (
+    spriteUrl !== null &&
+    !spriteUrl.startsWith("data:image/") &&
+    !spriteUrl.startsWith("http")
+  ) {
+    return {
+      ok:      false,
+      reason:  "invalid_sprite_data",
+      message: RPC_ERROR_MESSAGES.invalid_sprite_data,
+    };
+  }
+
+  const { error } = await supabase.rpc("gm_set_user_sprite", {
+    p_profile_id: profileId,
+    p_sprite_url: spriteUrl,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[setGmUserSprite] failed:", error.message);
     return { ok: false, ...n };
   }
   return { ok: true, data: undefined };

@@ -42,12 +42,13 @@ type MemberProfileRow = {
   theme_color:   string | null;
   tag_last:      string;
   tag_first:     string;
+  quote:         string;
 };
 
 const ROW_COLUMNS =
   "id, owner_id, name, date_of_birth, age, grade, height, " +
   "rhythm, stamina, performance, personality, etc, photo_url, theme_color, " +
-  "tag_last, tag_first";
+  "tag_last, tag_first, quote";
 
 /** DB 행 → 프론트 MemberProfile. */
 function rowToProfile(r: MemberProfileRow): MemberProfile {
@@ -68,6 +69,7 @@ function rowToProfile(r: MemberProfileRow): MemberProfile {
     themeColor:  r.theme_color ?? undefined,
     tagLast:     r.tag_last ?? "",
     tagFirst:    r.tag_first ?? "",
+    quote:       r.quote ?? "",
   };
 }
 
@@ -89,6 +91,7 @@ export type MemberProfileInput = Partial<{
   themeColor:  string | null;   // null = 색 삭제(기본색), undefined = 미변경
   tagLast:     string;
   tagFirst:    string;
+  quote:       string;
 }>;
 
 function inputToPayload(input: MemberProfileInput): Record<string, unknown> {
@@ -108,6 +111,7 @@ function inputToPayload(input: MemberProfileInput): Record<string, unknown> {
   put("etc",           input.etc);
   put("tag_last",      input.tagLast);
   put("tag_first",     input.tagFirst);
+  put("quote",         input.quote);
 
   // photoUrl 은 3-상태:
   //   undefined → 키 없음(미변경)

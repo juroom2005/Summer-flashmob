@@ -44,6 +44,7 @@ import {
   COUNT_IN_SEC,
   TAIL_SEC,
 } from "./rhythmData";
+import { getMySpriteUrl } from "@/lib/auth-helpers";
 
 type Phase =
   | "select"
@@ -100,7 +101,30 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
 
   const [lastJudge, setLastJudge] = useState<Judgement | null>(null);
   const [combo, setCombo] = useState(0);
-  const [charJump, setCharJump] = useState(false);
+  // 캐릭터 점프 : 판정 성공마다 증가하는 카운터. img 의 key 로 써서
+  //   매 판정마다 애니메이션을 처음부터 재시작시킨다(연타 시에도 매번 튐).
+  //   boolean + 타이머 방식은 이미 true 인 동안 재트리거가 안 먹어(리렌더 없음)
+  //   연타가 씹히므로 key 재마운트 방식으로 교체.
+  const [jumpTick, setJumpTick] = useState(0);
+
+  // 캐릭터 스프라이트 : 세션 유저(본인)의 profiles.sprite_url.
+  //   GM 이 유저관리 탭(SpriteSetPanel)에서 설정한 값을 본인이 읽어 캐릭터로 쓴다.
+  //   null(미설정·미로그인·조회실패) → 인라인 배경을 주입하지 않아
+  //   CSS .sprite 의 기본 이미지(/rhythm/character.png)로 폴백된다.
+  const [spriteUrl, setSpriteUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getMySpriteUrl()
+      .then((url) => {
+        if (alive) setSpriteUrl(url);
+      })
+      .catch(() => {
+        // 조회 실패는 무시 → 기본 이미지 폴백(게임 진행에 영향 없음).
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // MP3/진행바 애니메이션 : 게임이 실제 재생(playing)일 때만 흐른다.
   //   정지 버튼은 없앴다(일시정지 미지원). 항상 "재생 중" 표시로 고정하고,
@@ -122,7 +146,6 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
   const submitLock = useRef(false);
   const comboRef = useRef(0);
   const judgeFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const charJumpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishedRef = useRef(false);
 
   const song = getDefaultSong();
@@ -154,7 +177,6 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
       stopRaf();
       disposeEngine();
       if (judgeFlashTimer.current) clearTimeout(judgeFlashTimer.current);
-      if (charJumpTimer.current) clearTimeout(charJumpTimer.current);
     };
   }, [stopRaf, disposeEngine]);
 
@@ -267,9 +289,9 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
   }, []);
 
   const triggerCharJump = useCallback(() => {
-    setCharJump(true);
-    if (charJumpTimer.current) clearTimeout(charJumpTimer.current);
-    charJumpTimer.current = setTimeout(() => setCharJump(false), 260);
+    // key 를 바꿔 img 를 재마운트 → 애니메이션이 매번 처음부터 재생.
+    // 연타(짧은 간격 판정)에도 매번 튄다. 타이머 불필요(애니메이션이 끝나면 정지).
+    setJumpTick((n) => n + 1);
   }, []);
 
   /* ═══════ 입력 판정 ═══════ */
@@ -631,8 +653,17 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M4 4h7l9 9-7 7-9-9z" /><circle cx="8.2" cy="8.2" r="1.4" fill="currentColor" stroke="none" /></svg>
             </div>
             <div
-              className={`${styles.sprite} ${charJump ? styles.spriteJump : ""}`}
-            />
+              className={styles.sprite}
+              onPointerDown={handleStagePointerDown}
+            >
+              <img
+                key={jumpTick}
+                className={`${styles.spriteImg} ${jumpTick > 0 ? styles.spriteJump : ""}`}
+                src={spriteUrl ?? "/rhythm/character.png"}
+                alt=""
+                draggable={false}
+              />
+            </div>
           </div>
         </div>
 

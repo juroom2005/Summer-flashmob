@@ -29,6 +29,7 @@ import type {
 } from "@/lib/gm-user-helpers";
 import UserEditForm       from "./UserEditForm";
 import AvatarSetPanel     from "./AvatarSetPanel";
+import SpriteSetPanel     from "./SpriteSetPanel";
 import StatAdjustPanel    from "./StatAdjustPanel";
 import MobilGrantPanel    from "./MobilGrantPanel";
 import PasswordResetPanel from "./PasswordResetPanel";
@@ -143,6 +144,10 @@ export default function UserDetail({ user, onPatch, onRefresh }: Props) {
       {/* 학생증 두상: 유저 본인은 못 넣고 GM 이 여기서 설정.
           shell(미가입)도 profile 행은 있으므로 조건 없이 노출. */}
       <AvatarSetPanel profileId={user.id} displayName={displayName} />
+
+      {/* 리듬게임 캐릭터 스프라이트: 두상과 동일하게 GM 이 여기서 설정.
+          저장된 스프라이트는 리듬게임에서 본인 캐릭터로 사용된다. */}
+      <SpriteSetPanel profileId={user.id} displayName={displayName} />
 
       <StatAdjustPanel
         profileId={user.id}

@@ -56,12 +56,14 @@ export type MemberProfile = {
   themeColor?: string;
   tagLast: string;
   tagFirst: string;
+  quote: string;
 };
 
 const FIELD_ROWS: {
   label: string;
   key: keyof MemberProfile;
   wide?: boolean;
+  full?: boolean;
 }[][] = [
   [
     { label: "NAME", key: "name", wide: true },
@@ -77,9 +79,11 @@ const FIELD_ROWS: {
     { label: "STAMINA", key: "stamina" },
     { label: "PERFORMANCE", key: "performance", wide: true },
   ],
+    [
+    { label: "PERSONALITY", key: "personality", full: true },
+  ],
   [
-    { label: "PERSONALITY", key: "personality", wide: true },
-    { label: "ETC", key: "etc", wide: true },
+    { label: "ETC", key: "etc", full: true },
   ],
 ];
 
@@ -168,9 +172,21 @@ function MemberDetail({
                     background: "rgba(255,255,255,0.72)",
                   }}
                 />
-              ) : null}
+                            ) : null}
             </div>
           </div>
+          {profile?.quote ? (
+            <div className={styles.quoteBlock}>
+              <span
+                className={styles.quoteMark}
+                style={{ color: profile.themeColor ?? "#3f88f9" }}
+                aria-hidden
+              >
+                {"\u201C"}
+              </span>
+              <p className={styles.quoteText}>{profile.quote}</p>
+            </div>
+          ) : null}
 
           <div className={styles.fields}>
             {FIELD_ROWS.map((row, ri) => (
@@ -178,7 +194,9 @@ function MemberDetail({
                 {row.map((f) => (
                   <div
                     key={f.key}
-                    className={`${styles.field} ${f.wide ? styles.fieldWide : ""}`}
+                    className={`${styles.field} ${
+                      f.full ? styles.fieldFull : f.wide ? styles.fieldWide : ""
+                    }`}
                   >
                     <span className={styles.fieldLabel}>{f.label}</span>
                     <span className={styles.fieldValue}>{val(f.key)}</span>
@@ -474,6 +492,7 @@ export default function MemberPanel() {
       {mode.kind === "editNew" ? (
         <MemberEditCard
           profile={null}
+          ownerId={mode.owner.id}
           ownerLabel={
             `${mode.owner.family_name ?? ""} ${mode.owner.given_name ?? ""}`.trim() ||
             "(이름 미등록)"

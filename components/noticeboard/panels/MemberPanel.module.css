@@ -146,6 +146,34 @@
   z-index: 2;
 }
 
+/* ── 한마디(quote) 인용구 ──────────────────────────────
+ * MEMBER 타이틀 아래. 우상단 폴라로이드(150px + right:34px)와 겹치지 않게
+ * 오른쪽 여백을 확보한다. 큰따옴표는 크게, 색은 인라인(테마색)으로 주입. */
+.quoteBlock {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 40px 200px -14px 0;
+  min-height: 40px;
+}
+.quoteMark {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 52px;
+  line-height: 0.9;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.quoteText {
+  margin: 0;
+  padding-top: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #222;
+  font-family: 'Roboto', var(--font-body), sans-serif;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
 /* ── 필드 표 ───────────────────────────────────────────── */
 .fields {
   margin-top: 44px;
@@ -210,29 +238,42 @@
   margin: 6px 0 10px;
 }
 
-/* 입력칸: 필드 셀 안에서 값처럼 보이되 편집 가능하게 최소 스타일. */
+/* 입력칸: Uiverse 스타일(border 없음, 부드러운 그림자, 라운드).
+   포커스 시 그림자 강조, invalid 시 흔들림. */
 .editInput,
 .editTextarea {
   width: 100%;
   box-sizing: border-box;
   font-size: 13px;
-  color: #000;
+  color: dimgray;
   font-family: inherit;
-  background: #fafafa;
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  border-radius: 5px;
-  padding: 4px 6px;
+  background: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 12px;
   outline: none;
-  transition: border-color 0.12s, background 0.12s;
+  box-shadow: 2px 2px 7px rgba(0, 0, 0, 0.2);
+  transition: box-shadow 0.15s, color 0.15s;
 }
 .editInput:focus,
 .editTextarea:focus {
-  border-color: #3f88f9;
-  background: #fff;
+  color: #000;
+  box-shadow: 2px 2px 10px rgba(63, 136, 249, 0.4);
+}
+.editInput:invalid,
+.editTextarea:invalid {
+  animation: mp-justshake 0.3s forwards;
+  color: #d64550;
+}
+@keyframes mp-justshake {
+  25%  { transform: translateX(5px); }
+  50%  { transform: translateX(-5px); }
+  75%  { transform: translateX(5px); }
+  100% { transform: translateX(-5px); }
 }
 .editTextarea {
   resize: vertical;
-  min-height: 54px;
+  min-height: 96px;
   line-height: 1.5;
 }
 
@@ -366,6 +407,14 @@
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-radius: 999px;
   padding: 2px 8px;
+}
+
+/* ── 한마디 입력 (MemberEditCard) ──────────────────────── */
+.editQuoteBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 /* ── 네임태그 테마색 편집 (MemberEditCard) ──────────────── */
