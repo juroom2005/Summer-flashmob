@@ -174,7 +174,7 @@ export default function CafeMinigameOverlay({
               ) : null}
             </div>
             <p className={styles.subtitle}>
-              원하는 자리를 선택해 알바를 시작해 주십시오. 게임을 완료하면 점수에
+              원하는 자리를 선택해 알바를 시작해 주세요. 게임을 완료하면 점수에
               따라 보상이 지급되며 일일 횟수가 1회 차감됩니다.
             </p>
 

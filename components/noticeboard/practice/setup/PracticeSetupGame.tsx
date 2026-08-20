@@ -252,8 +252,8 @@ export default function PracticeSetupGame({ onExit, onPlayed }: Props) {
         <div className={styles.intro}>
           <div className={styles.introTitle}>사운드 웨이브 매칭</div>
           <p className={styles.introBody}>
-            아래 fader 4개를 조정해 유저 웨이브 (밝은 파랑) 를 목표 웨이브
-            (희미한 흰선) 에 겹치도록 맞춰 주십시오. 정확히 맞으면 웨이브가
+            아래 노브 4개를 조정해 유저 웨이브 (밝은 파랑) 를 목표 웨이브
+            (희미한 흰선) 에 겹치도록 맞춰 주세요. 정확히 맞으면 웨이브가
             녹색으로 바뀝니다. 준비되면 "완료" 를 눌러 채점하며, 40초가 지나면
             자동 채점됩니다.
           </p>

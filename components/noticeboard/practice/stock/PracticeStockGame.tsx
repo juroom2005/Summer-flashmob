@@ -297,7 +297,7 @@ export default function PracticeStockGame({ onExit, onPlayed }: Props) {
           <div className={styles.introTitle}>📦 재고 정리</div>
           <p className={styles.introBody}>
             창고에서 박스를 뽑아 선반의 지정된 자리에 정확한 수량만큼 넣어
-            주십시오. 잘못된 자리나 바닥에 놓으면 박스는 사라지고 다시 뽑아야
+            주세요. 잘못된 자리나 바닥에 놓으면 박스는 사라지고 다시 뽑아야
             합니다. 30초 안에 모든 선반을 채우면 조기 종료됩니다.
           </p>
           <div className={styles.introActions}>

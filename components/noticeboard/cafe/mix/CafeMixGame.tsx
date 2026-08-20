@@ -238,8 +238,8 @@ export default function CafeMixGame({ onExit, onPlayed }: Props) {
         <div className={styles.intro}>
           <div className={styles.introTitle}>🥤 음료 제조</div>
           <p className={styles.introBody}>
-            오더 티켓에 적힌 음료를 레시피대로 만드십시오. 레시피북은 상시
-            열려 있으며, 재료를 아래부터 위로 쌓아 완성하십시오. 층 순서가
+            오더 티켓에 적힌 음료를 레시피대로 만들어주세요. 레시피북은 상시
+            열려 있으며, 재료를 아래부터 위로 쌓아 완성하세요. 층 순서가
             중요합니다.
           </p>
           <div className={styles.introActions}>

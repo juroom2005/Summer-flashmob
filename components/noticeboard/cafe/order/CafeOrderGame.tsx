@@ -214,8 +214,7 @@ export default function CafeOrderGame({ onExit, onPlayed }: Props) {
           <div className={styles.introTitle}>🧾 주문 받기</div>
           <p className={styles.introBody}>
             손님이 주문을 순서대로 말합니다. 말풍선이 지나가니 포스기 자판으로
-            말한 순서 그대로 눌러 주문을 받아 주십시오. 말하는 도중에 눌러도
-            됩니다. 한 손님을 마치면 입력 완료를 눌러 점수를 확인하고 다음
+            말한 순서 그대로 눌러 주문을 받아 주세요. 말하는 도중에도 조작이 가능합니다.  한 손님을 마치면 입력 완료를 눌러 점수를 확인하고 다음
             손님으로 넘어갑니다. 손님 2명을 응대합니다.
           </p>
           <button className={styles.primaryBtn} onClick={startGame}>알바 시작</button>

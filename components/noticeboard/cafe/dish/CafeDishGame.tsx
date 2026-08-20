@@ -279,7 +279,7 @@ export default function CafeDishGame({ onExit, onPlayed }: Props) {
         <div className={styles.intro}>
           <div className={styles.introTitle}>🧽 설거지</div>
           <p className={styles.introBody}>
-            접시에 묻은 얼룩을 시간 안에 문질러 지우십시오. 스펀지로 얼룩
+            접시에 묻은 얼룩을 시간 안에 문질러 지워주세요. 스펀지로 얼룩
             위를 두 번 지나가면 완전히 사라집니다. 15초 안에 모든 얼룩을
             지우면 조기 종료됩니다.
           </p>

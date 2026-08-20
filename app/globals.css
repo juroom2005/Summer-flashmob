@@ -56,6 +56,32 @@
   src: url('/fonts/Impact.ttf') format('truetype');
 }
 
+/* 리듬게임 픽셀 폰트 */
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/PixelifySans-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Silkscreen-Regular.woff2') format('woff2');
+}
+
+/* 리듬게임 곡 제목 전용 (일본어 픽셀 폰트 · 히라가나/가타카나 서브셋) */
+@font-face {
+  font-family: 'Donguri Duel';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/DonguriDuel-subset.woff2') format('woff2');
+}
+
 @font-face {
   font-family: 'Hey November';
   font-style: normal;
@@ -65,7 +91,7 @@
 }
 
 * {
-  cursor: url('/cursors/heart.ani'), url('/cursors/normal.webp') 0 0, auto;
+  cursor: url('/cursors/heart.ani'), url('/cursors/heart.webp') 0 0, auto;
 }
 * {
   box-sizing: border-box;

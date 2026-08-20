@@ -1,45 +1,49 @@
 /* components/noticeboard/practice/setup/PracticeSetupGame.module.css
  * ─────────────────────────────────────────────────────────────
- * 시안 2b — 빈티지 카페 · 크래프트 톤 (연습실 장비 세팅 · 웨이브 매칭)
+ * 뉴트로 블루 · 연습실 장비 세팅 (사운드 웨이브 매칭)
  *
- * 레이아웃 :
- *   .wrap      : column flex (HUD → 스코프 → 페이더 → 액션)
- *   .gameArea  : HUD 아래 세로 스택
- *   .scope     : 오실로스코프 (목표/유저 웨이브 SVG)
- *   .faderRow  : fader 4개 가로 나열
- *   .faderCol  : 값(위) · 트랙(중앙) · 라벨(아래)
- *   .faderTrack: 세로 슬라이더 트랙. 아래에서 knob 까지 채워짐(.fillFromBottom)
+ * 컨셉 : "믹싱 콘솔". 평평하고 깔끔한 아날로그 콘솔 패널.
+ *   · 스코프(상) : 파란 그리드 오실로스코프. 목표 파형(점선 회색) 위에
+ *     유저 파형(파랑 실선)을 겹친다. 일치하면 파형 그린 + 배지.
+ *   · fader(하) : 세로 트랙 4개. 아래에서 노브까지 파란 단색이 차오르고,
+ *     노브는 각진 캡. 값(0~100) 리드아웃은 콘솔 LCD 느낌.
  *
- * ※ 과거 이 파일에 재고관리(stock) 게임 CSS 가 잘못 들어가 있어
- *   페이더/스코프 클래스가 전부 미정의 → 레이아웃 붕괴. 이번에 setup 전용으로 재작성.
+ * 그라데이션 0 · 전부 단색 · 얇은 보더 · 각진 코너.
+ * 클래스명·좌표계·pointer 이벤트는 TSX 그대로 (CSS만 교체).
  */
 
 .wrap {
-  --ink:     #3E2C1C;
-  --paper:   #E0CFA8;
-  --pad:     #F1E4C6;
-  --desk:    #D6BF98;
-  --brick:   #B5482E;
-  --mustard: #C98A24;
-  --receipt: #FBF3DE;
-  --counter: #7A5A38;
+  --ink:        #14406f;
+  --primary:    #1a9edb;
+  --strong:     #0d6fa8;
+  --mid:        #2ea3dd;
+  --border:     #bfe4f7;
+  --borderSoft: #d6effc;
+  --card:       #ffffff;
+  --pageTop:    #eaf7fe;
+  --ok:         #2f8a75;
+  --ok-soft:    #d6f0e6;
+  --bad:        #c0392b;
 
-  --f-head: "Black Han Sans", var(--font-jua, "Jua"), sans-serif;
+  /* 콘솔 스코프 */
+  --scope-bg:   #0f3355;   /* 스코프 화면(진한 네이비, 단색) */
+  --scope-grid: rgba(120, 190, 235, 0.18);
+  --wave-target:#8fb7d6;   /* 목표 파형(회색빛 파랑) */
+  --wave:       #4fc4f0;   /* 유저 파형(밝은 파랑) */
+  --wave-ok:    #57e0a8;   /* 일치 시 그린 */
+
+  /* fader 콘솔 */
+  --track-bg:   #eaf3fb;   /* 트랙 홈(단색) */
+  --track-edge: #bcdcf2;
+  --fill:       #2ea3dd;   /* 채움(단색) */
+  --knob:       #ffffff;
+  --knob-edge:  #0d6fa8;
+  --knob-line:  #1a9edb;
+
+  --f-head: var(--font-jua, "Jua"), sans-serif;
   --f-note: "Gaegu", cursive;
   --f-body: "Gowun Dodum", sans-serif;
-
-  /* 스코프 · 페이더 색 */
-  --scope-bg:     #2b2016;   /* 오실로스코프 어두운 화면 */
-  --scope-grid:   rgba(201, 138, 36, 0.18);
-  --wave-target:  rgba(251, 243, 222, 0.4);   /* 목표 웨이브 (희미한 흰선) */
-  --wave-user:    #4aa3e0;   /* 유저 웨이브 (밝은 파랑) */
-  --wave-match:   #5cc46a;   /* 일치 시 녹색 */
-
-  --track-bg:     #f1e4c6;
-  --track-edge:   #8a6a3c;
-  --fill:         #C98A24;
-  --knob-fill:    #c9a878;
-  --knob-edge:    #8a6a3c;
+  --f-mono: "Space Mono", "Courier New", monospace;
 
   display: flex;
   flex-direction: column;
@@ -47,44 +51,43 @@
   padding: 16px 18px;
   color: var(--ink);
   font-family: var(--f-body);
+  background:
+    linear-gradient(rgba(26, 158, 219, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 158, 219, 0.06) 1px, transparent 1px),
+    #ffffff;
+  background-size: 24px 24px;
 }
 
-/* ═══════════════════════════════════════════════════════════
- * 인트로
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ 인트로 */
 
 .intro {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
-  padding: 32px 24px;
-  background: var(--receipt);
-  border: 2.5px dashed var(--ink);
+  gap: 16px;
+  padding: 34px 26px;
+  text-align: center;
+  background: var(--card);
+  border: 1.5px solid var(--border);
   border-radius: 10px;
+  box-shadow: 0 4px 0 var(--borderSoft);
 }
 .introTitle {
   font-family: var(--f-head);
-  font-size: 26px;
-  color: var(--brick);
+  font-size: 30px;
+  color: var(--primary);
 }
 .introBody {
   font-family: var(--f-body);
-  font-size: 14px;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.75;
   max-width: 460px;
-  text-align: center;
   margin: 0;
+  color: rgba(20, 64, 111, 0.8);
 }
-.introActions {
-  display: flex;
-  gap: 12px;
-  margin-top: 4px;
-}
+.introActions { display: flex; gap: 12px; margin-top: 4px; }
 
-/* ═══════════════════════════════════════════════════════════
- * 게임 영역
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ 게임 영역 */
 
 .gameArea {
   display: flex;
@@ -94,9 +97,7 @@
   flex: 1 1 auto;
 }
 
-/* ═══════════════════════════════════════════════════════════
- * HUD
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ HUD */
 
 .hud {
   display: flex;
@@ -104,154 +105,141 @@
   justify-content: space-between;
   gap: 14px;
   padding: 10px 14px;
-  background: var(--pad);
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  box-shadow: 3px 3px 0 var(--ink);
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 0 var(--borderSoft);
   flex: 0 0 auto;
 }
-
 .timer {
-  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
+  font-family: var(--f-mono);
   font-size: 16px;
   font-weight: 700;
-  color: var(--counter);
-  background: rgba(62, 44, 28, 0.08);
-  border: 1.5px solid rgba(62, 44, 28, 0.35);
-  border-radius: 4px;
+  color: var(--strong);
+  background: var(--pageTop);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
   padding: 4px 12px;
   letter-spacing: 0.5px;
   min-width: 70px;
   text-align: center;
 }
 .timerMid {
-  color: #a54a1a;
-  background: rgba(201, 138, 36, 0.18);
-  border-color: rgba(201, 138, 36, 0.55);
+  color: #b26b12;
+  background: rgba(217, 130, 43, 0.16);
+  border-color: rgba(217, 130, 43, 0.5);
 }
 .timerLow {
-  color: #d02b1a;
-  background: rgba(181, 72, 46, 0.2);
-  border-color: rgba(181, 72, 46, 0.65);
+  color: var(--bad);
+  background: rgba(192, 57, 43, 0.14);
+  border-color: rgba(192, 57, 43, 0.55);
   animation: timerPulse 0.8s ease-in-out infinite;
 }
 @keyframes timerPulse {
   0%, 100% { transform: scale(1);    opacity: 1;   }
   50%      { transform: scale(1.08); opacity: 0.7; }
 }
-
-.progress {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+.progress { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; }
 .progressLabel {
   font-family: var(--f-note);
+  font-weight: 700;
   font-size: 13px;
-  color: var(--counter);
+  color: var(--mid);
   text-align: right;
 }
 .progressBar {
   height: 10px;
-  background: rgba(62, 44, 28, 0.15);
-  border: 1.5px solid var(--ink);
+  background: var(--pageTop);
+  border: 1.5px solid var(--border);
   border-radius: 6px;
   overflow: hidden;
 }
 .progressFill {
   height: 100%;
-  background: linear-gradient(90deg, var(--brick) 0%, var(--mustard) 100%);
+  background: var(--primary);
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 4px 0 0 4px;
 }
 
-/* ═══════════════════════════════════════════════════════════
- * 오실로스코프 (웨이브 스코프)
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ 웨이브 스코프 */
 
 .scope {
   position: relative;
   flex: 0 0 auto;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--scope-bg) 88%, black 12%) 0%,
-      var(--scope-bg) 100%);
-  border: 2.5px solid var(--ink);
+  background: var(--scope-bg);
+  border: 1.5px solid var(--strong);
   border-radius: 8px;
   padding: 10px;
-  box-shadow:
-    inset 0 2px 10px rgba(0, 0, 0, 0.45),
-    3px 3px 0 var(--ink);
-  /* 은은한 격자 (스코프 눈금 느낌) */
+  box-shadow: 0 4px 0 var(--borderSoft);
+  /* 오실로스코프 그리드 : 단색 라인, 그라데이션 없음 */
   background-image:
     linear-gradient(var(--scope-grid) 1px, transparent 1px),
     linear-gradient(90deg, var(--scope-grid) 1px, transparent 1px);
-  background-size: 100% 100%, 32px 24px, 32px 24px;
+  background-size: 20px 20px;
+  background-position: center;
 }
-
 .scopeSvg {
   display: block;
   width: 100%;
-  height: 120px;
+  height: 150px;
 }
 
-/* 목표 웨이브 (희미한 흰선, 고정) */
+/* 목표 파형 : 회색빛 점선 */
 .waveTarget {
   stroke: var(--wave-target);
   stroke-width: 2;
-  stroke-dasharray: 5 4;
+  stroke-dasharray: 5 5;
+  stroke-linecap: round;
+  opacity: 0.85;
 }
-
-/* 유저 웨이브 (밝은 파랑, 실시간) */
+/* 유저 파형 : 밝은 파랑 실선 */
 .waveCurrent {
-  stroke: var(--wave-user);
+  stroke: var(--wave);
   stroke-width: 2.5;
-  filter: drop-shadow(0 0 3px rgba(74, 163, 224, 0.6));
-  transition: stroke 0.15s;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.2s;
+  filter: drop-shadow(0 0 3px rgba(79, 196, 240, 0.6));
 }
-/* 완전 일치 시 녹색 */
+/* 일치 : 그린 */
 .waveMatched {
-  stroke: var(--wave-match);
-  filter: drop-shadow(0 0 5px rgba(92, 196, 106, 0.75));
+  stroke: var(--wave-ok);
+  filter: drop-shadow(0 0 4px rgba(87, 224, 168, 0.7));
 }
 
 .matchBadge {
   position: absolute;
-  top: 10px;
+  top: 14px;
   right: 14px;
   font-family: var(--f-head);
-  font-size: 14px;
-  color: var(--wave-match);
-  background: rgba(43, 32, 22, 0.85);
-  border: 1.5px solid var(--wave-match);
-  border-radius: 999px;
-  padding: 3px 12px;
+  font-size: 13px;
   letter-spacing: 1px;
-  animation: matchPop 0.25s ease-out;
+  color: #063b2a;
+  background: var(--wave-ok);
+  border: 1.5px solid #2f8a75;
+  border-radius: 6px;
+  padding: 3px 12px;
+  box-shadow: 0 2px 0 #2f8a75;
+  animation: badgePop 0.25s ease-out;
 }
-@keyframes matchPop {
-  from { opacity: 0; transform: scale(0.8); }
-  to   { opacity: 1; transform: scale(1);   }
+@keyframes badgePop {
+  from { transform: scale(0.7); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
 
-/* ═══════════════════════════════════════════════════════════
- * 페이더 (세로 슬라이더 4개)
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ Fader 콘솔 */
 
 .faderRow {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 12px;
-  background: var(--desk);
-  border: 2px solid var(--ink);
-  border-radius: 8px;
-  padding: 16px 12px;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.08);
-  user-select: none;
-  -webkit-user-select: none;
+  padding: 14px 12px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 0 var(--borderSoft);
 }
 
 .faderCol {
@@ -259,165 +247,148 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  min-width: 0;
+  min-height: 0;
 }
 
-/* 값 표시 (트랙 위) */
+/* 값 리드아웃 : 콘솔 LCD */
 .faderReadout {
-  font-family: var(--f-mono, "DotGothic16"), "Courier New", monospace;
-  font-size: 15px;
+  font-family: var(--f-mono);
+  font-size: 14px;
   font-weight: 700;
-  color: var(--ink);
-  background: var(--pad);
-  border: 1.5px solid var(--ink);
-  border-radius: 4px;
-  padding: 2px 8px;
-  min-width: 44px;
+  color: var(--strong);
+  background: var(--pageTop);
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 0;
+  width: 44px;
   text-align: center;
   flex: 0 0 auto;
 }
-.readoutCurrent {
-  color: var(--brick);
-}
+.readoutCurrent { letter-spacing: 0.5px; }
 
-/* 트랙 : 세로 슬라이더. 높이가 실제 슬라이드 범위. */
+/* 세로 트랙 : 단색 홈 */
 .faderTrack {
   position: relative;
   flex: 1 1 auto;
-  width: 26px;
-  min-height: 160px;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--track-bg) 82%, black 18%) 0%,
-      var(--track-bg) 100%);
-  border: 2px solid var(--track-edge);
-  border-radius: 999px;
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.25);
-  cursor: ns-resize;
+  width: 34px;
+  min-height: 120px;
+  background: var(--track-bg);
+  border: 1.5px solid var(--track-edge);
+  border-radius: 6px;
+  cursor: pointer;
   overflow: hidden;
+  touch-action: none;
+}
+/* 트랙 중앙 가이드 홈 (단색 얇은 선) */
+.faderTrack::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background: var(--track-edge);
+  border-radius: 2px;
 }
 
-/* 채워진 부분 (아래에서 knob 위치까지) */
+/* 아래에서 노브까지 채움 : 단색 */
 .fillFromBottom {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--fill) 90%, white 10%) 0%,
-      var(--fill) 100%);
-  pointer-events: none;
-  transition: height 0.05s linear;
+  background: var(--fill);
+  z-index: 1;
 }
 
-/* 노브 : top 은 인라인 style 로 (100 - value)% 지정 */
+/* 노브 : 각진 콘솔 캡 */
 .knob {
   position: absolute;
   left: 50%;
-  width: 34px;
-  height: 18px;
+  width: 30px;
+  height: 16px;
   transform: translate(-50%, -50%);
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--knob-fill) 90%, white 12%) 0%,
-      var(--knob-fill) 55%,
-      color-mix(in srgb, var(--knob-fill) 82%, black 18%) 100%);
-  border: 2px solid var(--knob-edge);
-  border-radius: 5px;
-  box-shadow:
-    0 2px 3px rgba(0, 0, 0, 0.35),
-    inset 0 1px 1px rgba(255, 255, 255, 0.3);
-  pointer-events: none;   /* 트랙이 포인터 이벤트 처리 */
+  background: var(--knob);
+  border: 1.5px solid var(--knob-edge);
+  border-radius: 4px;
+  box-shadow: 0 2px 0 rgba(13, 71, 111, 0.22);
+  z-index: 2;
 }
-/* 노브 중앙 홈 (그립 표현) */
-.knob::after {
+/* 노브 중앙 그립 라인 */
+.knob::before {
   content: "";
   position: absolute;
   top: 50%;
-  left: 6px;
-  right: 6px;
+  left: 5px;
+  right: 5px;
   height: 2px;
   transform: translateY(-50%);
-  background: rgba(62, 44, 28, 0.4);
+  background: var(--knob-line);
   border-radius: 2px;
 }
 
 .faderLabel {
-  font-family: var(--f-head);
-  font-size: 13px;
-  color: var(--counter);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 1px;
+  color: var(--ink);
+  background: var(--pageTop);
+  border: 1.5px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 0;
+  width: 100%;
   text-align: center;
   flex: 0 0 auto;
 }
 
-/* ═══════════════════════════════════════════════════════════
- * 액션 버튼
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ 액션 버튼 */
 
 .actionRow {
   display: flex;
   justify-content: center;
   gap: 10px;
-  padding-top: 4px;
+  padding-top: 2px;
   flex: 0 0 auto;
 }
-
 .primaryBtn,
 .ghostBtn {
-  font-family: var(--f-note);
-  font-weight: 700;
-  font-size: 15px;
-  padding: 8px 20px;
-  border-radius: 7px;
-  border: 2.5px solid var(--ink);
+  font-family: var(--f-head);
+  font-size: 16px;
+  padding: 10px 24px;
+  border-radius: 10px;
   cursor: pointer;
-  box-shadow: 3px 3px 0 var(--ink);
   transition: transform 0.08s, box-shadow 0.08s;
   color: var(--ink);
 }
-.primaryBtn { background: var(--brick); color: var(--receipt); }
-.ghostBtn   { background: var(--pad); }
-
+.primaryBtn {
+  color: #fff;
+  background: var(--primary);
+  border: 1.5px solid var(--strong);
+  box-shadow: 0 4px 0 var(--strong);
+}
+.primaryBtn:disabled { opacity: 0.55; cursor: default; }
+.ghostBtn {
+  font-size: 15px;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 3px 0 var(--borderSoft);
+}
 .primaryBtn:hover,
-.ghostBtn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 var(--ink);
-}
-.primaryBtn:active,
-.ghostBtn:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 var(--ink);
-}
-.primaryBtn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
+.ghostBtn:hover { transform: translateY(-1px); }
+.primaryBtn:hover:not(:disabled) { box-shadow: 0 5px 0 var(--strong); }
+.ghostBtn:hover    { box-shadow: 0 4px 0 var(--borderSoft); }
+.primaryBtn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--strong); }
+.ghostBtn:active   { transform: translateY(2px); box-shadow: 0 1px 0 var(--borderSoft); }
 
-/* ═══════════════════════════════════════════════════════════
- * 반응형
- * ─────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ 반응형 */
 
 @media (max-width: 480px) {
-  .hud {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .progressLabel {
-    text-align: left;
-  }
-  .faderRow {
-    padding: 12px 8px;
-    gap: 8px;
-  }
-  .faderTrack {
-    min-height: 130px;
-    width: 22px;
-  }
-  .faderReadout {
-    font-size: 13px;
-    min-width: 38px;
-  }
+  .hud { flex-direction: column; align-items: stretch; gap: 8px; }
+  .progressLabel { text-align: left; }
+  .scopeSvg { height: 110px; }
+  .faderRow { gap: 8px; padding: 12px 8px; }
+  .faderTrack { width: 28px; }
+  .knob { width: 26px; }
 }

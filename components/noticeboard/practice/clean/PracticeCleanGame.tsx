@@ -301,9 +301,8 @@ export default function PracticeCleanGame({ onExit, onPlayed }: Props) {
         <div className={styles.intro}>
           <div className={styles.introTitle}>🧹 연습실 청소</div>
           <p className={styles.introBody}>
-            연습실 바닥에 놓인 쓰레기를 잡아 오른쪽 아래 쓰레기통에 넣어 주십시오.
-            드래그해서 통 안에 놓으면 수거됩니다. 20초 안에 최대한 많이 치우면
-            됩니다. 통 밖에 놓아도 다시 잡을 수 있습니다.
+            연습실 바닥에 놓인 쓰레기를 잡아 오른쪽 아래 쓰레기통에 넣어 주세요.
+            드래그해서 통 안에 놓으면 수거됩니다. 통 밖에 놓아도 다시 잡을 수 있습니다.
           </p>
           <div className={styles.introActions}>
             <button className={styles.primaryBtn} onClick={startGame}>

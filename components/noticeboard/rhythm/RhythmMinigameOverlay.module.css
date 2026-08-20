@@ -28,6 +28,14 @@
   animation: popIn 0.24s ease both;
 }
 
+/* 게임 화면(view=play) 전용 : 960px 시안에 맞춰 넓히고 여백 최소화.
+   select 팝업도 이 넓은 판에 뜨지만 .selectPopup(440px)이라 중앙에 작게 뜬다.
+   홈 화면(view=home)은 위 .panel 크기(720px) 그대로 유지. */
+.panelGame {
+  width: min(96vw, 1040px);
+  padding: 20px;
+}
+
 .closeBtn {
   position: absolute;
   top: 14px;
@@ -42,6 +50,7 @@
   font-weight: 700;
   cursor: pointer;
   transition: background 0.14s ease;
+  z-index: 30;
 }
 
 .closeBtn:hover {

@@ -106,7 +106,7 @@ export const SONGS: RhythmSong[] = [
     audioUrl:    "/audio/rhythm/song_1.mp3",
     durationSec: 36,
     notes: [
-      { time: 0.099 },
+      { time: 0.06 },
       { time: 0.619 },
       { time: 1.609 },
       { time: 2.21 },

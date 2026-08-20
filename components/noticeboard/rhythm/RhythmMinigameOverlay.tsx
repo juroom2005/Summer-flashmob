@@ -102,7 +102,7 @@ export default function RhythmMinigameOverlay({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={styles.panel}>
+      <div className={`${styles.panel} ${view !== "home" ? styles.panelGame : ""}`}>
         <button
           className={styles.closeBtn}
           onClick={onClose}
