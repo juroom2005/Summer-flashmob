@@ -94,6 +94,8 @@ const SLOT_LABEL: Record<"doll" | "coupon" | "junk", string> = {
 
 /** 인형 교환권 item_ref. 이 쿠폰만 클릭 시 "사용(교환)"이 가능하다. */
 const DOLL_COUPON_REF = "doll_coupon";
+/** 인형 1개 교환에 필요한 교환권 장수 (서버 redeem_doll_coupon 과 일치시킬 것). */
+const COUPON_REQUIRED = 10;
 
 type Displayable = {
   key:       string;             // React key (합침 기준 = type:ref)
@@ -464,8 +466,11 @@ function CouponActionPopup({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // 10장 이상 있어야 교환 가능.
+  const enough = item.quantity >= COUPON_REQUIRED;
+
   const redeem = useCallback(async () => {
-    if (busy) return;
+    if (busy || !enough) return;
     setBusy(true);
     setErr(null);
     const res = await redeemDollCoupon();
@@ -475,7 +480,7 @@ function CouponActionPopup({
       return;
     }
     onRedeemed(res.doll);
-  }, [busy, onRedeemed]);
+  }, [busy, enough, onRedeemed]);
 
   useModalKeys({
     onConfirm: () => { void redeem(); },
@@ -495,17 +500,21 @@ function CouponActionPopup({
           <div style={dollEmojiLargeStyle}>{item.emoji}</div>
         )}
         <div style={dollNameStyle}>{item.label}</div>
-        <div style={dollQtyStyle}>소지 {item.quantity}개</div>
+        <div style={dollQtyStyle}>
+          {item.quantity} / {COUPON_REQUIRED}개
+        </div>
         <div style={couponHintStyle}>
-          사용하면 인형 하나를 무작위로 받습니다.
+          {enough
+            ? `교환권 ${COUPON_REQUIRED}장으로 인형 하나를 무작위로 받습니다.`
+            : `인형 교환에는 교환권 ${COUPON_REQUIRED}장이 필요합니다. (${COUPON_REQUIRED - item.quantity}장 부족)`}
         </div>
         {err ? <div style={discardErrRow}>{err}</div> : null}
         <div style={modalBtnRowStyle}>
           <button
             type="button"
             onClick={() => void redeem()}
-            disabled={busy}
-            style={{ ...modalConfirmBtn, opacity: busy ? 0.5 : 1 }}
+            disabled={busy || !enough}
+            style={{ ...modalConfirmBtn, opacity: (busy || !enough) ? 0.5 : 1, cursor: (busy || !enough) ? "not-allowed" : "pointer" }}
           >
             {busy ? "교환 중…" : "사용하기"}
           </button>
