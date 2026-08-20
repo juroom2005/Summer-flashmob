@@ -33,6 +33,9 @@ const ICON_SRC: Record<IconKey, string> = {
   sparkle: "/svg/sys-icon-sparkle.svg",
   cafe: "/svg/sys-icon-cafe.svg",
   headset: "/svg/sys-icon-headset.svg",
+  badgeNote: "/svg/badges/badge-note-common.svg",
+  badgeHeart: "/svg/badges/badge-heart-common.svg",
+  badgeStar: "/svg/badges/badge-star-common.svg",
 };
 
 // **볼드** 인라인 파서

@@ -9,9 +9,19 @@
 // 아이콘 파일(/svg):
 //   note(음표)=리듬감·연습 / heart(하트)=체력 / sparkle=표현력
 //   cafe(커피잔)=카페 / headset=연습실
+//   badgeNote/badgeHeart/badgeStar = 뱃지 시스템 일반색 뱃지(음표/하트/별)
+//     ※ 표현력 뱃지는 별(star) 심볼. 연습/스탯의 sparkle 아이콘과 구분해 별도 키.
 // ═══════════════════════════════════════════════════════════════════
 
-export type IconKey = "note" | "heart" | "sparkle" | "cafe" | "headset";
+export type IconKey =
+  | "note"
+  | "heart"
+  | "sparkle"
+  | "cafe"
+  | "headset"
+  | "badgeNote"
+  | "badgeHeart"
+  | "badgeStar";
 
 // 상단(설명) 영역 블록
 export type DetailBlock =
@@ -92,9 +102,9 @@ export const SYSTEM_DETAILS: Record<string, SystemDetail> = {
     iconGroups: [
       {
         items: [
-          { icon: "note", label: "리듬감" },
-          { icon: "heart", label: "체력" },
-          { icon: "sparkle", label: "표현력" },
+          { icon: "badgeNote", label: "리듬감" },
+          { icon: "badgeHeart", label: "체력" },
+          { icon: "badgeStar", label: "표현력" },
         ],
       },
     ],
@@ -178,7 +188,7 @@ export const SYSTEM_DETAILS: Record<string, SystemDetail> = {
         type: "p",
         text: "매점에서 구매한 물건 또는 모빌 자체에 대한 선물이 가능합니다. \n 선물 기능은 홈페이지, 그리고 마스토돈 봇을 통해 이용하실 수 있습니다.",
       },
-      { type: "bubble", ex: true, text: "@flashmob-bot [선물] 너 정말 브레이크 댄스를 잘 추던걸? (300모빌을 건넨다.) " },
+      { type: "bubble", ex: true, text: '@robot_mob {@대상} 너 정말 춤을 잘 추는걸? [선물] "대상" {금액} 모빌 줄게~ (간에 기별도 안 가겠지만)' },
     ],
   },
 };
