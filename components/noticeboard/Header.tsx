@@ -33,7 +33,7 @@ import styles from "./Header.module.css";
 const X_URL = "https://x.com/AYA_mushiba";
 const MASTODON_URL = "https://project-summer-mas.cloud/explore";
 // 마스토돈 링크 임시 비활성화(준비 중). 되살리려면 true 로.
-const MASTODON_ENABLED = false;
+const MASTODON_ENABLED = true;
 
 type Props = {
   onLoginClick:   () => void;
