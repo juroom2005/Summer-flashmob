@@ -15,6 +15,12 @@
 // 톤 : tokens.css 변수 기반 (파랑 계열). 향후 리뉴얼 시 tokens 만 갱신.
 //
 // 사용 위치 : RhythmGame (완주 → 채점 → 서버 제출 후 결과 표시)
+//
+// cap(450) 표시 (2026-08-21) :
+//   서버가 *_gained 로 "실제 반영량", *_base 로 "구간표 명목값" 을 반환.
+//   base > gained 이면 상한 도달 → 안내 문구 1줄 표시.
+//   (선행 : sql 2026-08-21_play_rhythm_minigame_cap_delta.sql 적용 필수.
+//    미적용 상태여도 base == gained 라 문구만 안 뜨고 기존과 동일 동작.)
 // ═══════════════════════════════════════════════════════════════════
 
 "use client";
@@ -107,6 +113,9 @@ export default function RhythmRewardPopup({
     const perfect = score === 100;
     const sel = result.selectedStat;
     const selName = statLabel(sel);
+    // 상한 도달 여부 : 명목값(base)보다 실제 반영량(gained)이 작으면 cap.
+    const selCapped  = result.selectedStatGained < result.selectedStatBase;
+    const physCapped = result.physicalGained     < result.physicalBase;
 
     content = (
       <div className={styles.backdrop}>
@@ -173,6 +182,16 @@ export default function RhythmRewardPopup({
                 </span>
               </div>
             </div>
+
+            {selCapped || physCapped ? (
+              <div className={styles.noMobilNote}>
+                {selCapped && physCapped
+                  ? `${selName}·체력이 상한(450)에 도달해 일부만 반영되었습니다.`
+                  : selCapped
+                  ? `${selName}이(가) 상한(450)에 도달해 일부만 반영되었습니다.`
+                  : `체력이 상한(450)에 도달해 일부만 반영되었습니다.`}
+              </div>
+            ) : null}
 
             <div className={styles.noMobilNote}>
               연습은 모빌 대신 스탯을 크게 성장시킵니다.
