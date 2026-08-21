@@ -116,14 +116,16 @@ function MemberDetail({
     };
   }, [profile?.ownerId]);
 
-  // 스탯 3칸(rhythm/stamina/performance)은 실제 레벨을 표시하고,
-  // 나머지 칸은 기존 텍스트 값을 그대로 표시.
-  //   RHYTHM → rhythm_level · STAMINA → physical_level · PERFORMANCE → expression_level
+  // 스탯 3칸(rhythm/stamina/performance)과 회원정보 3칸(name/age/grade)은
+  // 실제 profiles 값(levels)을 표시하고, 나머지 칸은 기존 텍스트 값을 그대로 표시.
   const val = (key: keyof MemberProfile) => {
     if (levels) {
       if (key === "rhythm") return String(levels.rhythm);
       if (key === "stamina") return String(levels.physical);
       if (key === "performance") return String(levels.expression);
+      if (key === "name") return levels.name;
+      if (key === "age") return levels.age;
+      if (key === "grade") return levels.grade;
     }
     return profile ? String(profile[key] ?? "") : "";
   };
