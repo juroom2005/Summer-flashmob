@@ -147,6 +147,7 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
   const comboRef = useRef(0);
   const judgeFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishedRef = useRef(false);
+  const selectedStatRef = useRef<RhythmSelectedStat | null>(null);
 
   const song = getDefaultSong();
 
@@ -182,8 +183,9 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
 
   /* ═══════ 스탯 선택 → 로딩 ═══════ */
   const handleSelectStat = useCallback(
-    async (stat: RhythmSelectedStat) => {
+     async (stat: RhythmSelectedStat) => {
       setSelectedStat(stat);
+      selectedStatRef.current = stat;
       setPhase("loading");
 
       disposeEngine();
@@ -360,7 +362,8 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
     setPhase("submitting");
     setResult(null);
 
-    const stat: RhythmSelectedStat = selectedStat ?? "rhythm";
+    const stat: RhythmSelectedStat =
+    selectedStatRef.current ?? selectedStat ?? "rhythm";
     const detail = {
       perfect_count: score.perfectCount,
       good_count: score.goodCount,
@@ -389,6 +392,7 @@ export default function RhythmGame({ onExit, onPlayed }: Props) {
     setResult(null);
     setPhase("select");
     setSelectedStat(null);
+    selectedStatRef.current = null;
     setNoteViews([]);
     setCombo(0);
     comboRef.current = 0;
