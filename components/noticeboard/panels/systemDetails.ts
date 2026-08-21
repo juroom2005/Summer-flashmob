@@ -188,7 +188,8 @@ export const SYSTEM_DETAILS: Record<string, SystemDetail> = {
         type: "p",
         text: "매점에서 구매한 물건 또는 모빌 자체에 대한 선물이 가능합니다. \n 선물 기능은 홈페이지, 그리고 마스토돈 봇을 통해 이용하실 수 있습니다.",
       },
-      { type: "bubble", ex: true, text: '@robot_mob {@대상} 너 정말 춤을 잘 추는걸? [선물] "대상" {금액} 모빌 줄게~ (간에 기별도 안 가겠지만)' },
+      { type: "bubble", ex: true, text: '@robot_mob {@대상} 너 정말 춤을 잘 추는걸? [선물] {금액} 모빌 줄게~ (간에 기별도 안 가겠지만)' },
+      { type: "bubble", ex: true, text: '@robot_mob {@대상} 슬롯머신에서 뽑았다. [선물]줄게. "아이템명"... 2개.' },
     ],
   },
 };
