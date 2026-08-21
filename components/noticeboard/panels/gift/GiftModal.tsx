@@ -240,7 +240,8 @@ export default function GiftModal({ myMobil, onClose, onDone }: GiftModalProps) 
         toId,
         selectedItem.itemType,
         selectedItem.itemRef,
-        Number(itemQty)
+        Number(itemQty),
+        selectedItem.label
       );
     }
 
@@ -269,7 +270,7 @@ export default function GiftModal({ myMobil, onClose, onDone }: GiftModalProps) 
     padding: 16, fontFamily: BODY,
   };
   const card: CSSProperties = {
-    width: "min(560px, 94vw)", maxHeight: "92vh",
+    width: "min(440px, 94vw)", maxHeight: "88vh",
     background: C.bgCard, borderRadius: 18,
     border: `1px solid ${C.border}`,
     boxShadow: "0 12px 40px rgba(20,40,80,0.28)",
