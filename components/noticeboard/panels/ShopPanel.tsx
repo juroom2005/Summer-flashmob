@@ -33,6 +33,7 @@ import {
   type ShopItemRow,
 } from "@/lib/shop-helpers";
 import { useCurrentUser } from "../../shared/useCurrentUser";
+import GiftModal from "./gift/GiftModal";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
@@ -91,6 +92,7 @@ export default function ShopPanel() {
   const [pendingId,     setPendingId]     = useState<string | null>(null);
   const [toast,         setToast]         = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [activeCat,     setActiveCat]     = useState<CatKey>("marker");
+  const [giftOpen,      setGiftOpen]      = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -174,17 +176,47 @@ export default function ShopPanel() {
 
   const activeItems = grouped[activeCat] ?? [];
 
-  return (
+    return (
     <div>
       {/* ── 헤더 ── */}
       <div style={headerRowStyle}>
         <span style={titleStyle}>STORE</span>
-        <span style={balancePillStyle}>
-          <span style={balanceLabelStyle}>보유</span>
-          <strong style={balanceNumStyle}>{mobil.toLocaleString()}</strong>
-          <span style={balanceCoinStyle}>🪙</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={balancePillStyle}>
+            <span style={balanceLabelStyle}>보유</span>
+            <strong style={balanceNumStyle}>{mobil.toLocaleString()}</strong>
+            <span style={balanceCoinStyle}>🪙</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setGiftOpen(true)}
+            style={{
+              border: "none",
+              borderRadius: 12,
+              padding: "8px 14px",
+              background: "#3f88f9",
+              color: "#fff",
+              fontFamily: "'Jua', sans-serif",
+              fontSize: 14,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            선물하기
+          </button>
         </span>
       </div>
+
+      {giftOpen && (
+        <GiftModal
+          myMobil={mobil}
+          onClose={() => setGiftOpen(false)}
+          onDone={(msg) => {
+            setGiftOpen(false);
+            showToast(msg, "ok");
+          }}
+        />
+      )}
 
       {loading ? (
         <div style={noticeStyle}>불러오는 중입니다…</div>
