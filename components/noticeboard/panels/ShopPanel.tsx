@@ -34,6 +34,8 @@ import {
 } from "@/lib/shop-helpers";
 import { useCurrentUser } from "../../shared/useCurrentUser";
 import GiftModal from "./gift/GiftModal";
+import GiftInboxModal from "./gift/GiftInboxModal";
+import { countUnreadGifts } from "@/lib/gift-helpers";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
@@ -74,6 +76,43 @@ function readEmoji(metadata: Record<string, unknown> | null | undefined): string
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/** image_url 을 안전 추출(공백/빈문자 → null). */
+function readImageUrl(url: string | null | undefined): string | null {
+  if (typeof url !== "string") return null;
+  const t = url.trim();
+  return t.length > 0 ? t : null;
+}
+
+/**
+ * 아이템 썸네일: image_url 이 있으면 이미지, 없으면 fallback(이모지·글자).
+ * 이미지 로드 실패 시에도 fallback 으로 되돌린다(깨진 이미지 방지).
+ */
+function ItemThumb({
+  imageUrl,
+  fallback,
+  alt,
+}: {
+  imageUrl: string | null;
+  fallback: string;
+  alt:      string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (imageUrl && !failed) {
+    return (
+      <div style={emojiStyle}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={alt}
+          onError={() => setFailed(true)}
+          style={{ width: 44, height: 44, objectFit: "contain", display: "block" }}
+        />
+      </div>
+    );
+  }
+  return <div style={emojiStyle}>{fallback}</div>;
+}
+
 /* 카테고리 정의(표시 순서·라벨). */
 type CatKey = "marker" | "sticker" | "camera" | "other";
 const CATEGORIES: { key: CatKey; label: string }[] = [
@@ -93,6 +132,8 @@ export default function ShopPanel() {
   const [toast,         setToast]         = useState<{ msg: string; kind: "ok" | "err" } | null>(null);
   const [activeCat,     setActiveCat]     = useState<CatKey>("marker");
   const [giftOpen,      setGiftOpen]      = useState(false);
+  const [inboxOpen,     setInboxOpen]     = useState(false);
+  const [unreadGifts,   setUnreadGifts]   = useState(0);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -116,6 +157,25 @@ export default function ShopPanel() {
     window.addEventListener("shop-items-changed", handler);
     return () => window.removeEventListener("shop-items-changed", handler);
   }, [refresh]);
+
+  // 안 읽은 선물 개수(배지). 초기 로드 + 선물 발생/수신 시(profile-changed) 재조회.
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      void countUnreadGifts().then((n) => {
+        if (alive) setUnreadGifts(n);
+      });
+    };
+    load();
+    if (typeof window !== "undefined") {
+      window.addEventListener("profile-changed", load);
+      return () => {
+        alive = false;
+        window.removeEventListener("profile-changed", load);
+      };
+    }
+    return () => { alive = false; };
+  }, []);
 
   function showToast(msg: string, kind: "ok" | "err") {
     setToast({ msg, kind });
@@ -176,7 +236,7 @@ export default function ShopPanel() {
 
   const activeItems = grouped[activeCat] ?? [];
 
-    return (
+  return (
     <div>
       {/* ── 헤더 ── */}
       <div style={headerRowStyle}>
@@ -187,6 +247,46 @@ export default function ShopPanel() {
             <strong style={balanceNumStyle}>{mobil.toLocaleString()}</strong>
             <span style={balanceCoinStyle}>🪙</span>
           </span>
+          <button
+            type="button"
+            onClick={() => setInboxOpen(true)}
+            style={{
+              position: "relative",
+              border: "1px solid #cfe2fb",
+              borderRadius: 12,
+              padding: "8px 14px",
+              background: "#ffffff",
+              color: "#14406f",
+              fontFamily: "'Jua', sans-serif",
+              fontSize: 14,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            선물함
+            {unreadGifts > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -6,
+                  minWidth: 18,
+                  height: 18,
+                  padding: "0 5px",
+                  boxSizing: "border-box",
+                  borderRadius: 9,
+                  background: "#ff6f7f",
+                  color: "#fff",
+                  fontFamily: "'Jua', sans-serif",
+                  fontSize: 11,
+                  lineHeight: "18px",
+                  textAlign: "center",
+                }}
+              >
+                {unreadGifts > 99 ? "99+" : unreadGifts}
+              </span>
+            )}
+          </button>
           <button
             type="button"
             onClick={() => setGiftOpen(true)}
@@ -202,7 +302,7 @@ export default function ShopPanel() {
               whiteSpace: "nowrap",
             }}
           >
-            선물하기
+            선물하기 🎁
           </button>
         </span>
       </div>
@@ -215,6 +315,13 @@ export default function ShopPanel() {
             setGiftOpen(false);
             showToast(msg, "ok");
           }}
+        />
+      )}
+
+      {inboxOpen && (
+        <GiftInboxModal
+          onClose={() => setInboxOpen(false)}
+          onRead={() => setUnreadGifts(0)}
         />
       )}
 
@@ -353,7 +460,7 @@ function MarkerCard({
   return (
     <div style={{ ...cardStyle, opacity: dim ? 0.55 : 1 }}>
       {!affordable ? <InsufficientTag /> : null}
-      <div style={emojiStyle}>{emoji}</div>
+      <ItemThumb imageUrl={readImageUrl(item.image_url)} fallback={emoji} alt={item.name} />
       <div style={nameStyle}>{item.name}</div>
       {item.description ? <div style={descStyle}>{item.description}</div> : null}
       <button
@@ -389,7 +496,7 @@ function StickerCard({
     <div style={{ ...cardStyle, opacity: dim ? 0.55 : 1 }}>
       {showInsufficient ? <InsufficientTag /> : null}
       {owned ? <OwnedTag /> : null}
-      <div style={emojiStyle}>{item.item_ref}</div>
+      <ItemThumb imageUrl={readImageUrl(item.image_url)} fallback={item.item_ref} alt={item.name} />
       <div style={nameStyle}>{item.name}</div>
       {item.description ? <div style={descStyle}>{item.description}</div> : null}
       <button
@@ -423,7 +530,7 @@ function OtherCard({
   return (
     <div style={{ ...cardStyle, opacity: dim ? 0.55 : 1 }}>
       {!affordable ? <InsufficientTag /> : null}
-      <div style={emojiStyle}>{emoji}</div>
+      <ItemThumb imageUrl={readImageUrl(item.image_url)} fallback={emoji} alt={item.name} />
       <div style={nameStyle}>{item.name}</div>
       {item.description ? <div style={descStyle}>{item.description}</div> : null}
       <button
@@ -595,9 +702,12 @@ const ownedTagStyle: CSSProperties = {
 };
 
 const emojiStyle: CSSProperties = {
-  fontSize:   36,
-  lineHeight: 1,
-  marginTop:  2,
+  fontSize:       36,
+  lineHeight:     1,
+  marginTop:      2,
+  display:        "flex",
+  alignItems:     "center",
+  justifyContent: "center",
 };
 
 const nameStyle: CSSProperties = {
@@ -621,7 +731,7 @@ const buyButtonStyle: CSSProperties = {
   borderRadius: 999,
   fontFamily:   JUA,
   fontSize:     13,
-  marginTop:    4,
+  marginTop:    "auto",  // 카드 하단 붙박이: 설명 길이와 무관하게 버튼 위치 고정
 };
 
 const noticeStyle: CSSProperties = {

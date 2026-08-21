@@ -21,6 +21,7 @@ export type ShopItemRow = {
   description: string | null;
   item_type:   "marker" | "sticker" | "wallpaper" | "refill_ink" | "other" | "camera";
   item_ref:    string;
+  image_url:   string | null;
   price:       number;
   metadata:    Record<string, unknown>;
 };
@@ -37,7 +38,7 @@ export type ShopItemRow = {
 export async function listShopItems(): Promise<ShopItemRow[]> {
   const { data, error } = await supabase
     .from("shop_items")
-    .select("id, code, name, description, item_type, item_ref, price, metadata")
+    .select("id, code, name, description, item_type, item_ref, image_url, price, metadata")
     .eq("is_active", true)
     .order("item_type", { ascending: true })
     .order("price",     { ascending: true });

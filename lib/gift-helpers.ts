@@ -76,7 +76,7 @@ export async function listGiftRecipients(): Promise<GiftRecipient[]> {
     .map((r) => {
       const fam  = (r.family_name ?? "").trim();
       const giv  = (r.given_name ?? "").trim();
-      const name = `${fam}${giv}`.trim();
+      const name = [fam, giv].filter(Boolean).join(" ");
       return {
         id:        r.id,
         name:      name.length > 0 ? name : "이름없음",

@@ -23,10 +23,12 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from "react";
 import ModalPortal from "../ModalPortal";
+import useModalKeys from "@/components/shared/useModalKeys";
 import {
   listGiftRecipients,
   giftMobil,
@@ -166,6 +168,10 @@ export default function GiftModal({ myMobil, onClose, onDone }: GiftModalProps) 
   const [submitting, setSubmitting] = useState(false);
   const [errMsg,     setErrMsg]     = useState<string | null>(null);
 
+  // 키보드 접근성: Esc 로 닫기. 전송 중에는 닫히지 않게 비활성.
+  // Enter 전송은 오전송 방지를 위해 매핑하지 않는다(onConfirm 미지정).
+  useModalKeys({ onCancel: onClose, enabled: !submitting });
+
   /* 초기 로드: 수신자 + 내 인벤토리 병렬 */
   useEffect(() => {
     let alive = true;
@@ -198,6 +204,75 @@ export default function GiftModal({ myMobil, onClose, onDone }: GiftModalProps) 
     if (!q) return recipients;
     return recipients.filter((r) => r.name.includes(q));
   }, [recipients, search]);
+
+  // 선택된 수신자 버튼 ref → 방향키 이동 시 화면에 보이도록 스크롤.
+  const selectedRecipientRef = useRef<HTMLButtonElement | null>(null);
+
+  // 카드 컨테이너 ref → 열릴 때 포커스를 줘서 좌/우 토글이 즉시 작동하게.
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    cardRef.current?.focus();
+  }, []);
+
+  // 방향키(위/아래)로 수신자 목록 항목 이동. Enter 전송은 하지 않는다.
+  // 검색 input 포커스 중에도 위/아래는 목록 이동에 쓰되, 좌/우는 커서 이동에 맡긴다.
+  const moveRecipient = useCallback(
+    (dir: 1 | -1) => {
+      const list = filteredRecipients;
+      if (list.length === 0) return;
+      const curIdx = list.findIndex((r) => r.id === toId);
+      let nextIdx: number;
+      if (curIdx === -1) {
+        // 아직 선택 없음 → 아래면 첫 항목, 위면 마지막 항목.
+        nextIdx = dir === 1 ? 0 : list.length - 1;
+      } else {
+        nextIdx = curIdx + dir;
+        if (nextIdx < 0) nextIdx = 0;
+        if (nextIdx > list.length - 1) nextIdx = list.length - 1;
+      }
+      setToId(list[nextIdx].id);
+      setErrMsg(null);
+    },
+    [filteredRecipients, toId]
+  );
+
+  // 카드 레벨 방향키:
+  //   · 위/아래 = 수신자 목록 항목 이동 (카드 안 어디에 포커스가 있든 작동).
+  //   · 좌/우   = 모빌/아이템 토글 전환.
+  // 입력 필드(검색창·수량)에 포커스가 있으면 좌/우는 텍스트 커서 이동에 양보한다.
+  // (위/아래는 입력 필드에서도 목록 이동에 사용 — 입력 커서 상하 이동은 없으므로 안전)
+  const onCardKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        moveRecipient(1);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        moveRecipient(-1);
+        return;
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        const target = e.target;
+        const isTextInput =
+          target instanceof HTMLElement &&
+          (target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable);
+        if (isTextInput) return;
+        e.preventDefault();
+        setMode((prev) => (prev === "mobil" ? "item" : "mobil"));
+        setErrMsg(null);
+      }
+    },
+    [moveRecipient]
+  );
+
+  // 선택 항목이 바뀌면 목록에서 보이도록 스크롤.
+  useEffect(() => {
+    selectedRecipientRef.current?.scrollIntoView({ block: "nearest" });
+  }, [toId]);
 
   const selectedItem = useMemo(
     () => items.find((it) => it.key === itemKey) ?? null,
@@ -298,8 +373,11 @@ export default function GiftModal({ myMobil, onClose, onDone }: GiftModalProps) 
     <ModalPortal>
       <div style={overlay} onClick={onClose} role="presentation">
         <div
-          style={card}
+          ref={cardRef}
+          tabIndex={-1}
+          style={{ ...card, outline: "none" }}
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={onCardKeyDown}
           role="dialog"
           aria-modal="true"
           aria-label="선물하기"
@@ -376,6 +454,7 @@ export default function GiftModal({ myMobil, onClose, onDone }: GiftModalProps) 
                       return (
                         <button
                           key={r.id}
+                          ref={active ? selectedRecipientRef : null}
                           onClick={() => {
                             setToId(r.id);
                             setErrMsg(null);

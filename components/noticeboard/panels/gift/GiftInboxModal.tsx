@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import ModalPortal from "../ModalPortal";
+import useModalKeys from "@/components/shared/useModalKeys";
 import {
   listMyGifts,
   markGiftsRead,
@@ -71,6 +72,9 @@ export type GiftInboxModalProps = {
 export default function GiftInboxModal({ onClose, onRead }: GiftInboxModalProps) {
   const [gifts,   setGifts]   = useState<ReceivedGift[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 키보드 접근성: Esc 로 닫기. (읽기 전용이라 Enter 매핑 없음)
+  useModalKeys({ onCancel: onClose });
 
   // onRead 최신값을 참조하되, effect 재실행 트리거로 삼지 않는다.
   // (인라인 콜백이 매 렌더 새 참조라 의존성에 넣으면 반복 로드됨)
