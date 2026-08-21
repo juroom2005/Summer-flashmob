@@ -238,6 +238,11 @@
   letter-spacing: 1px;
   text-transform: uppercase;
 }
+/* 키보드(Tab) 포커스에만 링 표시. 마우스 클릭은 outline:none 유지 → 외견 동일. */
+.hexInput:focus-visible {
+  outline: 2px solid var(--color-text-strong);
+  outline-offset: 2px;
+}
 
 .hexLabel {
   font-family: "Jua", sans-serif;

@@ -137,12 +137,11 @@ export default function NoticeBoard({
   };
 
   // ── 애니메이션 헬퍼 ──────────────────────────────────────
-  // 탭 전환 시 콘텐츠 전환 효과.
-  //   · board 로 갈 때  : 페이드만(opacity). board 는 덮개 영역이 내지보다
-  //     넓어(left/width 가 다름) 가로 슬라이드를 걸면 그 좌우 점프와 겹쳐
-  //     "아래-오른쪽 대각선으로 쑥 몰렸다 퍼지는" 덜컹거림이 났음. 페이드로 회피.
-  //   · 그 외 탭        : 우측에서 슬라이드 인(+페이드). 문서 전환에 자연스러움.
   const runTransition = (toBoard: boolean) => {
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
     const keyframes = toBoard
       ? [{ opacity: 0 }, { opacity: 1 }]
       : [
@@ -150,7 +149,8 @@ export default function NoticeBoard({
           { transform: "translateX(0)",    opacity: 1 },
         ];
     slideRef.current?.animate?.(keyframes, {
-      duration: 260,
+      // 모션 최소화 시 1ms(사실상 즉시). fill:backwards 로 최종 상태는 그대로 적용됨.
+      duration: reduceMotion ? 1 : 260,
       easing: "cubic-bezier(.25,.8,.3,1)",
       fill: "backwards",
     });
