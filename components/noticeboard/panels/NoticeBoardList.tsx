@@ -27,7 +27,8 @@
 
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useModalA11y } from "@/lib/useModalA11y";
 import { createPortal } from "react-dom";
 import {
   NOTICE_CATEGORIES,
@@ -58,6 +59,8 @@ export default function NoticeBoardList() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState<Filter>("all");
   const [selected, setSelected] = useState<Notice | null>(null);
+
+
 
   useEffect(() => {
     let cancelled = false;
@@ -283,19 +286,21 @@ function NoticePopup({
   const date  = formatDate(notice.createdAt);
   const edited = notice.updatedAt !== notice.createdAt;
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const cardRef = useRef<HTMLDivElement>(null);
+  useModalA11y(cardRef, { open: true, onClose });
 
   if (typeof document === "undefined") return null;
 
   const content = (
-    <div style={popupBackdropStyle} onClick={onClose}>
-      <div style={popupCardStyle} onClick={(e) => e.stopPropagation()}>
+      <div style={popupBackdropStyle} onClick={onClose}>
+      <div
+        ref={cardRef}
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        style={popupCardStyle}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button type="button" onClick={onClose} style={popupCloseBtnStyle}>
           ✕
         </button>
