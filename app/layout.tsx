@@ -92,9 +92,9 @@ export default function RootLayout({
       <head>
         <link
           rel="preload"
-          href="/fonts/KoPubWorldDotum-Medium.woff2"
+          href="/fonts/NEXONLv2GothicRegular.otf"
           as="font"
-          type="font/woff2"
+          type="font/otf"
           crossOrigin="anonymous"
         />
       </head>

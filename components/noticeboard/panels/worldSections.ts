@@ -48,7 +48,7 @@ export const WORLD_SECTIONS: WorldSection[] = [
     blocks: [
       {
         type: "p",
-        text: "이 모든 일의 시작을 알기 위해서는, 무엇보다 ‘키사라기 모브(如月 モブ)’라는 인물을 알아야 한다.",
+        text: "이 모든 일의 시작을 알기 위해서는, 무엇보다 ‘키사라기 모브’라는 인물을 알아야 한다.",
       },
       { type: "subhi", text: "Who Is Mob?" },
       {

@@ -15,20 +15,34 @@
   src: url('/fonts/LOTTERIACHAB.woff2') format('woff2');
 }
 
+/* 헤딩/타이틀 폰트: 실제 파일은 KBL Jump EB Extended (KBL, 임베딩 허용).
+ * family 이름은 기존 'Stretch Pro' 를 유지해 참조부(패널 다수) 수정을 피함(안정성).
+ * 공식 배포 otf 원본 그대로 사용. 출처: CREDITS.md */
 @font-face {
   font-family: 'Stretch Pro';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/StretchPro.woff2') format('woff2');
+  src: url('/fonts/KBLJumpEBExtended.otf') format('opentype');
 }
 
+/* 본문 폰트: 실제 파일은 NEXON Lv2 Gothic (넥슨코리아, 임베딩 허용·수정 금지).
+ * family 이름은 기존 'KoPubWorld Dotum' 을 유지해 참조부 수정을 피함(안정성).
+ * 라이선스상 원본 otf 그대로 사용(woff2 변환 금지). 출처: CREDITS.md */
 @font-face {
   font-family: 'KoPubWorld Dotum';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/KoPubWorldDotum-Medium.woff2') format('woff2');
+  src: url('/fonts/NEXONLv2GothicRegular.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'KoPubWorld Dotum Bold';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/NEXONLv2GothicBold.otf') format('opentype');
 }
 
 @font-face {
@@ -49,11 +63,11 @@
 
 /* 네임태그(멤버 프로필) 전용 폰트 */
 @font-face {
-  font-family: 'Impact Nametag';
+  font-family: 'Nexon Kart Gothic';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 700;
   font-display: swap;
-  src: url('/fonts/Impact.ttf') format('truetype');
+  src: url('/fonts/NEXONKartGothicBold.otf') format('opentype');
 }
 
 /* 리듬게임 픽셀 폰트 */
@@ -73,13 +87,16 @@
   src: url('/fonts/Silkscreen-Regular.woff2') format('woff2');
 }
 
-/* 리듬게임 곡 제목 전용 (일본어 픽셀 폰트 · 히라가나/가타카나 서브셋) */
+/* 리듬게임 곡 제목 전용 (일본어 픽셀 폰트). 실제 파일: DotGothic16 (OFL).
+ * family 이름은 기존 'Donguri Duel' 을 유지해 참조부 수정을 피함(안정성).
+ * OFL 이라 임베딩·셀프호스팅 자유. 라이선스 전문: licenses/DotGothic16-OFL.txt · 출처: CREDITS.md
+ * ※ 한글 글리프 없음 — 곡 제목은 일본어/영문/숫자 전제. */
 @font-face {
   font-family: 'Donguri Duel';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/DonguriDuel-subset.woff2') format('woff2');
+  src: url('/fonts/DotGothic16-Regular.ttf') format('truetype');
 }
 
 @font-face {

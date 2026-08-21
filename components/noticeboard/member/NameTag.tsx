@@ -5,10 +5,10 @@
 //
 // 빈 네임태그 SVG(아래 소속 문구는 path 로 고정)를 베이스로,
 //   · 테마색(.st1: 상단 띠) 을 color prop 으로 주입.
-//   · 가운데에 성(Impact) + 이름(Hey November) 텍스트를 <text> 로 얹음.
+//   · 가운데에 성(Nexon Kart Gothic) + 이름(Hey November) 텍스트를 <text> 로 얹음.
 //
 // 좌표는 원본(치세 태그) 이름 영역(y 34~53) 기준. viewBox 137×81.
-// 폰트는 globals.css 의 @font-face('Impact Nametag' / 'Hey November').
+// 폰트는 globals.css 의 @font-face('Nexon Kart Gothic' / 'Hey November').
 //
 // props:
 //   lastName : 성(위, 크게)  ·  firstName : 이름(아래)
@@ -74,7 +74,7 @@ export default function NameTag({
     <path fill="#fff" d="M92,75.7c0,0,.1,0,.2,0,0,0,0,.1,0,.2s0,.1,0,.2c0,0-.1,0-.2,0s-.1,0-.2,0c0,0,0-.1,0-.2s0-.1,0-.2c0,0,.1,0,.2,0Z"/>
   </g>
 
-      {/* ── 성: 상단 띠 안(흰색, Impact) ── */}
+      {/* ── 성: 상단 띠 안(흰색, Nexon Kart Gothic) ── */}
       <text
         x="68.5"
         y="17.5"
@@ -82,7 +82,7 @@ export default function NameTag({
         fontSize="13"
         letterSpacing="1"
         fill="#fff"
-        style={{ fontFamily: "'Impact Nametag', 'Impact', sans-serif" }}
+        style={{ fontFamily: "'Nexon Kart Gothic', sans-serif" }}
       >
         {lastName}
       </text>

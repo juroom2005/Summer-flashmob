@@ -34,3 +34,12 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## License
+
+This project's source code is licensed under the [MIT License](./LICENSE).
+
+Third-party fonts and code snippets included in this repository are distributed
+under their own separate licenses and are not relicensed under MIT. See
+[CREDITS.md](./CREDITS.md) and the [`licenses/`](./licenses) directory for
+attribution and full license texts.
