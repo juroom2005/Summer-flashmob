@@ -24,6 +24,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "@/components/shared/useCurrentUser";
 import { getCurrentProfile } from "@/lib/auth-helpers";
+import { useModalA11y } from "@/lib/useModalA11y";
 import UserChatView from "./UserChatView";
 import GmChatView from "./GmChatView";
 import styles from "./AdminChatOverlay.module.css";
@@ -48,6 +49,12 @@ export default function AdminChatOverlay({ open, onClose }: Props) {
   const [visible, setVisible] = useState(false);
   const [closing, setClosing] = useState(false);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 포커스 트랩·Esc·복귀. 이 오버레이는 배경을 차단하지 않는 사이드 패널이라
+  // aria-modal 은 붙이지 않지만(진짜 모달 아님), 키보드 편의를 위해 훅은 적용.
+  // 닫히는 중(closing)에는 트랩 해제.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalA11y(panelRef, { open: visible && !closing, onClose });
 
   // open prop 변화 → 애니메이션 라이프사이클
   useEffect(() => {
@@ -116,7 +123,12 @@ export default function AdminChatOverlay({ open, onClose }: Props) {
     : "운영진에게 문의";
 
   return (
-    <div className={overlayClass}>
+    <div
+      ref={panelRef}
+      className={overlayClass}
+      role="dialog"
+      aria-label="관리자 호출 채팅"
+    >
       {/* 헤더 */}
       <div className={styles.header}>
         <span className={styles.avatar}>🧑‍💻</span>

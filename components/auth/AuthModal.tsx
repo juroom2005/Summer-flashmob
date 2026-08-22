@@ -23,6 +23,7 @@
 import { useEffect, useRef, useState } from "react";
 import LoginPanel    from "./LoginPanel";
 import RegisterPanel from "./RegisterPanel";
+import { useModalA11y } from "@/lib/useModalA11y";
 import styles from "./AuthModal.module.css";
 
 type Tab = "login" | "register";
@@ -42,6 +43,10 @@ export default function AuthModal({ open, initialTab, onClose }: Props) {
   const [closing, setClosing] = useState(false);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mouseDownOnBackdropRef = useRef(false);
+
+  // 포커스 트랩 대상 = 카드(내용 박스). 닫히는 중(closing)에는 트랩 해제.
+  const cardRef = useRef<HTMLDivElement>(null);
+  useModalA11y(cardRef, { open: visible && !closing, onClose });
 
   // open 상태에서 initialTab 바뀌면 반영
   // (외부에서 명시적으로 login/register 지정하며 열 때)
@@ -91,6 +96,10 @@ export default function AuthModal({ open, initialTab, onClose }: Props) {
         }}
       >
         <div
+          ref={cardRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={tab === "login" ? "로그인" : "회원가입"}
           className={`${styles.card} ${closing ? styles.closing : ""}`}
           onMouseDown={(e) => e.stopPropagation()}
         >

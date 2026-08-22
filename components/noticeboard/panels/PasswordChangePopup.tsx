@@ -26,9 +26,10 @@
 
 "use client";
 
-import { useState, type CSSProperties, type ChangeEvent } from "react";
+import { useState, useRef, type CSSProperties, type ChangeEvent } from "react";
 import { JUA, GAEGU, BODY } from "../../auth/fonts";
 import { changeMyPassword } from "@/lib/password-helpers";
+import { useModalA11y } from "@/lib/useModalA11y";
 
 const NAVY = "#14406f";
 
@@ -50,6 +51,11 @@ export default function PasswordChangePopup({ forced, onClose, onSuccess }: Prop
   const [pending,  setPending]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
   const [succeeded, setSucceeded] = useState(false);
+
+  // 이 팝업은 마운트 자체가 "열림"(상위에서 조건부 렌더). 저장 중(pending)엔
+  // Esc 닫기 차단 — backdrop 클릭 정책과 동일.
+  const cardRef = useRef<HTMLDivElement>(null);
+  useModalA11y(cardRef, { open: true, onClose, closeOnEsc: !pending });
 
   async function handleSubmit() {
     if (pending) return;
@@ -95,7 +101,14 @@ export default function PasswordChangePopup({ forced, onClose, onSuccess }: Prop
 
   return (
     <div style={backdropStyle} onClick={handleBackdropClick}>
-      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={cardRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="비밀번호 변경"
+        style={cardStyle}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* ── 헤더 ── */}
         <div style={headerStyle}>
           <div style={titleStyle}>

@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import ModalPortal from "../ModalPortal";
 import useModalKeys from "@/components/shared/useModalKeys";
+import { useModalA11y } from "@/lib/useModalA11y";
 import {
   listMyGifts,
   markGiftsRead,
@@ -76,6 +77,11 @@ export default function GiftInboxModal({ onClose, onRead }: GiftInboxModalProps)
   // 키보드 접근성: Esc 로 닫기. (읽기 전용이라 Enter 매핑 없음)
   useModalKeys({ onCancel: onClose });
 
+  // 포커스 트랩·초기 포커스·복귀만 보강. Esc 는 위 useModalKeys 가 담당하므로
+  // 여기선 closeOnEsc:false 로 꺼서 이중 발동을 막는다.
+  const cardRef = useRef<HTMLDivElement>(null);
+  useModalA11y(cardRef, { open: true, closeOnEsc: false });
+
   // onRead 최신값을 참조하되, effect 재실행 트리거로 삼지 않는다.
   // (인라인 콜백이 매 렌더 새 참조라 의존성에 넣으면 반복 로드됨)
   const onReadRef = useRef(onRead);
@@ -119,6 +125,7 @@ export default function GiftInboxModal({ onClose, onRead }: GiftInboxModalProps)
     <ModalPortal>
       <div style={overlay} onClick={onClose} role="presentation">
         <div
+          ref={cardRef}
           style={card}
           onClick={(e) => e.stopPropagation()}
           role="dialog"
