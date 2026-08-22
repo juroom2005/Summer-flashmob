@@ -82,6 +82,13 @@ const RPC_ERROR_MESSAGES: Record<string, string> = {
   cannot_deactivate_gm: "GM 계정은 비활성화할 수 없습니다.",
   invalid_avatar_data:  "이미지 형식이 올바르지 않습니다.",
   invalid_sprite_data:  "이미지 형식이 올바르지 않습니다.",
+  grant_too_many:       "한 번에 지급할 수 있는 수량을 초과했습니다.",
+  recipient_deactivated:"비활성화된 유저에게는 지급할 수 없습니다.",
+  item_not_found:       "지급할 아이템을 찾을 수 없습니다.",
+  item_inactive:        "비활성 상태의 아이템은 지급할 수 없습니다.",
+  unsupported_item_type:"이 종류의 아이템은 지급을 지원하지 않습니다.",
+  duplicate_sticker:    "이미 이 스티커를 보유하고 있습니다.",
+  duplicate_camera:     "이미 이 사진기를 보유하고 있습니다.",
 };
 
 /**
@@ -669,4 +676,81 @@ export async function resetGmUserMinigameToday(
       playDate:     String(row.play_date ?? ""),
     },
   };
+}
+
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 아이템 지급 / 유저 인벤토리 조회
+ * ─────────────────────────────────────────────────────────── */
+
+/** GM 인벤토리 조회 행 (gm_list_user_inventory 반환). */
+export type GmInventoryRow = {
+  id:          string;
+  item_type:   string;
+  item_ref:    string | null;
+  quantity:    number;
+  durability:  number | null;
+  metadata:    Record<string, unknown>;
+  acquired_at: string;
+};
+
+/**
+ * 대상 유저에게 shop_items 카탈로그 아이템 1종을 지급.
+ *
+ * @param profileId   대상 유저 profile id
+ * @param shopItemId  shop_items.id (지급할 카탈로그 아이템)
+ * @param qty         지급 수량 (1 이상). sticker·camera 는 반드시 1.
+ * @param note        지급 사유 메모 (선택) → item_grants.note
+ *
+ * 서버 처리:
+ *   · assert_caller_is_gm 로 GM 검증
+ *   · purchase_shop_item / spin_slot 정본과 동일한 타입별 지급 로직
+ *   · 지급 + item_grants 이력 기록을 한 트랜잭션으로 처리
+ *   · wallpaper·refill_ink 등 미지원 타입은 unsupported_item_type 거부
+ *
+ * 반환 data: 지급 후 해당 (유저·타입·item_ref) 총 보유 수량.
+ */
+export async function grantGmInventoryItem(
+  profileId:  string,
+  shopItemId: string,
+  qty:        number,
+  note?:      string
+): Promise<RpcResult<number>> {
+  if (!Number.isInteger(qty) || qty < 1) {
+    return {
+      ok:      false,
+      reason:  "invalid_amount",
+      message: RPC_ERROR_MESSAGES.invalid_amount,
+    };
+  }
+
+  const { data, error } = await supabase.rpc("gm_grant_inventory_item", {
+    p_profile_id:   profileId,
+    p_shop_item_id: shopItemId,
+    p_qty:          qty,
+    p_note:         note?.trim() ? note.trim() : null,
+  });
+
+  if (error) {
+    const n = normalizeRpcError(error.message);
+    console.error("[grantGmInventoryItem] failed:", error.message);
+    return { ok: false, ...n };
+  }
+
+  return { ok: true, data: (data as number) ?? 0 };
+}
+
+export async function listGmUserInventory(
+  profileId: string
+): Promise<GmInventoryRow[]> {
+  const { data, error } = await supabase.rpc("gm_list_user_inventory", {
+    p_profile_id: profileId,
+  });
+
+  if (error) {
+    console.error("[listGmUserInventory] failed:", error.message);
+    return [];
+  }
+  return (data as GmInventoryRow[] | null) ?? [];
 }

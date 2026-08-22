@@ -35,6 +35,7 @@ import MobilGrantPanel    from "./MobilGrantPanel";
 import PasswordResetPanel from "./PasswordResetPanel";
 import MinigameResetPanel from "./MinigameResetPanel";
 import BotLinkPanel       from "./BotLinkPanel";
+import UserItemsSection   from "./UserItemsSection";
 import UserDangerZone     from "./UserDangerZone";
 
 
@@ -167,6 +168,13 @@ export default function UserDetail({ user, onPatch, onRefresh }: Props) {
       />
 
       <BotLinkPanel profileId={user.id} />
+
+      {/* 아이템 지급 + 인벤토리 확인 : 가입 유저만.
+          shell(미가입)은 profile 행은 있으나 아이템 지급이 검증된 흐름이 아니라
+          재화 외 지급은 가입 유저로 한정한다. */}
+      {user.is_registered ? (
+        <UserItemsSection profileId={user.id} />
+      ) : null}
 
       {/* 미니게임 오늘 카운트 관리 : 가입 유저만 (shell 은 미니게임 불가). */}
       {user.is_registered ? (
