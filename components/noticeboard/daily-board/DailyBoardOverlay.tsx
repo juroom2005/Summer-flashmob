@@ -59,7 +59,8 @@ import BadgeRow from "@/components/shared/BadgeRow";
 import { listBadgesForProfiles, type UserBadge } from "@/lib/badge-helpers";
 
 const BOARD_W = 800;
-const BOARD_H = 560;
+const BOARD_H = 1120;
+const BOARD_VIEW_H = 700;
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 
 // 1B 화이트보드 스킨 토큰 (원작 유지)
@@ -376,7 +377,8 @@ export default function DailyBoardOverlay({
   const localPt = (e: ReactPointerEvent) => {
     const r = layerRef.current!.getBoundingClientRect();
     const sx = r.width / BOARD_W;
-    return { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sx };
+    const sy = r.height / BOARD_H;
+    return { x: (e.clientX - r.left) / sx, y: (e.clientY - r.top) / sy };
   };
 
   // ── 로그인/게이팅 가드 ──
@@ -783,6 +785,7 @@ export default function DailyBoardOverlay({
 
           {/* board layer */}
           <div style={boardWrap}>
+            <div style={boardContent}>
             <div
               ref={layerRef}
               onPointerDown={onLayerDown}
@@ -895,6 +898,7 @@ export default function DailyBoardOverlay({
                 touchAction: "none",
               }}
             />
+            </div>
 
             {loading && (
               <div style={centerGhost}>불러오는 중…</div>
@@ -1162,10 +1166,13 @@ const bannerStyle: CSSProperties = {
 };
 
 const boardWrap: CSSProperties = {
-  position: "absolute", left: 60, top: 100, width: BOARD_W, height: BOARD_H,
+  position: "absolute", left: 60, top: 100, width: BOARD_W, height: BOARD_VIEW_H,
   border: `3px solid ${S.line}`, background: S.boardBg,
   backgroundImage: S.boardGrid, backgroundSize: "28px 28px",
-  overflow: "hidden",
+  overflowX: "hidden", overflowY: "auto",
+};
+const boardContent: CSSProperties = {
+  position: "relative", width: BOARD_W, height: BOARD_H,
 };
 const boardLayer: CSSProperties = {
   position: "absolute", inset: 0, zIndex: 3, width: BOARD_W, height: BOARD_H,
