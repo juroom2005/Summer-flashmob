@@ -128,13 +128,13 @@ button,
 summary,
 label[for],
 select {
-  cursor: url('/cursors/heart.ani'), url('/cursors/heart.webp') 0 0, pointer;
+  cursor: pointer;
 }
 
 /* 텍스트 입력 요소: 하트 → text 폴백 */
 input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
 textarea {
-  cursor: url('/cursors/heart.ani'), url('/cursors/heart.webp') 0 0, text;
+  cursor: text;
 }
 
 /* 비활성 요소: 하트 → not-allowed 폴백 */

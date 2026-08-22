@@ -57,7 +57,7 @@ export default function PrivacyPage() {
         <p style={dateStyle}>시행일: 2026-08-22</p>
 
         <div style={footerStyle}>
-          <a href="/login" style={linkStyle}>로그인으로 돌아가기</a>
+          <a href="/" style={linkStyle}>홈으로 돌아가기</a>
         </div>
 
         <div style={builtWithStyle}>Built with Claude</div>
