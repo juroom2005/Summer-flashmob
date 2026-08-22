@@ -54,6 +54,7 @@ import {
   type InventoryItemType,
   type RedeemedDoll,
 } from "@/lib/inventory-helpers";
+import { getItemDescriptionMap } from "@/lib/shop-helpers";
 import styles from "./InventorySection.module.css";
 
 const JUA   = "'Jua', sans-serif";
@@ -106,8 +107,9 @@ type Displayable = {
   label:     string;
   badge:     string;             // 우하단 배지 (×N · 78/100 · ∞)
   tooltip:   string;
-  quantity:  number;             // 합계 수량 (파기 상한)
-  clickMode: "none" | "discard" | "dollView" | "coupon";
+  quantity:  number;            
+  description: string | null;     
+  clickMode: "none" | "discard" | "dollView" | "coupon" | "desc";
 };
 
 /** metadata 에서 문자열 필드 안전 추출. */
@@ -132,7 +134,10 @@ function prettyRef(ref: string): string {
  *   · 알 수 없는 타입은 조용히 스킵.
  * 정렬은 입력 순서(최신 획득순) 유지.
  */
-function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
+function buildDisplayables(
+  rows: InventoryItemRow[],
+  descMap: Map<string, string>,
+): Displayable[] {
   const out: Displayable[] = [];
   // 합산 대상(type:ref) → out 내 인덱스
   const mergeIndex = new Map<string, number>();
@@ -147,32 +152,36 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
       const cur   = row.durability ?? 0;
       const maxRaw = row.metadata?.["initial_durability"];
       const max   = typeof maxRaw === "number" ? maxRaw : 100;
+      const desc  = descMap.get(ref) ?? null;
       out.push({
         key: row.id, itemType: "marker", itemRef: ref,
         emoji, imageUrl: readStr(row.metadata, "image_url"), label,
         badge: `${cur}/${max}`,
         tooltip: `일지에 그림을 그릴 수 있습니다. 남은 획 ${cur}/${max}`,
         quantity: row.quantity ?? 1,
-        clickMode: "none",
+        description: desc,
+        clickMode: desc ? "desc" : "none",
       });
       continue;
     }
 
     // ── sticker (행 단위) ──
     if (row.item_type === "sticker" && ref) {
+      const desc = descMap.get(ref) ?? null;
       out.push({
         key: row.id, itemType: "sticker", itemRef: ref,
         emoji: ref, imageUrl: readStr(row.metadata, "image_url"), label: readStr(row.metadata, "name") ?? "스티커",
         badge: "∞",
         tooltip: "일지에 자유롭게 붙일 수 있습니다. 무제한 사용",
         quantity: row.quantity ?? 1,
-        clickMode: "none",
+        description: desc,
+        clickMode: desc ? "desc" : "none",
       });
       continue;
     }
-
     // ── camera (행 단위) : 사진기. 보유 시 일지 폴라로이드 사용 가능 ──
     if (row.item_type === "camera" && ref) {
+      const desc = descMap.get(ref) ?? null;
       out.push({
         key: row.id, itemType: "camera", itemRef: ref,
         emoji: readStr(row.metadata, "emoji") ?? "📷",
@@ -181,7 +190,8 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
         badge: "∞",
         tooltip: "일지에 폴라로이드 사진을 붙일 수 있습니다. 무제한 사용",
         quantity: row.quantity ?? 1,
-        clickMode: "none",
+        description: desc,
+        clickMode: desc ? "desc" : "none",
       });
       continue;
     }
@@ -240,6 +250,7 @@ function buildDisplayables(rows: InventoryItemRow[]): Displayable[] {
         badge: `×${qty}`,
         tooltip: tooltipFor(row.item_type, ref, label, qty),
         quantity: qty,
+        description: descMap.get(ref) ?? null,
         clickMode,
       });
       mergeIndex.set(mapKey, idx);
@@ -274,13 +285,16 @@ export default function InventorySection() {
   const [discardTarget, setDiscardTarget] = useState<Displayable | null>(null);
   const [couponTarget, setCouponTarget] = useState<Displayable | null>(null);
   const [redeemedDoll, setRedeemedDoll] = useState<RedeemedDoll | null>(null);
+  const [descTarget, setDescTarget] = useState<Displayable | null>(null);
 
   const refresh = useCallback(async () => {
-    const rows = await listMyInventoryItems();
-    setItems(buildDisplayables(rows));
+    const [rows, descMap] = await Promise.all([
+      listMyInventoryItems(),
+      getItemDescriptionMap(),
+    ]);
+    setItems(buildDisplayables(rows, descMap));
     setLoading(false);
   }, []);
-
   useEffect(() => {
     void refresh();
     const handler = () => { void refresh(); };
@@ -304,7 +318,6 @@ export default function InventorySection() {
     const start = page * PAGE_SIZE;
     return items.slice(start, start + PAGE_SIZE);
   }, [items, page]);
-
   const handleCardClick = useCallback((it: Displayable) => {
     if (it.clickMode === "dollView") {
       setDollView(it);
@@ -312,8 +325,9 @@ export default function InventorySection() {
       setDiscardTarget(it);
     } else if (it.clickMode === "coupon") {
       setCouponTarget(it);
+    } else if (it.clickMode === "desc") {
+      setDescTarget(it);
     }
-    // "none" 은 무동작
   }, []);
 
   return (
@@ -427,6 +441,11 @@ export default function InventorySection() {
       {redeemedDoll ? (
         <RedeemResultPopup doll={redeemedDoll} onClose={() => setRedeemedDoll(null)} />
       ) : null}
+
+      {/* 아이템 설명 팝업 (설명 있는 marker·sticker·camera 클릭 시) */}
+      {descTarget ? (
+        <DescPopup item={descTarget} onClose={() => setDescTarget(null)} />
+      ) : null}
     </div>
   );
 }
@@ -446,6 +465,35 @@ function DollViewPopup({ item, onClose }: { item: Displayable; onClose: () => vo
         )}
         <div style={dollNameStyle}>{item.label}</div>
         <div style={dollQtyStyle}>소지 {item.quantity}개</div>
+        {item.description ? (
+          <div style={descBodyStyle}>{item.description}</div>
+        ) : null}
+        <button type="button" onClick={onClose} style={modalConfirmBtn}>닫기</button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ═════════════════════════ 아이템 설명 팝업 ═════════════════════════ */
+
+function DescPopup({ item, onClose }: { item: Displayable; onClose: () => void }) {
+  useModalKeys({ onConfirm: onClose, onCancel: onClose, confirmOnEnterInInput: true });
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={descModalStyle} onClick={(e) => e.stopPropagation()}>
+        <div style={descHeadStyle}>
+          {item.imageUrl ? (
+            <img src={item.imageUrl} alt={item.label} style={descIconImgStyle} />
+          ) : (
+            <span style={descIconEmojiStyle}>{item.emoji}</span>
+          )}
+          <span style={descNameStyle}>{item.label}</span>
+        </div>
+        {item.description ? (
+          <div style={descBodyStyle}>{item.description}</div>
+        ) : null}
         <button type="button" onClick={onClose} style={modalConfirmBtn}>닫기</button>
       </div>
     </div>,
@@ -500,6 +548,9 @@ function CouponActionPopup({
           <div style={dollEmojiLargeStyle}>{item.emoji}</div>
         )}
         <div style={dollNameStyle}>{item.label}</div>
+        {item.description ? (
+          <div style={descBodyStyle}>{item.description}</div>
+        ) : null}
         <div style={dollQtyStyle}>
           {item.quantity} / {COUPON_REQUIRED}개
         </div>
@@ -634,6 +685,10 @@ function DiscardPopup({
             <div style={dollQtyStyle}>소지 {item.quantity}개</div>
           </div>
         </div>
+
+        {item.description ? (
+          <div style={{ ...descBodyStyle, marginTop: 0 }}>{item.description}</div>
+        ) : null}
 
         {!confirming ? (
           <>
@@ -958,6 +1013,58 @@ const dollModalStyle: CSSProperties = {
   maxWidth:      360,
   width:         "100%",
   boxShadow:     "0 20px 50px rgba(8,40,80,.4)",
+};
+
+/* 설명 팝업 */
+const descModalStyle: CSSProperties = {
+  background:    "#fff",
+  borderRadius:  18,
+  padding:       "22px 24px",
+  maxWidth:      360,
+  width:         "100%",
+  boxShadow:     "0 20px 50px rgba(8,40,80,.4)",
+  textAlign:     "center",
+};
+
+const descHeadStyle: CSSProperties = {
+  display:        "flex",
+  alignItems:     "center",
+  justifyContent: "center",
+  gap:            8,
+  marginBottom:   12,
+};
+
+const descIconImgStyle: CSSProperties = {
+  width:        40,
+  height:       40,
+  objectFit:    "contain",
+  borderRadius: 8,
+};
+
+const descIconEmojiStyle: CSSProperties = {
+  fontSize:   32,
+  lineHeight: 1,
+};
+
+const descNameStyle: CSSProperties = {
+  fontFamily: JUA,
+  fontSize:   17,
+  color:      "#14406f",
+};
+
+const descBodyStyle: CSSProperties = {
+  fontFamily:  BODY,
+  fontWeight:  400,
+  fontSize:    13.5,
+  lineHeight:  1.7,
+  color:       "#3a4a58",
+  background:  "#f5f8fd",
+  border:      "1.5px solid #e0e9f2",
+  borderRadius: 10,
+  padding:     "12px 14px",
+  marginBottom: 16,
+  whiteSpace:  "pre-wrap",
+  textAlign:   "left",
 };
 
 const dollImgLargeStyle: CSSProperties = {

@@ -150,3 +150,46 @@ export async function purchaseShopItem(
 
   return { ok: true, nextMobil: (data as number) ?? 0 };
 }
+
+/* ═══════════════════════════════════════════════════════════
+ * 아이템 설명(description) 조회
+ * ─────────────────────────────────────────────────────────── */
+
+/**
+ * item_ref → description 맵.
+ *
+ * 인벤토리 화면에서 아이템 설명 팝업을 띄우기 위한 용도.
+ * listShopItems 와 달리 slot 보상(인형·교환권·잡템)도 포함해야 하므로
+ * slot_reward 필터를 걸지 않는다.
+ *
+ * · RLS shop_items_select_all 로 is_active=true 만 노출됨
+ *   → 비활성 처리된 아이템은 맵에 없고, 그 경우 호출측에서 "설명 없음"으로 처리.
+ * · description 이 비어있으면(null·공백) 맵에 넣지 않는다
+ *   → 호출측에서 has(ref) 만으로 "설명 있음" 판단 가능.
+ * · 실패 시 빈 맵 (설명 못 불러와도 인벤토리 표시는 정상 진행).
+ *
+ * item_ref 는 유니크 제약이 없어 이론상 중복 가능하나, 실무상 종류별 고유.
+ * 중복이면 먼저 조회된 값을 유지한다(뒤 값 무시).
+ */
+export async function getItemDescriptionMap(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+
+  const { data, error } = await supabase
+    .from("shop_items")
+    .select("item_ref, description")
+    .eq("is_active", true);
+
+  if (error || !data) {
+    console.error("[getItemDescriptionMap] failed:", error?.message);
+    return map;
+  }
+
+  for (const row of data as { item_ref: string | null; description: string | null }[]) {
+    const ref = row.item_ref ?? "";
+    if (!ref) continue;
+    const desc = (row.description ?? "").trim();
+    if (!desc) continue;
+    if (!map.has(ref)) map.set(ref, desc);
+  }
+  return map;
+}

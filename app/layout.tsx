@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from "next";
 import {
   Jua,
   Gaegu,
-  Gowun_Dodum,
   Nanum_Pen_Script,
   Limelight,
   Monofett,
@@ -26,13 +25,6 @@ const gaegu = Gaegu({
   weight: ["400", "700"],
   subsets: ["latin"],
   variable: "--font-gaegu",
-  display: "swap",
-});
-
-const gowunDodum = Gowun_Dodum({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-gowun-dodum",
   display: "swap",
 });
 
@@ -87,7 +79,7 @@ export default function RootLayout({
     <html
       lang="ko"
       translate="no"
-       className={`${jua.variable} ${gaegu.variable} ${gowunDodum.variable} ${nanumPen.variable} ${limelight.variable} ${monofett.variable} ${hachiMaruPop.variable}`}
+       className={`${jua.variable} ${gaegu.variable} ${nanumPen.variable} ${limelight.variable} ${monofett.variable} ${hachiMaruPop.variable}`}
     >
       <head>
         <link

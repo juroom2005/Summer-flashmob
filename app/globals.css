@@ -46,6 +46,21 @@
 }
 
 @font-face {
+  font-family: 'Gowun Dodum';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/NEXONLv2GothicRegular.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Gowun Dodum';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/NEXONLv2GothicBold.otf') format('opentype');
+}
+
+@font-face {
   font-family: 'Ongleaf Beomjun';
   font-style: normal;
   font-weight: 400;
