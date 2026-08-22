@@ -137,7 +137,15 @@ export default function NoticeBoard({
   };
 
   // ── 애니메이션 헬퍼 ──────────────────────────────────────
+  // 탭 전환 시 콘텐츠 전환 효과.
+  //   · board 로 갈 때  : 페이드만(opacity). board 는 덮개 영역이 내지보다
+  //     넓어(left/width 가 다름) 가로 슬라이드를 걸면 그 좌우 점프와 겹쳐
+  //     "아래-오른쪽 대각선으로 쑥 몰렸다 퍼지는" 덜컹거림이 났음. 페이드로 회피.
+  //   · 그 외 탭        : 우측에서 슬라이드 인(+페이드). 문서 전환에 자연스러움.
   const runTransition = (toBoard: boolean) => {
+    // OS "동작 줄이기"가 켜져 있으면 전환 애니메이션을 생략한다.
+    // element.animate() 는 CSS @media (prefers-reduced-motion) 로 못 막으므로
+    // 여기서 matchMedia 로 직접 확인한다. (globals.css 의 CSS 애니메이션 차단과 짝)
     const reduceMotion =
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -370,6 +378,13 @@ export default function NoticeBoard({
         initialTab={overlay === "register" ? "register" : "login"}
         onClose={() => setOverlay(null)}
       />
+
+      {/* ── 전역 푸터 (스테이지 밖, 뷰포트 하단 중앙 고정) ──
+          스케일 영향 안 받음. 개인정보 처리 안내 상시 노출용.
+          컨테이너는 클릭 통과(pointerEvents:none), 링크만 클릭 가능. */}
+      <footer style={globalFooterStyle}>
+        <a href="/privacy" style={globalFooterLinkStyle}>개인정보 처리 안내</a>
+      </footer>
     </div>
   );
 }
@@ -386,6 +401,29 @@ const viewportShellStyle: CSSProperties = {
   // shorthand/non-shorthand 혼용 경고를 피하기 위함.
   overflowX: "hidden",
   overflowY: "hidden",
+};
+
+// 전역 푸터: 뷰포트 하단 중앙 고정. 스테이지 스케일 밖.
+// 컨테이너는 클릭 통과, 링크만 클릭되게 pointerEvents 를 나눠 지정.
+const globalFooterStyle: CSSProperties = {
+  position: "fixed",
+  left: 0,
+  right: 0,
+  bottom: 8,
+  display: "flex",
+  justifyContent: "center",
+  pointerEvents: "none",
+  zIndex: 40,
+};
+
+const globalFooterLinkStyle: CSSProperties = {
+  pointerEvents: "auto",
+  fontFamily: BODY,
+  fontSize: 11,
+  color: "#14406f",
+  opacity: 0.55,
+  textDecoration: "none",
+  padding: "4px 10px",
 };
 
 // 모바일 안내 배너 (상단 고정 · 화면을 덮지 않음 · 닫기 가능)

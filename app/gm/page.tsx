@@ -7,6 +7,7 @@
 "use client";
 
 import { useEffect, useState, type CSSProperties } from "react";
+import { useRouter } from "next/navigation";
 import InviteGenerateForm from "@/components/gm/InviteGenerateForm";
 import InviteCodeList     from "@/components/gm/InviteCodeList";
 import ReportList         from "@/components/gm/reports/ReportList";
@@ -15,7 +16,7 @@ import GmNoticesTab       from "@/components/gm/notices/GmNoticesTab";
 import GmEventsTab        from "@/components/gm/events/GmEventsTab";
 import GmShopTab          from "@/components/gm/shop/GmShopTab";
 import GmWeatherTab       from "@/components/gm/weather/GmWeatherTab";
-import { getPendingReportCount } from "@/lib/auth-helpers";
+import { getPendingReportCount, isCurrentUserGm } from "@/lib/auth-helpers";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
@@ -34,21 +35,55 @@ const TABS: { key: TabKey; label: string; emoji: string }[] = [
 ];
 
 export default function GmPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<TabKey>("invite");
   const [inviteRefreshKey, setInviteRefreshKey] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
 
+  // ── 접근 가드 ──
+  // 마운트 시 GM 여부를 확인하고, 통과 전에는 관리 UI를 렌더하지 않는다.
+  // 비로그인·비GM·확인 실패(네트워크 오류 포함) 모두 홈으로 보낸다(fail-closed).
+  //
+  // ⚠ 이 가드는 UI 노출 차단용 심층 방어다. 실제 데이터·조작 권한은
+  //   종전과 동일하게 서버(EF의 is_gm 검증 + RLS)가 막는다.
+  const [gmChecked, setGmChecked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const ok = await isCurrentUserGm();
+      if (cancelled) return;
+      if (ok) {
+        setGmChecked(true);
+      } else {
+        router.replace("/");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
+
   // 탭 전환 시 미완료 카운트 재조회.
   // 완료 처리는 문의 탭 내 ReportList에서 발생하므로,
   // 탭에서 나올 때 뱃지가 최신 상태로 반영됨.
+  // (가드 통과 전에는 조회하지 않음)
   useEffect(() => {
+    if (!gmChecked) return;
     let cancelled = false;
     (async () => {
       const n = await getPendingReportCount();
       if (!cancelled) setPendingCount(n);
     })();
     return () => { cancelled = true; };
-  }, [tab]);
+  }, [tab, gmChecked]);
+
+  // 가드 통과 전: 관리 UI 대신 확인 중 표시만.
+  if (!gmChecked) {
+    return (
+      <div style={pageStyle}>
+        <div style={guardStyle} role="status">권한 확인 중...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={pageStyle}>
@@ -122,6 +157,16 @@ const pageStyle: CSSProperties = {
   minHeight:  "100vh",
   background: "linear-gradient(180deg, #eaf7fe 0%, #f4fbff 240px, #f4fbff 100%)",
   padding:    "24px 24px 48px",
+};
+
+/* 접근 가드 확인 중 표시 */
+const guardStyle: CSSProperties = {
+  maxWidth:   1080,
+  margin:     "80px auto 0",
+  textAlign:  "center",
+  fontFamily: BODY,
+  fontSize:   14,
+  color:      "#5a8aa8",
 };
 
 const headerStyle: CSSProperties = {

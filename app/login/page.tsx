@@ -87,6 +87,8 @@ export default function LoginPage() {
           아직 계정이 없으신가요?{" "}
           <a href="/register" style={linkStyle}>초대코드로 가입</a>
         </div>
+
+        <div style={builtWithStyle}>Built with Claude</div>
       </div>
     </div>
   );
@@ -190,4 +192,14 @@ const linkStyle: React.CSSProperties = {
   color:          "var(--green)",
   textDecoration: "none",
   fontWeight:     600,
+};
+
+const builtWithStyle: React.CSSProperties = {
+  marginTop:     "16px",
+  fontFamily:    "var(--mono)",
+  fontSize:      "var(--fs-xs)",
+  color:         "var(--text-mid)",
+  textAlign:     "center",
+  opacity:       0.6,
+  letterSpacing: "0.08em",
 };

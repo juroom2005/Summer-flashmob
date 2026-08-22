@@ -36,8 +36,8 @@ export default function RegisterPage() {
       setError("비밀번호를 입력하세요.");
       return;
     }
-    if (password.length < 6) {
-      setError("비밀번호는 6자 이상이어야 합니다.");
+    if (password.length < 8) {
+      setError("비밀번호는 8자 이상이어야 합니다.");
       return;
     }
     if (password !== password2) {
@@ -119,7 +119,7 @@ export default function RegisterPage() {
           </label>
 
           <label style={labelStyle}>
-            <span style={labelTextStyle}>비밀번호 (6자 이상)</span>
+            <span style={labelTextStyle}>비밀번호 (8자 이상)</span>
             <input
               type="password"
               value={password}
@@ -147,6 +147,14 @@ export default function RegisterPage() {
           <button type="submit" disabled={loading} style={buttonStyle}>
             {loading ? "가입 처리 중..." : "가입"}
           </button>
+
+          <div style={consentStyle}>
+            가입 시{" "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" style={linkStyle}>
+              개인정보 처리 안내
+            </a>
+            에 동의한 것으로 간주됩니다.
+          </div>
         </form>
 
         <div style={footerStyle}>
@@ -250,6 +258,14 @@ const footerStyle: React.CSSProperties = {
   fontSize:   "var(--fs-sm)",
   color:      "var(--text-mid)",
   textAlign:  "center",
+};
+
+const consentStyle: React.CSSProperties = {
+  marginTop: "4px",
+  fontSize:  "var(--fs-xs)",
+  color:     "var(--text-mid)",
+  textAlign: "center",
+  lineHeight: 1.6,
 };
 
 const linkStyle: React.CSSProperties = {
