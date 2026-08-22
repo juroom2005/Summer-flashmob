@@ -1170,6 +1170,8 @@ const boardWrap: CSSProperties = {
   border: `3px solid ${S.line}`, background: S.boardBg,
   backgroundImage: S.boardGrid, backgroundSize: "28px 28px",
   overflowX: "hidden", overflowY: "auto",
+  contain: "paint",
+  borderRadius: 2,
 };
 const boardContent: CSSProperties = {
   position: "relative", width: BOARD_W, height: BOARD_H,
