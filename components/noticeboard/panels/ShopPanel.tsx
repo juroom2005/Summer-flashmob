@@ -113,14 +113,23 @@ function ItemThumb({
   return <div style={emojiStyle}>{fallback}</div>;
 }
 
-/* 카테고리 정의(표시 순서·라벨). */
-type CatKey = "marker" | "sticker" | "camera" | "other";
+/* 카테고리 정의(표시 순서·라벨).*/
+type CatKey = "marker" | "sticker" | "camera" | "recovery" | "other";
 const CATEGORIES: { key: CatKey; label: string }[] = [
-  { key: "marker",  label: "사인펜" },
-  { key: "sticker", label: "스티커" },
-  { key: "camera",  label: "사진기" },
-  { key: "other",   label: "이벤트" },
+  { key: "marker",   label: "사인펜" },
+  { key: "sticker",  label: "스티커" },
+  { key: "camera",   label: "사진기" },
+  { key: "recovery", label: "회복" },
+  { key: "other",    label: "이벤트" },
 ];
+
+/** 회복 카테고리 판정: item_type='other' + metadata.category==='recovery'. */
+function isRecoveryItem(it: ShopItemRow): boolean {
+  return (
+    it.item_type === "other" &&
+    (it.metadata as Record<string, unknown> | null)?.["category"] === "recovery"
+  );
+}
 
 export default function ShopPanel() {
   const { mobil } = useCurrentUser();
@@ -211,13 +220,16 @@ export default function ShopPanel() {
     setPendingId(null);
   }
 
-  /* ── 종류별 그룹 ── */
+  /* ── 종류별 그룹 ──
+   * other 는 회복(metadata.category='recovery')과 그 외(이벤트)로 다시 가른다.
+   * 회복 표식이 없는 other 는 기존과 동일하게 이벤트 탭으로 간다(하위호환). */
   const grouped = useMemo(() => {
-    const marker  = items.filter((i) => i.item_type === "marker");
-    const sticker = items.filter((i) => i.item_type === "sticker");
-    const camera  = items.filter((i) => i.item_type === "camera");
-    const other   = items.filter((i) => i.item_type === "other");
-    return { marker, sticker, camera, other };
+    const marker   = items.filter((i) => i.item_type === "marker");
+    const sticker  = items.filter((i) => i.item_type === "sticker");
+    const camera   = items.filter((i) => i.item_type === "camera");
+    const recovery = items.filter((i) => isRecoveryItem(i));
+    const other    = items.filter((i) => i.item_type === "other" && !isRecoveryItem(i));
+    return { marker, sticker, camera, recovery, other };
   }, [items]);
 
   // 실제로 아이템이 있는 카테고리만 탭으로.
