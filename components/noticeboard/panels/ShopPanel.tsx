@@ -30,6 +30,7 @@ import {
   listMyStickerRefs,
   listShopItems,
   purchaseShopItem,
+  purchaseRecoveryItem,
   type ShopItemRow,
 } from "@/lib/shop-helpers";
 import { useCurrentUser } from "../../shared/useCurrentUser";
@@ -204,7 +205,9 @@ export default function ShopPanel() {
     }
 
     setPendingId(item.id);
-    const res = await purchaseShopItem(item.id);
+    const res = isRecoveryItem(item)
+      ? await purchaseRecoveryItem(item.id)
+      : await purchaseShopItem(item.id);
     if (res.ok) {
       showToast(`${item.name} 구매 완료`, "ok");
       if (item.item_type === "sticker") {
