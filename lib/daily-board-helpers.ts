@@ -54,21 +54,33 @@ export type UsablePen = {
   durability:  number | null;  // 남은 잉크 (null=무한/미설정)
 };
 
-/** 사인펜 색상 코드 → 그리기 hex. 색 추가 시 여기만 확장. */
+/**
+ * 사인펜 색상 코드 → 그리기 색. 색 추가 시 여기만 확장.
+ * rainbow 는 실제 hex 가 아니라 특수 토큰. 렌더러(DailyBoardOverlay)가
+ * 이 토큰을 감지해 획 전체에 무지개 그라데이션을 칠한다.
+ * (여기 넣는 hex 는 무지개 인식 전/폴백용 색일 뿐이라 팔레트 점 색으로만 쓰임.)
+ */
+export const RAINBOW_MARKER = "rainbow";
 const MARKER_COLOR: Record<string, string> = {
-  black: "#222222",
-  red:   "#e5484d",
-  blue:  "#1e63e9",
+  black:   "#222222",
+  red:     "#e5484d",
+  blue:    "#1e63e9",
+  white:   "#ffffff",
+  rainbow: RAINBOW_MARKER,
 };
 const MARKER_EMOJI_MAP: Record<string, string> = {
-  black: "🖊️",
-  red:   "🖍️",
-  blue:  "🖊️",
+  black:   "🖊️",
+  red:     "🖍️",
+  blue:    "🖊️",
+  white:   "🖊️",
+  rainbow: "🌈",
 };
 const MARKER_NAME_MAP: Record<string, string> = {
-  black: "검정 사인펜",
-  red:   "빨강 사인펜",
-  blue:  "파랑 사인펜",
+  black:   "검정 사인펜",
+  red:     "빨강 사인펜",
+  blue:    "파랑 사인펜",
+  white:   "하양 사인펜",
+  rainbow: "무지개 사인펜",
 };
 
 /** 보드 툴 게이팅 상태. 프론트가 이 값으로 툴 활성/비활성을 결정. */

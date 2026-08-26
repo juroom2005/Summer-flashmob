@@ -246,3 +246,162 @@ export async function redeemDollCoupon(): Promise<RedeemResult> {
     },
   };
 }
+// ────────────────────────────────────────────────────────────────────
+// 이벤트/유틸성 아이템 "사용"
+// ────────────────────────────────────────────────────────────────────
+//
+// 인벤토리에서 '사용' 버튼을 눌렀을 때 호출한다. 두 종류:
+//   · 행동 충전(action_refill) : use_action_refill RPC.
+//       오늘 미니게임 한도 +1 (하루 1회). 아이템 1개 차감.
+//   · 그 외 이벤트 아이템(effect 지정) : use_event_item RPC.
+//       예) 히나인형(effect=random_line) → 랜덤 대사 반환. 차감 없음.
+//
+// 어떤 아이템이 어떤 RPC 인지는 shop_items.metadata.effect 로 정해지고,
+// 프론트는 그 effect 값에 따라 호출 함수를 고른다(isUsableEventItem 참고).
+// 재화성 차감이 있는 action_refill 은 애매한 실패를 성공으로 처리하지 않는다.
+
+/** metadata.effect 값 → 어떤 사용 흐름인지. shop seed 와 일치시킬 것. */
+export type EventEffect = "action_refill" | "random_line";
+
+/** 인벤토리 행이 '사용 가능한' 이벤트 아이템인지 판정 (other + effect 존재). */
+export function isUsableEventItem(
+  itemType: InventoryItemType,
+  metadata: Record<string, unknown> | null | undefined,
+): EventEffect | null {
+  if (itemType !== "other") return null;
+  const eff = metadata?.["effect"];
+  if (eff === "action_refill" || eff === "random_line") return eff;
+  return null;
+}
+
+// ── 행동 충전 : use_action_refill ──────────────────────────────────
+
+export type ActionRefillResult =
+  | { ok: true; bonusPlays: number; dailyLimit: number; remainingItem: number }
+  | {
+      ok: false;
+      reason:
+        | "auth_required"
+        | "profile_not_found"
+        | "already_used_today"
+        | "no_item"
+        | "unknown";
+    };
+
+const REFILL_REASONS = [
+  "auth_required",
+  "profile_not_found",
+  "already_used_today",
+  "no_item",
+] as const;
+
+function normalizeRefillError(
+  message: string | null | undefined,
+): Exclude<ActionRefillResult & { ok: false }, { ok: true }>["reason"] {
+  const msg = (message ?? "").toLowerCase();
+  for (const r of REFILL_REASONS) {
+    if (msg.includes(r)) return r;
+  }
+  return "unknown";
+}
+
+export async function useActionRefill(): Promise<ActionRefillResult> {
+  const { data, error } = await supabase.rpc("use_action_refill");
+
+  if (error) {
+    const reason = normalizeRefillError(error.message);
+    console.warn("[inventory] use_action_refill failed:", reason, error.message);
+    return { ok: false, reason };
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { ok?: boolean; bonus_plays?: number; daily_limit?: number; remaining_item?: number }
+    | null
+    | undefined;
+
+  if (!row || row.ok !== true) {
+    return { ok: false, reason: "unknown" };
+  }
+
+  // 인벤토리 수량·미니게임 남은횟수 재조회 유도
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("profile-changed"));
+  }
+
+  return {
+    ok: true,
+    bonusPlays:    typeof row.bonus_plays === "number" ? row.bonus_plays : 0,
+    dailyLimit:    typeof row.daily_limit === "number" ? row.daily_limit : 0,
+    remainingItem: typeof row.remaining_item === "number" ? row.remaining_item : 0,
+  };
+}
+
+// ── 일반 이벤트 아이템 : use_event_item (히나인형 등) ───────────────
+
+export type UseEventItemResult =
+  | { ok: true; effect: string; message: string }
+  | {
+      ok: false;
+      reason:
+        | "auth_required"
+        | "profile_not_found"
+        | "invalid_item_ref"
+        | "no_item"
+        | "no_effect"
+        | "unsupported_effect"
+        | "unknown";
+    };
+
+const USE_EVENT_REASONS = [
+  "auth_required",
+  "profile_not_found",
+  "invalid_item_ref",
+  "no_item",
+  "no_effect",
+  "unsupported_effect",
+] as const;
+
+function normalizeUseEventError(
+  message: string | null | undefined,
+): Exclude<UseEventItemResult & { ok: false }, { ok: true }>["reason"] {
+  const msg = (message ?? "").toLowerCase();
+  for (const r of USE_EVENT_REASONS) {
+    if (msg.includes(r)) return r;
+  }
+  return "unknown";
+}
+
+/**
+ * 이벤트 아이템 사용 (차감 없음). 히나인형처럼 사용 시 효과(랜덤 대사)를 반환.
+ * @param itemRef inventory_items.item_ref (예: 'hina_doll')
+ */
+export async function useEventItem(itemRef: string): Promise<UseEventItemResult> {
+  if (!itemRef) {
+    return { ok: false, reason: "invalid_item_ref" };
+  }
+
+  const { data, error } = await supabase.rpc("use_event_item", {
+    p_item_ref: itemRef,
+  });
+
+  if (error) {
+    const reason = normalizeUseEventError(error.message);
+    console.warn("[inventory] use_event_item failed:", reason, error.message);
+    return { ok: false, reason };
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { ok?: boolean; effect?: string; message?: string }
+    | null
+    | undefined;
+
+  if (!row || row.ok !== true) {
+    return { ok: false, reason: "unknown" };
+  }
+
+  return {
+    ok: true,
+    effect: row.effect ?? "",
+    message: typeof row.message === "string" ? row.message : "...",
+  };
+}

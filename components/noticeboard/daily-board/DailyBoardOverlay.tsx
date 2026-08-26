@@ -51,6 +51,7 @@ import {
   kstDateString,
   type BoardItemRow,
   type BoardItemKind,
+  RAINBOW_MARKER,
   type BoardCapabilities,
   type UsableSticker,
   type UsablePen,
@@ -80,6 +81,13 @@ const S = {
   mkSize: 5,
   ghost: "rgba(30,99,233,.35)",
 };
+
+
+const RAINBOW_STROKE = RAINBOW_MARKER;
+// 빨주노초파남보 7색 (그라데이션 정지점).
+const RAINBOW_STOPS = [
+  "#e5484d", "#f76808", "#ffb224", "#30a46c", "#1e63e9", "#3a5bc7", "#8e4ec6",
+];
 
 const RANGE_CSS = `
 .brd-range{-webkit-appearance:none;appearance:none;height:6px;border-radius:999px;outline:none}
@@ -351,7 +359,20 @@ export default function DailyBoardOverlay({
         s.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
         ctx.stroke();
       }
-      ctx.strokeStyle = s.color;
+      // 무지개 사인펜: 획 전체에 빨주노초파남보 그라데이션 (선 진행 방향으로).
+      // 그 외 색은 기존과 동일하게 단색.
+      if (s.color === RAINBOW_STROKE && s.pts.length >= 2) {
+        const a = s.pts[0];
+        const b = s.pts[s.pts.length - 1];
+        // 시작=끝(점 하나로 뭉친 획)일 때 그라데이션 폭이 0이 되지 않도록 보정
+        const gx = Math.abs(b.x - a.x) < 1 && Math.abs(b.y - a.y) < 1 ? a.x + 1 : b.x;
+        const gy = Math.abs(b.x - a.x) < 1 && Math.abs(b.y - a.y) < 1 ? a.y + 1 : b.y;
+        const grad = ctx.createLinearGradient(a.x, a.y, gx, gy);
+        RAINBOW_STOPS.forEach((c, i) => grad.addColorStop(i / (RAINBOW_STOPS.length - 1), c));
+        ctx.strokeStyle = grad;
+      } else {
+        ctx.strokeStyle = s.color === RAINBOW_STROKE ? RAINBOW_STOPS[0] : s.color;
+      }
       ctx.lineWidth = s.size;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -976,8 +997,17 @@ export default function DailyBoardOverlay({
                           background: picked ? "#e4edff" : "#fff",
                         }}
                       >
-                        {/* 색 스와치 */}
-                        <span style={{ width: 12, height: 12, borderRadius: "50%", background: p.color, display: "block", border: "1px solid rgba(0,0,0,.15)" }} />
+                        {/* 색 스와치 (무지개 펜은 그라데이션으로 표시) */}
+                        <span
+                          style={{
+                            width: 12, height: 12, borderRadius: "50%", display: "block",
+                            border: "1px solid rgba(0,0,0,.15)",
+                            background:
+                              p.color === RAINBOW_STROKE
+                                ? `linear-gradient(90deg, ${RAINBOW_STOPS.join(", ")})`
+                                : p.color,
+                          }}
+                        />
                         <span style={{ fontFamily: mono, fontSize: 10, color: S.chromeInk }}>
                           {p.name}
                           {p.durability != null && (

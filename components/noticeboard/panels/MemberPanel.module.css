@@ -216,6 +216,7 @@
   color: #000;
   min-height: 16px;
   white-space: pre-line;
+  letter-spacing: 0.04em;
 }
 
 /* 마지막 두 행(personality/etc)은 아래로 넓게 */

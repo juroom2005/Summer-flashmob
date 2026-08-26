@@ -50,8 +50,12 @@ import {
   discardInventoryItem,
   redeemDollCoupon,
   isDiscardable,
+  isUsableEventItem,
+  useActionRefill,
+  useEventItem,
   type InventoryItemRow,
   type InventoryItemType,
+  type EventEffect,
   type RedeemedDoll,
 } from "@/lib/inventory-helpers";
 import { getItemDescriptionMap } from "@/lib/shop-helpers";
@@ -73,12 +77,18 @@ const TAPE = [
 
 /** marker item_ref → 표시 이모지·이름. 색상 추가 시 이 두 상수만 확장. */
 const MARKER_EMOJI: Record<string, string> = {
-  black: "🖊️",
-  red:   "🖍️",
+  black:   "🖊️",
+  red:     "🖍️",
+  blue:    "🖊️",
+  white:   "🖊️",
+  rainbow: "🌈",
 };
 const MARKER_LABEL: Record<string, string> = {
-  black: "검정 사인펜",
-  red:   "빨강 사인펜",
+  black:   "검정 사인펜",
+  red:     "빨강 사인펜",
+  blue:    "파랑 사인펜",
+  white:   "하양 사인펜",
+  rainbow: "무지개 사인펜",
 };
 
 /** 슬롯 보상 종류별 기본 이모지·라벨 */
@@ -109,7 +119,8 @@ type Displayable = {
   tooltip:   string;
   quantity:  number;            
   description: string | null;     
-  clickMode: "none" | "discard" | "dollView" | "coupon" | "desc";
+  clickMode: "none" | "discard" | "dollView" | "coupon" | "desc" | "use";
+  effect:    EventEffect | null;
 };
 
 /** metadata 에서 문자열 필드 안전 추출. */
@@ -161,6 +172,7 @@ function buildDisplayables(
         quantity: row.quantity ?? 1,
         description: desc,
         clickMode: desc ? "desc" : "none",
+        effect: null,
       });
       continue;
     }
@@ -176,6 +188,7 @@ function buildDisplayables(
         quantity: row.quantity ?? 1,
         description: desc,
         clickMode: desc ? "desc" : "none",
+        effect: null,
       });
       continue;
     }
@@ -192,6 +205,7 @@ function buildDisplayables(
         quantity: row.quantity ?? 1,
         description: desc,
         clickMode: desc ? "desc" : "none",
+        effect: null,
       });
       continue;
     }
@@ -212,8 +226,11 @@ function buildDisplayables(
         // 이미 있는 카드에 수량만 합산 (이미지/이모지는 먼저 잡힌 것 유지)
         out[existing].quantity += qty;
         out[existing].badge = `×${out[existing].quantity}`;
-        // tooltip 수량도 갱신
-        out[existing].tooltip = tooltipFor(out[existing].itemType, out[existing].itemRef, out[existing].label, out[existing].quantity);
+        // tooltip 수량도 갱신 (사용 가능 여부는 기존 clickMode 로 판정)
+        out[existing].tooltip = tooltipFor(
+          out[existing].itemType, out[existing].itemRef, out[existing].label,
+          out[existing].quantity, out[existing].clickMode === "use",
+        );
         continue;
       }
 
@@ -223,6 +240,7 @@ function buildDisplayables(
       let emoji: string;
       let label: string;
       let clickMode: Displayable["clickMode"];
+      let effect: EventEffect | null = null;
 
       if (row.item_type === "doll") {
         emoji = emojiMeta ?? SLOT_EMOJI.doll;
@@ -237,10 +255,11 @@ function buildDisplayables(
         label = readStr(row.metadata, "name") ?? SLOT_LABEL.junk;
         clickMode = "discard";
       } else {
-        // other
+        // other : effect 가 있으면 '사용' 가능한 이벤트 아이템, 없으면 기존처럼 파기.
         emoji = emojiMeta ?? "🎁";
         label = readStr(row.metadata, "name") ?? prettyRef(ref);
-        clickMode = "discard";
+        effect = isUsableEventItem(row.item_type, row.metadata);
+        clickMode = effect ? "use" : "discard";
       }
 
       const idx = out.length;
@@ -248,10 +267,11 @@ function buildDisplayables(
         key: mapKey, itemType: row.item_type, itemRef: ref,
         emoji, imageUrl, label,
         badge: `×${qty}`,
-        tooltip: tooltipFor(row.item_type, ref, label, qty),
+        tooltip: tooltipFor(row.item_type, ref, label, qty, clickMode === "use"),
         quantity: qty,
         description: descMap.get(ref) ?? null,
         clickMode,
+        effect,
       });
       mergeIndex.set(mapKey, idx);
       continue;
@@ -263,7 +283,13 @@ function buildDisplayables(
   return out;
 }
 
-function tooltipFor(itemType: InventoryItemType, itemRef: string, label: string, qty: number): string {
+function tooltipFor(
+  itemType: InventoryItemType,
+  itemRef: string,
+  label: string,
+  qty: number,
+  usable = false,
+): string {
   if (itemType === "doll")   return `${label} · 소지 ${qty}개 · 클릭하면 크게 볼 수 있습니다`;
   if (itemType === "coupon") {
     return itemRef === DOLL_COUPON_REF
@@ -271,6 +297,7 @@ function tooltipFor(itemType: InventoryItemType, itemRef: string, label: string,
       : `${label} · 소지 ${qty}개 · 클릭하면 파기할 수 있습니다`;
   }
   if (itemType === "junk")   return `${label} · 소지 ${qty}개 · 클릭하면 파기할 수 있습니다`;
+  if (usable)  return `${label} · 소지 ${qty}개 · 클릭하면 사용할 수 있습니다`;
   return `이벤트 아이템 · 소지 ${qty}개 · 클릭하면 파기할 수 있습니다`;
 }
 
@@ -286,6 +313,7 @@ export default function InventorySection() {
   const [couponTarget, setCouponTarget] = useState<Displayable | null>(null);
   const [redeemedDoll, setRedeemedDoll] = useState<RedeemedDoll | null>(null);
   const [descTarget, setDescTarget] = useState<Displayable | null>(null);
+  const [useTarget, setUseTarget] = useState<Displayable | null>(null);
 
   const refresh = useCallback(async () => {
     const [rows, descMap] = await Promise.all([
@@ -327,6 +355,8 @@ export default function InventorySection() {
       setCouponTarget(it);
     } else if (it.clickMode === "desc") {
       setDescTarget(it);
+    } else if (it.clickMode === "use") {
+      setUseTarget(it);
     }
   }, []);
 
@@ -445,6 +475,15 @@ export default function InventorySection() {
       {/* 아이템 설명 팝업 (설명 있는 marker·sticker·camera 클릭 시) */}
       {descTarget ? (
         <DescPopup item={descTarget} onClose={() => setDescTarget(null)} />
+      ) : null}
+
+      {/* 이벤트 아이템 사용 팝업 (행동 충전 · 히나인형 등) */}
+      {useTarget ? (
+        <UsePopup
+          item={useTarget}
+          onClose={() => setUseTarget(null)}
+          onUsed={() => { void refresh(); }}
+        />
       ) : null}
     </div>
   );
@@ -585,6 +624,147 @@ function redeemErrorMessage(reason: string): string {
     case "auth_required":   return "로그인이 필요합니다.";
     default:                return "교환에 실패했습니다. 잠시 후 다시 시도해 주십시오.";
   }
+}
+
+/* ═══════════════════════ 이벤트 아이템 사용 팝업 ═══════════════════════ */
+//
+// 두 가지 effect 를 처리한다.
+//   · action_refill : use_action_refill RPC. 성공 시 "오늘 +1" 확인 문구.
+//                     아이템이 차감되므로 성공 후 onUsed()로 목록 재조회.
+//   · random_line   : use_event_item RPC. 성공 시 랜덤 대사를 보여준다.
+//                     차감이 없어 여러 번 사용 가능(닫기 전까지 팝업 유지).
+// 실패는 사유별 안내 문구로 표시하고, 애매한 성공 처리는 하지 않는다.
+
+function useEventErrorMessage(reason: string): string {
+  switch (reason) {
+    case "already_used_today": return "오늘은 이미 충전했습니다. 내일 다시 사용할 수 있습니다.";
+    case "no_item":            return "사용할 아이템이 없습니다. 새로고침 후 다시 시도해 주십시오.";
+    case "no_effect":          return "이 아이템에는 사용 효과가 없습니다.";
+    case "unsupported_effect": return "지원하지 않는 효과입니다. 운영진에게 문의해 주십시오.";
+    case "auth_required":      return "로그인이 필요합니다.";
+    case "profile_not_found":  return "프로필 정보를 확인할 수 없습니다.";
+    default:                   return "사용에 실패했습니다. 잠시 후 다시 시도해 주십시오.";
+  }
+}
+
+function UsePopup({
+  item, onClose, onUsed,
+}: {
+  item: Displayable;
+  onClose: () => void;
+  onUsed: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  // 결과 표시: refill 은 확인 문구, random_line 은 대사.
+  const [result, setResult] = useState<string | null>(null);
+
+  const run = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr(null);
+
+    if (item.effect === "action_refill") {
+      const res = await useActionRefill();
+      setBusy(false);
+      if (!res.ok) {
+        setErr(useEventErrorMessage(res.reason));
+        return;
+      }
+      setResult(`오늘 미니게임(일일 행동) 횟수가 1회 늘었습니다. (오늘 한도 ${res.dailyLimit}회)`);
+      onUsed();  // 아이템이 차감되므로 목록 재조회
+      return;
+    }
+
+    if (item.effect === "random_line") {
+      const res = await useEventItem(item.itemRef);
+      setBusy(false);
+      if (!res.ok) {
+        setErr(useEventErrorMessage(res.reason));
+        return;
+      }
+      setResult(res.message);
+      // 차감이 없어 재조회 불필요.
+      return;
+    }
+
+    // 이론상 도달 불가 (effect 없는 항목은 use 로 오지 않음)
+    setBusy(false);
+    setErr("사용할 수 없는 아이템입니다.");
+  }, [busy, item.effect, item.itemRef, onUsed]);
+
+  useModalKeys({
+    onConfirm: () => { if (result === null) void run(); else onClose(); },
+    onCancel: onClose,
+    enabled: !busy,
+    confirmOnEnterInInput: true,
+  });
+
+  if (typeof document === "undefined") return null;
+
+  const isRefill = item.effect === "action_refill";
+
+  return createPortal(
+    <div style={overlayStyle} onClick={busy ? undefined : onClose}>
+      <div style={dollModalStyle} onClick={(e) => e.stopPropagation()}>
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt={item.label} style={dollImgLargeStyle} />
+        ) : (
+          <div style={dollEmojiLargeStyle}>{item.emoji}</div>
+        )}
+        <div style={dollNameStyle}>{item.label}</div>
+
+        {result === null ? (
+          <>
+            {item.description ? (
+              <div style={descBodyStyle}>{item.description}</div>
+            ) : null}
+            <div style={dollQtyStyle}>소지 {item.quantity}개</div>
+            {isRefill ? (
+              <div style={couponHintStyle}>
+                사용하면 오늘 하루 미니게임 횟수가 1회 늘어납니다. (하루 1회)
+              </div>
+            ) : null}
+            {err ? <div style={discardErrRow}>{err}</div> : null}
+            <div style={modalBtnRowStyle}>
+              <button
+                type="button"
+                onClick={() => void run()}
+                disabled={busy}
+                style={{ ...modalConfirmBtn, opacity: busy ? 0.5 : 1, cursor: busy ? "not-allowed" : "pointer" }}
+              >
+                {busy ? "사용 중…" : "사용하기"}
+              </button>
+              <button type="button" onClick={onClose} disabled={busy} style={modalCancelBtn}>취소</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div
+              style={isRefill ? useResultInfoStyle : useResultLineStyle}
+              role="status"
+              aria-live="polite"
+            >
+              {isRefill ? result : `“${result}”`}
+            </div>
+            <div style={modalBtnRowStyle}>
+              {!isRefill ? (
+                <button
+                  type="button"
+                  onClick={() => { setResult(null); }}
+                  style={modalConfirmBtn}
+                >
+                  다시 사용
+                </button>
+              ) : null}
+              <button type="button" onClick={onClose} style={isRefill ? modalConfirmBtn : modalCancelBtn}>닫기</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
 /* ═══════════════════════ 인형 교환 결과 ═══════════════════════ */
@@ -1112,6 +1292,33 @@ const couponDiscardBtn: CSSProperties = {
   fontFamily:   JUA,
   fontSize:     13,
   cursor:       "pointer",
+};
+
+// 이벤트 아이템 사용 결과 : 정보성(충전) / 대사(히나인형)
+const useResultInfoStyle: CSSProperties = {
+  fontFamily:   BODY,
+  fontSize:     13.5,
+  color:        NAVY,
+  background:   "#eef5ff",
+  border:       "1.5px solid #cfe0fb",
+  borderRadius: 12,
+  padding:      "12px 14px",
+  margin:       "6px 0 12px",
+  lineHeight:   1.5,
+  textAlign:    "center",
+};
+const useResultLineStyle: CSSProperties = {
+  fontFamily:   GAEGU,
+  fontSize:     17,
+  color:        "#2a2a33",
+  background:   "#f4f1ea",
+  border:       "1.5px solid #d8d2c4",
+  borderRadius: 12,
+  padding:      "16px 16px",
+  margin:       "6px 0 12px",
+  lineHeight:   1.55,
+  textAlign:    "center",
+  whiteSpace:   "pre-wrap",
 };
 
 const redeemHeadStyle: CSSProperties = {
