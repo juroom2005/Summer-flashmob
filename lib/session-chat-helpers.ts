@@ -39,9 +39,18 @@ export type SessionRoom = {
 export type SessionMessageKind = "chat" | "script" | "roll" | "system";
 export type SessionSenderRole  = "user" | "gm" | "system";
 
+export type DanceResult =
+  | "critical_success"
+  | "extreme_success"
+  | "hard_success"
+  | "success"
+  | "fail"
+  | "fumble";
+
 export type SessionRollMeta =
   | { roll_type: "d100"; value: number }
-  | { roll_type: "coin"; result: "success" | "fail" };
+  | { roll_type: "coin"; result: "success" | "fail" }
+  | { roll_type: "dance"; value: number; total: number; result: DanceResult };
 
 export type SessionMessage = {
   id:                string;
@@ -57,7 +66,7 @@ export type SessionMessage = {
   created_at:        string;
 };
 
-export type RollType = "d100" | "coin";
+export type RollType = "d100" | "coin" | "dance";
 
 /** RPC 호출 결과 정규화 형태. */
 export type SessionResult<T = void> =

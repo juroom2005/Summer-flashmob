@@ -61,14 +61,14 @@ export default function SessionEntryButton({ isLoggedIn, isGm }: Props) {
 
   return (
     <div className={styles.wrap}>
-      <a href="/session" className={styles.btn} aria-label="세션 채팅 입장">
+      <a href="/session" className={styles.btn} aria-label="조사방 입장">
         <span className={styles.sign} aria-hidden="true">
           {/* 주사위(d6) 아이콘 */}
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2.5 3A1.5 1.5 0 1 0 7.5 9a1.5 1.5 0 0 0 0-3zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM7.5 15a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm9 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" />
           </svg>
         </span>
-        <span className={styles.text}>세션 채팅</span>
+        <span className={styles.text}>조사</span>
       </a>
     </div>
   );

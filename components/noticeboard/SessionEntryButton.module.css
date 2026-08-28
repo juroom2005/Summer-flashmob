@@ -9,8 +9,8 @@
 
 .wrap {
   position: absolute;
-  left:  65px;      /* 채팅 문의 버튼(left 10 + 45) 오른쪽 */
-  bottom: 10px;
+  left:  11px;     
+  top:   650px;     
   z-index: 20;
   width: 45px;
   height: 45px;
@@ -68,7 +68,7 @@
 
 .btn:hover,
 .btn:focus-visible {
-  width: 120px;
+  width: 90px;         
   border-radius: 40px;
 }
 .btn:hover .sign,
@@ -80,9 +80,8 @@
 .btn:focus-visible .text {
   opacity: 1;
   width: 62%;
-  padding-left: 130px;
+  padding-left: 80px;  
 }
-
 .btn:active {
   transform: translate(2px, 2px);
 }

@@ -709,6 +709,11 @@
   align-items: center;
   gap: 5px;
 }
+/* 춤추기 결과: 토막마다 줄바꿈, 가운데 정렬 */
+.rollLine {
+  display: block;
+  text-align: center;
+}
 .roll {
   font-size: 13px;
   padding: 6px 12px;
@@ -717,9 +722,16 @@
   border: 1px solid #f1d27a;
   color: #5c4300;
   font-family: var(--font-heading, 'Jua', sans-serif);
+  line-height: 1.5;
+}
+/* 여러 줄(춤추기)일 때는 알약 대신 완만한 라운드 */
+.roll:has(.rollLine + .rollLine) {
+  border-radius: 14px;
 }
 .rollSuccess { background: #e6f7f1; border-color: #8fd5bf; color: #135c4b; }
 .rollFail    { background: #fdecea; border-color: #f3b9b3; color: #8f2f27; }
+.rollCrit    { background: #fff3d6; border-color: #f0c453; color: #8a5a00; font-weight: 700; }
+.rollFumble  { background: #f3e2f6; border-color: #d3a3dc; color: #6a2f7a; font-weight: 700; }
 
 .system {
   font-size: 12px;

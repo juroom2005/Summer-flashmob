@@ -77,8 +77,14 @@ export default function ScriptPane({
   }, [roomId]);
 
   useEffect(() => {
+    // 아직 초기 로딩 중이면 등록을 미룬다.
+    // (재진입 시 messages 가 빈 배열로 먼저 왔다가 데이터가 채워지는데,
+    //  빈 배열을 "최초 스냅샷"으로 잡으면 뒤늦게 온 스크립트가 새 것으로 오인돼
+    //  마지막 스크립트가 다시 타이핑된다. 로딩이 끝난 첫 스냅샷을 기준으로 삼는다.)
+    if (loading) return;
+
     if (seenRef.current === null) {
-      // 방 최초 로드분: 전부 본 것으로 등록, 타이핑 없음.
+      // 로딩 완료 후 첫 스냅샷: 전부 본 것으로 등록, 타이핑 없음.
       seenRef.current = new Set(messages.map((m) => m.id));
       return;
     }
@@ -89,7 +95,7 @@ export default function ScriptPane({
       // 여러 개가 한꺼번에 와도 마지막 1개만 타이핑.
       setTypingId(fresh[fresh.length - 1].id);
     }
-  }, [messages]);
+  }, [messages, loading]);
 
   function handleScroll() {
     const el = scrollRef.current;

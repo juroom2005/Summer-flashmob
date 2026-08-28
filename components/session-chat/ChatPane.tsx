@@ -174,17 +174,33 @@ export default function ChatPane({
 
           if (m.kind === "roll") {
             const meta = m.meta;
-            const cls =
-              meta?.roll_type === "coin"
-                ? meta.result === "success" ? styles.rollSuccess : styles.rollFail
-                : "";
-            const icon = meta?.roll_type === "coin" ? "🪙" : "🎲";
+            let cls = "";
+            // 아이콘은 d100 굴림에만 주사위 하나. coin/dance 는 아이콘 없음.
+            const icon = meta?.roll_type === "d100" ? "🎲 " : "";
+            if (meta?.roll_type === "coin") {
+              cls = meta.result === "success" ? styles.rollSuccess : styles.rollFail;
+            } else if (meta?.roll_type === "dance") {
+              switch (meta.result) {
+                case "critical_success": cls = styles.rollCrit; break;
+                case "extreme_success":
+                case "hard_success":
+                case "success":          cls = styles.rollSuccess; break;
+                case "fumble":           cls = styles.rollFumble; break;
+                default:                 cls = styles.rollFail; break; // fail
+              }
+            }
+            // 춤추기 결과는 " · " 로 나뉜 세 토막(이름·굴림·판정)을 줄바꿈해서 보여준다.
+            // content 원문은 그대로 두고 표시만 분리(로그·검색은 한 줄 유지).
+            const isDance = meta?.roll_type === "dance";
+            const lines = isDance ? m.content.split(" · ") : [m.content];
             return (
               <div key={m.id} className={`${styles.msgRow} ${styles.msgRowCenter}`}>
                 <span className={styles.rollGroup}>
                   <span className={`${styles.roll} ${cls}`}>
-                    <span aria-hidden="true">{icon} </span>
-                    {m.content}
+                    {icon ? <span aria-hidden="true">{icon}</span> : null}
+                    {lines.map((line, i) => (
+                      <span key={i} className={isDance ? styles.rollLine : undefined}>{line}</span>
+                    ))}
                     <span className={styles.srOnly}> ({fmtTime(m.created_at)})</span>
                   </span>
                   {isGm && onDelete ? (
@@ -285,7 +301,16 @@ export default function ChatPane({
                 onClick={() => void onRoll("coin")}
                 disabled={sending}
               >
-                <span aria-hidden="true">🪙</span> 성공/실패
+                성공/실패
+              </button>
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnSmall}`}
+                onMouseDown={keepFocus}
+                onClick={() => void onRoll("dance")}
+                disabled={sending}
+              >
+                춤추기
               </button>
             </div>
             <div className={styles.inputRow}>
