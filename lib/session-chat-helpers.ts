@@ -82,7 +82,7 @@ const RPC_ERROR_MESSAGES: Record<string, string> = {
   room_not_found:        "방을 찾을 수 없습니다.",
   room_closed:           "닫힌 방입니다. 열람만 가능합니다.",
   not_a_member:          "이 방의 참가자가 아닙니다.",
-  session_chat_disabled: "지금은 세션 채팅을 사용할 수 없습니다.",
+  session_chat_disabled: "지금은 조사방을 사용할 수 없습니다.",
   empty_content:         "내용을 입력해주십시오.",
   content_too_long:      "내용이 너무 깁니다.",
   invalid_roll_type:     "주사위 종류가 올바르지 않습니다.",

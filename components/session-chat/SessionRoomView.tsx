@@ -239,7 +239,7 @@ export default function SessionRoomView({ room, myProfileId, isGm, enabled, onBa
     : !room.is_open
     ? "닫힌 방입니다. 열람만 가능합니다."
     : !enabled
-    ? "지금은 세션 채팅을 사용할 수 없습니다."
+    ? "지금은 조사방을 사용할 수 없습니다."
     : null;
 
   // 연결 불안정 경고(입력창 위). 발언 가능 + stale 일 때만.

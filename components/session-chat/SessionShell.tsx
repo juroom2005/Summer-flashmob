@@ -144,7 +144,7 @@ export default function SessionShell() {
     return (
       <div className={styles.page}>
         <div className={styles.centerNote}>
-          <Loader label="세션 채팅을 여는 중" />
+          <Loader label="조사방을 여는 중" />
         </div>
       </div>
     );
@@ -155,7 +155,7 @@ export default function SessionShell() {
       <div className={styles.page}>
         <div className={styles.centerNote}>
           <h2>로그인이 필요합니다</h2>
-          <p>세션 채팅은 로그인한 참가자만 이용할 수 있습니다.</p>
+          <p>조사는 로그인한 참가자만 이용할 수 있습니다.</p>
           <a href="/" className={styles.linkBtn}>홈으로</a>
         </div>
       </div>
@@ -166,7 +166,7 @@ export default function SessionShell() {
     return (
       <div className={styles.page}>
         <div className={styles.centerNote}>
-          <h2>세션 채팅 준비 중</h2>
+          <h2>조사 준비 중</h2>
           <p>지금은 열려 있지 않습니다. GM 이 열면 홈 화면에 입장 버튼이 나타납니다.</p>
           <a href="/" className={styles.linkBtn}>홈으로</a>
         </div>
@@ -181,7 +181,7 @@ export default function SessionShell() {
       <a href="#session-main" className={styles.srOnly}>본문으로 건너뛰기</a>
       <header className={styles.topbar}>
         <h1 className={styles.topbarTitle}>
-          세션 채팅
+          Summer-flashmob!
           <span className={styles.topbarSub}>{me.name}</span>
           {me.isGm && !enabled ? (
             <span className={`${styles.status} ${styles.statusWarn}`} style={{ marginLeft: 8 }}>
