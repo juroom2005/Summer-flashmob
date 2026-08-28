@@ -18,6 +18,14 @@
 //         정상 저장되고 상대는 자기 재동기화 때 받는다).
 //   전송(RPC) 자체가 실패하면 그건 인터넷 단절이며 role="alert" 로 이미 표시된다.
 //
+// 조회·병합 (2026-08-28 페이지네이션 개편):
+//   · 스크립트는 전량 + 채팅 스트림은 최신 N건. 위로 스크롤하면 이전 페이지
+//     추가 로드(ChatPane 이 트리거, 여기가 fetch·병합).
+//   · 재동기화는 "교체"가 아니라 "병합". 조회가 툼스톤(삭제 행)을 포함하므로
+//     삭제 반영은 병합 시 툼스톤이 살아있는 행을 덮고 필터되는 경로로 일어난다.
+//     (교체 방식으로 되돌리면 이전 페이지로 불러온 메시지가 재동기화마다
+//      증발한다. 되돌리지 말 것.)
+//
 // 사고 방지:
 //   · 낙관적 업데이트 없음. RPC 반환 행을 병합할 뿐이라 실패해도 화면에 잔상 없음.
 //   · 병합은 id 기준이라 Realtime 과 재조회가 겹쳐도 중복·역순 없음.
@@ -34,7 +42,9 @@ import {
 } from "react";
 import { supabase } from "@/lib/supabase";
 import {
-  fetchSessionMessages,
+  fetchOlderSessionChats,
+  fetchSessionChats,
+  fetchSessionScripts,
   gmDeleteSessionMessage,
   gmPostSessionScript,
   gmUpdateSessionScript,
@@ -94,6 +104,10 @@ export default function SessionRoomView({ room, myProfileId, isGm, enabled, onBa
   // 신선도 재평가용 틱. STALE 경계를 주기적으로 다시 계산하기 위한 리렌더 트리거.
   const [freshTick, setFreshTick] = useState(0);
 
+  // 채팅 스트림에 아직 안 불러온 이전 기록이 남았는지 / 이전 페이지 로드 중인지
+  const [hasMoreChat, setHasMoreChat]   = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+
   const [sending, setSending]     = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const [scriptBusy, setScriptBusy]   = useState(false);
@@ -110,24 +124,33 @@ export default function SessionRoomView({ room, myProfileId, isGm, enabled, onBa
   }, []);
 
   /* ── 재동기화 ──
-     성공 시에만 lastSyncAt 갱신. 실패면 기존 메시지 유지(화면 안 지움) +
+     스크립트 전량 + 채팅 최신 N건을 병렬 조회해 "병합"(교체 아님).
+     둘 다 성공했을 때만 lastSyncAt 갱신. 실패면 기존 메시지 유지 +
      신선도 정체 → STALE 경계를 넘으면 경고로 바뀜.
-     initial=true 는 방 최초 로드(성공하면 loading 해제). */
+     initial=true 는 방 최초 로드(성공하면 loading 해제 + hasMore 설정).
+     주기 재동기화에선 hasMoreChat 을 건드리지 않는다 — 최신 N건 조회로는
+     "그보다 이전"의 존재 여부가 바뀌지 않기 때문. */
   const resync = useCallback(
     async (initial = false) => {
-      const res = await fetchSessionMessages(roomId);
-      if (res.ok) {
-        // 성공: 서버 상태로 교체(삭제분 정리). 병합으로 안전.
-        setMessages(mergeSessionMessages([], res.messages));
+      const [scripts, chats] = await Promise.all([
+        fetchSessionScripts(roomId),
+        fetchSessionChats(roomId),
+      ]);
+      const ok = scripts.ok && chats.ok;
+      if (ok) {
+        merge([...scripts.messages, ...chats.messages]);
         setLastSyncAt(Date.now());
-        if (initial) setLoading(false);
+        if (initial) {
+          setHasMoreChat(chats.hasMore);
+          setLoading(false);
+        }
       } else if (initial) {
         // 최초 로드 실패: 로딩만 해제(빈 화면 + 곧 경고). 다음 틱에 재시도됨.
         setLoading(false);
       }
-      return res.ok;
+      return ok;
     },
-    [roomId]
+    [roomId, merge]
   );
 
   /* ── Realtime 구독 ── */
@@ -137,6 +160,8 @@ export default function SessionRoomView({ room, myProfileId, isGm, enabled, onBa
     setLoading(true);
     setConn("connecting");
     setLastSyncAt(null);
+    setHasMoreChat(false);   // 최초 로드 성공 시 실제 값으로 설정됨
+    setLoadingOlder(false);
     setUnreadScript(0);
     setUnreadChat(0);
     setChatError(null);
@@ -249,6 +274,23 @@ export default function SessionRoomView({ room, myProfileId, isGm, enabled, onBa
       : null;
 
   /* ── 액션 ── */
+
+  /** 위로 스크롤 시 이전 채팅 페이지 로드. 커서는 화면상 가장 오래된 채팅. */
+  async function handleLoadOlder(): Promise<void> {
+    if (loadingOlder || loading) return;
+    const oldest = chatMsgs[0];
+    if (!oldest) return;
+    setLoadingOlder(true);
+    try {
+      const res = await fetchOlderSessionChats(roomId, oldest.created_at);
+      if (!res.ok) return; // 실패: 상태 유지. 다음 스크롤 시도 때 자연 재시도.
+      merge(res.messages);
+      setHasMoreChat(res.hasMore);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
   async function handleSend(content: string): Promise<boolean> {
     if (sending) return false;
     setSending(true);
@@ -460,6 +502,9 @@ export default function SessionRoomView({ room, myProfileId, isGm, enabled, onBa
           canPost={canPost}
           readOnlyNote={readOnlyNote}
           staleWarning={staleWarning}
+          hasMore={hasMoreChat}
+          loadingOlder={loadingOlder}
+          onLoadOlder={handleLoadOlder}
           sending={sending}
           error={chatError}
           onSend={handleSend}

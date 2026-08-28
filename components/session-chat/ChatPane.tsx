@@ -7,6 +7,10 @@
 //   · 전송 중엔 disabled 대신 readOnly (포커스 유지 — admin-chat 과 같은 이유)
 //   · 스크롤: 하단 근처에 있을 때만 자동 스크롤. 위로 올려둔 상태면
 //     "새 메시지" 버튼으로 이동 (읽던 위치를 강제로 잃지 않게)
+//   · 이전 기록: 상단 근처 도달 시 자동으로 이전 페이지 로드(onLoadOlder).
+//     프리펜드 전후 scrollHeight 차이만큼 scrollTop 을 보정해 화면이 튀지
+//     않게 한다(앵커링). 보정은 "가장 오래된 메시지 id 가 바뀐" 렌더에서만
+//     소비되므로, 로드 중 하단에 새 메시지가 도착해도 오작동하지 않는다.
 //
 // 데이터·전송은 부모(SessionRoomView)가 담당. 여기는 표시·입력만.
 
@@ -14,6 +18,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -36,6 +41,12 @@ type Props = {
   readOnlyNote: string | null;
   /** 연결이 불안정할 때 입력창 위에 띄울 경고. null 이면 표시 안 함. */
   staleWarning: string | null;
+  /** 아직 안 불러온 이전 채팅이 남았으면 true. */
+  hasMore:      boolean;
+  /** 이전 페이지 로드 중이면 true (부모 상태). */
+  loadingOlder: boolean;
+  /** 상단 도달 시 호출. 부모가 fetch·병합·hasMore 갱신을 담당. */
+  onLoadOlder:  () => Promise<void>;
   sending:      boolean;
   error:        string | null;
   onSend:       (content: string) => Promise<boolean>;
@@ -44,6 +55,8 @@ type Props = {
 };
 
 const NEAR_BOTTOM_PX = 80;
+/** 상단에서 이 거리 안으로 스크롤이 올라오면 이전 페이지를 로드한다. */
+const NEAR_TOP_PX = 80;
 
 function fmtTime(iso: string): string {
   const d = new Date(iso);
@@ -60,6 +73,9 @@ export default function ChatPane({
   canPost,
   readOnlyNote,
   staleWarning,
+  hasMore,
+  loadingOlder,
+  onLoadOlder,
   sending,
   error,
   onSend,
@@ -71,14 +87,42 @@ export default function ChatPane({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLInputElement>(null);
   const nearBottomRef = useRef(true);
+  // 프리펜드 앵커: 로드 직전의 scrollHeight/scrollTop 스냅샷.
+  const anchorRef = useRef<{ height: number; top: number } | null>(null);
+  // 이중 발화 방지. 부모 loadingOlder 반영 전의 스크롤 이벤트 연타를 막는다.
+  const loadInflightRef = useRef(false);
 
-  // 스크롤 위치 추적
+  /** 이전 페이지 로드 트리거. 앵커 스냅샷을 찍고 부모에 위임. */
+  async function triggerLoadOlder() {
+    if (loadInflightRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    loadInflightRef.current = true;
+    anchorRef.current = { height: el.scrollHeight, top: el.scrollTop };
+    try {
+      await onLoadOlder();
+    } finally {
+      loadInflightRef.current = false;
+    }
+  }
+
+  // 스크롤 위치 추적 + 상단 근처 자동 로드
   function handleScroll() {
     const el = scrollRef.current;
     if (!el) return;
     const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
     nearBottomRef.current = dist < NEAR_BOTTOM_PX;
     if (nearBottomRef.current) setShowJump(false);
+
+    if (
+      el.scrollTop < NEAR_TOP_PX &&
+      hasMore &&
+      !loadingOlder &&
+      !loading &&
+      messages.length > 0
+    ) {
+      void triggerLoadOlder();
+    }
   }
 
   function scrollToBottom() {
@@ -89,13 +133,25 @@ export default function ChatPane({
     setShowJump(false);
   }
 
-  // 방 바뀌면 맨 아래로
+  // 방 바뀌면 맨 아래로 (묵은 앵커도 폐기 — 새 방 첫 렌더에서 오소비 방지)
   useEffect(() => {
+    anchorRef.current = null;
     nearBottomRef.current = true;
     setShowJump(false);
     const id = requestAnimationFrame(scrollToBottom);
     return () => cancelAnimationFrame(id);
   }, [roomId]);
+
+  // 프리펜드 앵커 소비: "가장 오래된 메시지"가 바뀐 렌더에서만.
+  // (하단 append 는 firstId 가 안 바뀌므로 이 effect 를 건드리지 않는다.)
+  const firstId = messages.length ? messages[0].id : null;
+  useLayoutEffect(() => {
+    const a  = anchorRef.current;
+    const el = scrollRef.current;
+    if (!a || !el) return;
+    anchorRef.current = null;
+    el.scrollTop = a.top + (el.scrollHeight - a.height);
+  }, [firstId]);
 
   // 새 메시지: 하단 근처면 따라가고, 아니면 버튼 표시
   const lastId = messages.length ? messages[messages.length - 1].id : null;
@@ -156,6 +212,16 @@ export default function ChatPane({
         aria-relevant="additions"
         aria-label="채팅 메시지"
       >
+        {loadingOlder ? (
+          <div className={styles.emptyHint} role="status" aria-live="polite">
+            이전 대화를 불러오는 중…
+          </div>
+        ) : !hasMore && messages.length > 0 ? (
+          <div className={styles.emptyHint} aria-hidden="true">
+            대화의 처음입니다
+          </div>
+        ) : null}
+
         {messages.length === 0 ? (
           <div className={styles.emptyHint}>아직 대화가 없습니다.</div>
         ) : null}

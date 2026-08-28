@@ -9,6 +9,16 @@
 //   · 실패 시 안전한 기본값 반환. 예외를 위로 던지지 않음
 //   · Realtime 구독은 컴포넌트 쪽에서. 이 파일은 순수 데이터 접근만.
 //
+// 조회 구조 (2026-08-28 페이지네이션 개편):
+//   · 스크립트(kind='script')는 방당 소수라 항상 전량 조회.
+//   · 채팅 스트림(chat/roll/system)은 최신 CHAT_INITIAL_LOAD 건 + 위로
+//     스크롤 시 CHAT_OLDER_PAGE 건씩 추가 조회(created_at 커서).
+//   · 모든 조회는 소프트 삭제 행(툼스톤)을 "포함"해서 가져온다.
+//     화면 상태가 교체가 아니라 병합으로 유지되기 때문에, 삭제 반영은
+//     툼스톤이 같은 id 의 살아있는 행을 덮어쓰고 mergeSessionMessages 의
+//     deleted_at 필터에서 걸러지는 방식으로 일어난다. 툼스톤을 빼고
+//     조회하면 삭제가 화면에 반영되지 않으니 필터를 다시 넣지 말 것.
+//
 // 기존 gm-chat-helpers(1:1 문의 채팅)와는 완전히 별개. 서로 참조하지 않음.
 
 import { supabase } from "./supabase";
@@ -116,8 +126,12 @@ function firstRow<T>(data: unknown): T | null {
 const MESSAGE_COLUMNS =
   "id, room_id, sender_profile_id, sender_role, sender_name, kind, content, meta, edited_at, deleted_at, created_at";
 
-/** 한 번에 가져오는 메시지 수 상한. 초과분은 이전 기록으로 남김. */
-export const MESSAGE_PAGE_SIZE = 300;
+/** 채팅 스트림 최초 로드 건수. */
+export const CHAT_INITIAL_LOAD = 300;
+/** 위로 스크롤 시 한 번에 추가 로드하는 건수. */
+export const CHAT_OLDER_PAGE = 200;
+/** 스크립트 전량 조회의 안전 상한. 방당 스크립트는 많아야 수십 건. */
+export const SCRIPT_FETCH_CAP = 500;
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -161,54 +175,91 @@ export async function listSessionRooms(includeArchived = false): Promise<Session
   }));
 }
 
-/**
- * 방 메시지 조회 (최근 MESSAGE_PAGE_SIZE 건, 오래된 순으로 반환).
- * RLS 로 보호됨 — 멤버·GM 이 아니면 빈 배열.
- * 삭제된(deleted_at) 메시지는 제외.
- */
-export async function listSessionMessages(roomId: string): Promise<SessionMessage[]> {
-  const { data, error } = await supabase
-    .from("session_messages")
-    .select(MESSAGE_COLUMNS)
-    .eq("room_id", roomId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(MESSAGE_PAGE_SIZE);
-
-  if (error) {
-    console.error("[listSessionMessages] failed:", error.message);
-    return [];
-  }
-  const rows = ((data as SessionMessage[] | null) ?? []).slice();
-  rows.reverse();
-  return rows;
-}
+/** 채팅 스트림 조회 결과. hasMore 는 커서 이전에 더 남았는지. */
+export type ChatFetchResult = {
+  ok:       boolean;
+  messages: SessionMessage[];
+  hasMore:  boolean;
+};
 
 /**
- * listSessionMessages 와 같은 조회지만 성공/실패를 구분해 반환.
- * 주기적 재동기화에서 "성공했을 때만" 신선도 시각을 갱신하기 위함.
- *   · ok=false 는 네트워크·권한 오류. 이 경우 messages 는 빈 배열이며,
- *     호출부는 화면을 지우지 말고(기존 메시지 유지) 신선도만 정체시켜야 한다.
- * (listSessionMessages 는 빈 방과 오류를 구분 못 하므로 재동기화엔 이걸 쓴다.)
+ * 스크립트 전량 조회 (툼스톤 포함, 오래된 순).
+ * ok=false 는 네트워크·권한 오류 — 호출부는 화면을 지우지 말 것.
  */
-export async function fetchSessionMessages(
+export async function fetchSessionScripts(
   roomId: string
 ): Promise<{ ok: boolean; messages: SessionMessage[] }> {
   const { data, error } = await supabase
     .from("session_messages")
     .select(MESSAGE_COLUMNS)
     .eq("room_id", roomId)
-    .is("deleted_at", null)
+    .eq("kind", "script")
     .order("created_at", { ascending: false })
-    .limit(MESSAGE_PAGE_SIZE);
+    .limit(SCRIPT_FETCH_CAP);
 
   if (error) {
-    console.error("[fetchSessionMessages] failed:", error.message);
+    console.error("[fetchSessionScripts] failed:", error.message);
     return { ok: false, messages: [] };
   }
   const rows = ((data as SessionMessage[] | null) ?? []).slice();
   rows.reverse();
   return { ok: true, messages: rows };
+}
+
+/**
+ * 채팅 스트림(script 제외) 최신 CHAT_INITIAL_LOAD 건 (툼스톤 포함, 오래된 순).
+ * limit+1 로 요청해 hasMore 를 정확히 판정한다.
+ */
+export async function fetchSessionChats(roomId: string): Promise<ChatFetchResult> {
+  const { data, error } = await supabase
+    .from("session_messages")
+    .select(MESSAGE_COLUMNS)
+    .eq("room_id", roomId)
+    .neq("kind", "script")
+    .order("created_at", { ascending: false })
+    .limit(CHAT_INITIAL_LOAD + 1);
+
+  if (error) {
+    console.error("[fetchSessionChats] failed:", error.message);
+    return { ok: false, messages: [], hasMore: false };
+  }
+  const rows = ((data as SessionMessage[] | null) ?? []).slice();
+  const hasMore = rows.length > CHAT_INITIAL_LOAD;
+  if (hasMore) rows.length = CHAT_INITIAL_LOAD;
+  rows.reverse();
+  return { ok: true, messages: rows, hasMore };
+}
+
+/**
+ * 커서(beforeCreatedAt) 이전의 채팅 스트림 CHAT_OLDER_PAGE 건
+ * (툼스톤 포함, 오래된 순). 위로 스크롤 시 추가 로드용.
+ *
+ * 커서는 created_at 단독 비교(lt)라, 정확히 같은 타임스탬프(µs)의 행이
+ * 경계에 겹치면 이론상 건너뛸 수 있다. timestamptz 마이크로초 정밀도에서
+ * 이 규모(25인 미만)로는 실질 발생하지 않아 단순함을 택했다.
+ */
+export async function fetchOlderSessionChats(
+  roomId: string,
+  beforeCreatedAt: string
+): Promise<ChatFetchResult> {
+  const { data, error } = await supabase
+    .from("session_messages")
+    .select(MESSAGE_COLUMNS)
+    .eq("room_id", roomId)
+    .neq("kind", "script")
+    .lt("created_at", beforeCreatedAt)
+    .order("created_at", { ascending: false })
+    .limit(CHAT_OLDER_PAGE + 1);
+
+  if (error) {
+    console.error("[fetchOlderSessionChats] failed:", error.message);
+    return { ok: false, messages: [], hasMore: false };
+  }
+  const rows = ((data as SessionMessage[] | null) ?? []).slice();
+  const hasMore = rows.length > CHAT_OLDER_PAGE;
+  if (hasMore) rows.length = CHAT_OLDER_PAGE;
+  rows.reverse();
+  return { ok: true, messages: rows, hasMore };
 }
 
 
@@ -356,8 +407,10 @@ export async function gmDeleteSessionMessage(messageId: string): Promise<Session
 
 /**
  * 메시지 병합: id 기준 중복 제거 + created_at 오름차순.
- * Realtime INSERT 와 전체 재조회가 섞여도 순서·중복이 깨지지 않게 한다.
- * UPDATE(수정·소프트삭제)는 같은 id 를 덮어쓴다.
+ * Realtime INSERT / 재동기화 / 이전 페이지 로드가 섞여도 순서·중복이
+ * 깨지지 않게 한다. UPDATE(수정·소프트삭제)는 같은 id 를 덮어쓴다.
+ * 툼스톤(deleted_at 있음)은 같은 id 의 살아있는 행을 덮어쓴 뒤 아래
+ * 필터에서 제거된다 — 이것이 병합 방식에서의 삭제 반영 경로다.
  */
 export function mergeSessionMessages(
   prev: SessionMessage[],
