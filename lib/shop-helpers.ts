@@ -99,6 +99,9 @@ const PURCHASE_ERROR_MESSAGES: Record<string, string> = {
   // shop_items.item_ref 는 NOT NULL 이지만 이중 방어 차원의 예외이므로
   // 유저에게는 상품 설정 오류로 안내한다.
   other_item_missing_ref:   "상품 설정이 올바르지 않습니다. 운영진에게 문의해 주십시오.",
+  // 회복 아이템 하루 1개 구매 제한 (purchase_recovery_item RPC)
+  already_bought_today:     "이 아이템은 하루에 하나만 구매할 수 있습니다. 내일 다시 구매해 주십시오.",
+  not_recovery_item:        "구매 처리 중 오류가 발생하였습니다. 잠시 후 다시 시도해주십시오.",
 };
 
 function normalizePurchaseError(message: string | undefined): {
@@ -144,6 +147,34 @@ export async function purchaseShopItem(
   }
 
   // 프로필 변경 알림 브로드캐스트
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("profile-changed"));
+  }
+
+  return { ok: true, nextMobil: (data as number) ?? 0 };
+}
+
+/**
+ * 회복 아이템 전용 구매. RPC purchase_recovery_item 호출.
+ *
+ * · 회복 카테고리(metadata.category='recovery') 아이템은 사람별 하루 1개 제한.
+ *   서버(purchase_recovery_item)가 오늘 구매 이력을 확인해 already_bought_today
+ *   예외를 던진다. 통과 시 내부적으로 purchase_shop_item 을 호출하므로
+ *   반환·부수효과(잔액·인벤토리·이력)는 일반 구매와 동일하다.
+ * · 반환 형태는 purchaseShopItem 과 같다(PurchaseResult).
+ */
+export async function purchaseRecoveryItem(
+  shopItemId: string
+): Promise<PurchaseResult> {
+  const { data, error } = await supabase.rpc("purchase_recovery_item", {
+    p_shop_item_id: shopItemId,
+  });
+
+  if (error) {
+    console.error("[purchaseRecoveryItem] failed:", error.message);
+    return { ok: false, ...normalizePurchaseError(error.message) };
+  }
+
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("profile-changed"));
   }
