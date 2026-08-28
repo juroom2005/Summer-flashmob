@@ -37,6 +37,7 @@ import { useCurrentUser } from "./shared/useCurrentUser";
 import Header from "./noticeboard/Header";
 import { type Tab } from "./noticeboard/NavRail";
 import AdminCallButton from "./noticeboard/AdminCallButton";
+import SessionEntryButton from "./noticeboard/SessionEntryButton";
 import MyPanel from "./noticeboard/panels/MyPanel";
 import DailyPanel from "./noticeboard/panels/DailyPanel";
 import NoticeDocPanel from "./noticeboard/panels/NoticeDocPanel";
@@ -84,7 +85,7 @@ export default function NoticeBoard({
   const [overlay, setOverlay] = useState<Overlay>(null);
 
   // 관리자호출: 로그인 여부 판정 + 미읽음 뱃지
-  const { user: currentUser } = useCurrentUser();
+  const { user: currentUser, isGm: currentIsGm } = useCurrentUser();
   const { count: adminChatUnread } = useAdminChatBadge({
     chatOpen: overlay === "admin",
   });
@@ -314,6 +315,10 @@ export default function NoticeBoard({
               setOverlay((prev) => (prev === "admin" ? null : "admin"));
             }}
           />
+
+          {/* ── 세션 채팅 입장 버튼 (채팅 문의 오른쪽) ──
+              site_settings.session_chat_enabled 로 노출 제어. GM 은 항상 표시. */}
+          <SessionEntryButton isLoggedIn={!!currentUser} isGm={currentIsGm} />
 
           {/* ── 관리자 호출 채팅 ── */}
           <AdminChatOverlay

@@ -2,7 +2,7 @@
 //
 // GM 관리 페이지 컨테이너.
 //
-// 탭 구성 (세션 I) : 초대 · 유저 · 공지 · 매점 · 문의
+// 탭 구성 : 초대 · 유저 · 공지 · 일정 · 매점 · 날씨 · 세션 · 문의
 
 "use client";
 
@@ -16,13 +16,14 @@ import GmNoticesTab       from "@/components/gm/notices/GmNoticesTab";
 import GmEventsTab        from "@/components/gm/events/GmEventsTab";
 import GmShopTab          from "@/components/gm/shop/GmShopTab";
 import GmWeatherTab       from "@/components/gm/weather/GmWeatherTab";
+import GmSessionTab       from "@/components/gm/session/GmSessionTab";
 import { getPendingReportCount, isCurrentUserGm } from "@/lib/auth-helpers";
 
 const JUA   = "'Jua', sans-serif";
 const GAEGU = "'Gaegu', cursive";
 const BODY  = "'Gowun Dodum', sans-serif";
 
-type TabKey = "invite" | "users" | "notices" | "events" | "shop" | "weather" | "reports";
+type TabKey = "invite" | "users" | "notices" | "events" | "shop" | "weather" | "session" | "reports";
 
 const TABS: { key: TabKey; label: string; emoji: string }[] = [
   { key: "invite",  label: "초대", emoji: "📮" },
@@ -31,6 +32,7 @@ const TABS: { key: TabKey; label: string; emoji: string }[] = [
   { key: "events",  label: "일정", emoji: "📅" },
   { key: "shop",    label: "매점", emoji: "🛒" },
   { key: "weather", label: "날씨", emoji: "🌤" },
+  { key: "session", label: "세션", emoji: "🎲" },
   { key: "reports", label: "문의", emoji: "🙋" },
 ];
 
@@ -104,6 +106,8 @@ export default function GmPage() {
           return (
             <button
               key={t.key}
+              type="button"
+              aria-current={active ? "page" : undefined}
               onClick={() => setTab(t.key)}
               style={{
                 ...tabButtonStyle,
@@ -144,6 +148,8 @@ export default function GmPage() {
         {tab === "shop" && <GmShopTab />}
 
         {tab === "weather" && <GmWeatherTab />}
+
+        {tab === "session" && <GmSessionTab />}
 
         {tab === "reports" && <ReportList />}
       </main>
