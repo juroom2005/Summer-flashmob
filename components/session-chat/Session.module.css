@@ -515,18 +515,17 @@
   white-space: pre-wrap;
   box-shadow: 0 2px 0 rgba(63, 136, 249, 0.12);
 }
-/* 선택지 앞 체크박스 모양 표식 */
+/* 선택지 앞 작은 원형*/
 .choiceItem::before {
   content: "";
   position: absolute;
-  left: 12px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--color-primary, #3f88f9);
-  border-radius: 5px;
-  background: #fff;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary, #3f88f9);
 }
 .markdown code {
   font-family: var(--font-mono, monospace);
