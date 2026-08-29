@@ -19,12 +19,14 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import type { RollType, SessionMessage } from "@/lib/session-chat-helpers";
+import { buildNameColorMap } from "@/lib/session-name-color";
 import Loader from "./Loader";
 import styles from "./Session.module.css";
 
@@ -152,6 +154,16 @@ export default function ChatPane({
     anchorRef.current = null;
     el.scrollTop = a.top + (el.scrollHeight - a.height);
   }, [firstId]);
+
+  // 참가자 이름 색맵. 발신자 집합(정렬 후 join)이 바뀔 때만 다시 만든다.
+  // roll/system 등 non-user 도 sender_profile_id 가 있으면 포함되지만,
+  // 실제 색은 아래에서 GM·본인·시스템을 제외하고만 적용한다.
+  const senderKey = messages.map((m) => m.sender_profile_id ?? "").join(",");
+  const nameColors = useMemo(
+    () => buildNameColorMap(messages.map((m) => m.sender_profile_id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [senderKey]
+  );
 
   // 새 메시지: 하단 근처면 따라가고, 아니면 버튼 표시
   const lastId = messages.length ? messages[messages.length - 1].id : null;
@@ -294,7 +306,15 @@ export default function ChatPane({
               aria-label={`${m.sender_name || "알 수 없음"} ${fmtTime(m.created_at)}`}
             >
               <div className={styles.msgMeta}>
-                <span className={`${styles.msgName} ${isGmMsg ? styles.msgNameGm : ""}`}>
+                <span
+                  className={`${styles.msgName} ${isGmMsg ? styles.msgNameGm : ""}`}
+                  // GM·본인은 기존 색 유지. 그 외 참가자만 방 단위 색맵 적용.
+                  style={
+                    isGmMsg || isMine || !m.sender_profile_id
+                      ? undefined
+                      : { color: nameColors.get(m.sender_profile_id) }
+                  }
+                >
                   {m.sender_name || "(탈퇴)"}
                 </span>
               </div>
