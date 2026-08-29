@@ -308,9 +308,10 @@ export default function ChatPane({
               <div className={styles.msgMeta}>
                 <span
                   className={`${styles.msgName} ${isGmMsg ? styles.msgNameGm : ""}`}
-                  // GM·본인은 기존 색 유지. 그 외 참가자만 방 단위 색맵 적용.
+                  // GM 은 빨강 유지. 그 외는 보는 사람과 무관하게 방 단위 색맵 적용
+                  // (본인 메시지도 동일 색 — "내 메시지" 구분은 말풍선 정렬/배경이 담당).
                   style={
-                    isGmMsg || isMine || !m.sender_profile_id
+                    isGmMsg || !m.sender_profile_id
                       ? undefined
                       : { color: nameColors.get(m.sender_profile_id) }
                   }
