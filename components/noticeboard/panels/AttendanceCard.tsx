@@ -509,6 +509,12 @@ function DateNav({
         );
       })}
 
+      {/* 마지막 페이지가 꽉 안 찼을 때, 빈 칸으로 폭을 메워 알약 크기를
+          모든 페이지에서 동일하게 유지 (flex:1 분할이라 개수 차이로 커지는 것 방지). */}
+      {Array.from({ length: Math.max(0, NAV_PAGE_SIZE - pageDates.length) }).map((_, i) => (
+        <span key={`ph-${i}`} aria-hidden="true" style={navPlaceholderStyle} />
+      ))}
+
       {showArrows ? (
         <button
           type="button"
@@ -704,11 +710,14 @@ const timeColStyle: CSSProperties = {
 // ── 날짜 네비게이션 ──
 const navWrapStyle: CSSProperties = {
   display: "flex",
-  flexWrap: "nowrap",          // 한 묶음(7개)만 보이므로 줄바꿈 불필요 → 세로 오버플로우 차단
+  flexWrap: "nowrap",          // 한 묶음만 표시 → 세로 오버플로우 차단
   alignItems: "center",
-  justifyContent: "center",
   gap: 5,
   marginTop: 12,
+  width: "100%",
+  maxWidth: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
 };
 
 // 날짜 묶음 이동 화살표 (‹ ›)
@@ -730,14 +739,25 @@ const navArrowStyle: CSSProperties = {
   transition: "opacity 120ms ease",
 };
 
-const navPillStyle: CSSProperties = {
-  minWidth: 30,
+// 마지막 페이지의 빈 칸 (보이지 않지만 폭은 알약과 동일하게 차지)
+const navPlaceholderStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
   height: 27,
-  flexShrink: 0,
-  padding: "0 9px",
+  pointerEvents: "none",
+};
+
+const navPillStyle: CSSProperties = {
+  flex: 1,                     // 카드 폭을 균등분할 → 개수와 무관하게 항상 폭 안에 꽉 맞음
+  minWidth: 0,                 // flex 기본 min-width(auto) 제거 → 좁아져도 삐져나가지 않음
+  height: 27,
+  padding: "0 4px",
   border: 0,
   borderRadius: 999,
   fontFamily: JUA,
   fontSize: 12,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",    // 폭이 아주 좁을 때 라벨이 넘쳐 삐지지 않게
   transition: "background 120ms ease",
 };
