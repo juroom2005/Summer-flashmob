@@ -432,6 +432,9 @@ export default function AttendanceCard({ onOpenLogin, onToast }: Props) {
 // ═══════════════════════════════════════════════════════════════════
 // 서브 : 날짜 네비게이션 (알약 형태 · 오늘/선택은 흰 pill)
 // ═══════════════════════════════════════════════════════════════════
+// 한 묶음에 보여줄 날짜 알약 개수. 날짜가 아무리 늘어도 네비 크기는 고정.
+const NAV_PAGE_SIZE = 7;
+
 function DateNav({
   dates,
   selected,
@@ -441,10 +444,52 @@ function DateNav({
   selected: string;
   onSelect: (d: string) => void;
 }) {
+  // 전체 페이지 수 (날짜 0개여도 최소 1페이지로 보정)
+  const pageCount = Math.max(1, Math.ceil(dates.length / NAV_PAGE_SIZE));
+
+  // 현재 묶음의 시작 페이지 인덱스(0부터). 기본은 마지막 페이지(= 최신/오늘 쪽).
+  const [page, setPage] = useState<number>(pageCount - 1);
+
+  // 선택된 날짜가 바뀌면 그 날짜가 포함된 페이지로 맞춘다.
+  // (과거 날짜를 고르면 그 묶음으로 자동 이동. 못 찾으면 마지막 페이지.)
+  useEffect(() => {
+    const idx = dates.indexOf(selected);
+    const target = idx >= 0 ? Math.floor(idx / NAV_PAGE_SIZE) : pageCount - 1;
+    setPage(target);
+  }, [selected, dates, pageCount]);
+
+  // page 가 범위를 벗어나지 않도록 보정 (날짜가 줄어드는 경우 대비)
+  const safePage = Math.min(Math.max(page, 0), pageCount - 1);
+
+  const start = safePage * NAV_PAGE_SIZE;
+  const pageDates = dates.slice(start, start + NAV_PAGE_SIZE);
+
+  const hasPrev = safePage > 0;
+  const hasNext = safePage < pageCount - 1;
+  const showArrows = pageCount > 1;
+
   return (
     <div style={navWrapStyle}>
-      {dates.map((d, i) => {
-        const label = navLabel(d, i > 0 ? dates[i - 1] : null);
+      {showArrows ? (
+        <button
+          type="button"
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          disabled={!hasPrev}
+          aria-label="이전 날짜 묶음"
+          style={{
+            ...navArrowStyle,
+            opacity: hasPrev ? 1 : 0.3,
+            cursor:  hasPrev ? "pointer" : "default",
+          }}
+        >
+          ‹
+        </button>
+      ) : null}
+
+      {pageDates.map((d, i) => {
+        // 라벨 비교용 이전 날짜는 '전체 배열' 기준으로 집어줘야 월 표기가 정확.
+        const globalIdx = start + i;
+        const label = navLabel(d, globalIdx > 0 ? dates[globalIdx - 1] : null);
         const isSelected = d === selected;
         return (
           <button
@@ -463,6 +508,22 @@ function DateNav({
           </button>
         );
       })}
+
+      {showArrows ? (
+        <button
+          type="button"
+          onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+          disabled={!hasNext}
+          aria-label="다음 날짜 묶음"
+          style={{
+            ...navArrowStyle,
+            opacity: hasNext ? 1 : 0.3,
+            cursor:  hasNext ? "pointer" : "default",
+          }}
+        >
+          ›
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -643,14 +704,36 @@ const timeColStyle: CSSProperties = {
 // ── 날짜 네비게이션 ──
 const navWrapStyle: CSSProperties = {
   display: "flex",
-  flexWrap: "wrap",
+  flexWrap: "nowrap",          // 한 묶음(7개)만 보이므로 줄바꿈 불필요 → 세로 오버플로우 차단
+  alignItems: "center",
+  justifyContent: "center",
   gap: 5,
   marginTop: 12,
+};
+
+// 날짜 묶음 이동 화살표 (‹ ›)
+const navArrowStyle: CSSProperties = {
+  flexShrink: 0,
+  width: 24,
+  height: 27,
+  padding: 0,
+  border: 0,
+  borderRadius: 999,
+  background: "transparent",
+  color: "rgba(255,255,255,0.85)",
+  fontFamily: JUA,
+  fontSize: 16,
+  lineHeight: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  transition: "opacity 120ms ease",
 };
 
 const navPillStyle: CSSProperties = {
   minWidth: 30,
   height: 27,
+  flexShrink: 0,
   padding: "0 9px",
   border: 0,
   borderRadius: 999,
